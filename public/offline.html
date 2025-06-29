@@ -1,0 +1,53 @@
+cat > public/offline.html << 'EOF'
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Comuna - Offline</title>
+    <style>
+        body {
+            background: #1e293b;
+            color: white;
+            font-family: system-ui;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            margin: 0;
+        }
+        .container {
+            padding: 20px;
+        }
+        h1 {
+            font-size: 2em;
+            margin-bottom: 0.5em;
+        }
+        p {
+            opacity: 0.8;
+            margin-bottom: 2em;
+        }
+        button {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            font-size: 16px;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #2563eb;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Ești offline</h1>
+        <p>Nu ai conexiune la internet. Verifică setările și încearcă din nou.</p>
+        <button onclick="location.reload()">Reîncearcă</button>
+    </div>
+</body>
+</html>
+EOF
