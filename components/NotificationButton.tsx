@@ -4,81 +4,80 @@ import { useEffect, useState } from 'react';
 import { Bell, BellOff } from 'lucide-react';
 
 export function NotificationButton() {
-  const [isSubscribed, setIsSubscribed] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [permission, setPermission] = useState<NotificationPermission>('default');
 
   useEffect(() => {
-    // Verifică statusul notificărilor când componenta se încarcă
-    checkNotificationStatus();
+    // Verifică permisiunea curentă
+    if ('Notification' in window) {
+      setPermission(Notification.permission);
+    }
   }, []);
 
-  const checkNotificationStatus = async () => {
-    if (typeof window !== 'undefined' && window.OneSignal) {
-      try {
-        const permission = await window.OneSignal.getNotificationPermission();
-        setIsSubscribed(permission === 'granted');
-      } catch (error) {
-        console.error('Error checking notification status:', error);
-      }
-    }
-    setLoading(false);
-  };
-
-  const handleNotificationToggle = async () => {
-    if (typeof window === 'undefined' || !window.OneSignal) {
-      alert('Notificările nu sunt disponibile în acest browser.');
+  const requestPermission = async () => {
+    if (!('Notification' in window)) {
+      alert('Acest browser nu suportă notificări.');
       return;
     }
 
-    setLoading(true);
-
     try {
-      if (!isSubscribed) {
-        // Activează notificări
-        const permission = await window.OneSignal.showSlidedownPrompt();
-        if (permission) {
-          setIsSubscribed(true);
-          alert('Notificările au fost activate! Vei primi notificări despre anunțuri și evenimente noi.');
-        }
-      } else {
-        // Dezactivează notificări
-        window.OneSignal.setSubscription(false);
-        setIsSubscribed(false);
-        alert('Notificările au fost dezactivate.');
+      const result = await Notification.requestPermission();
+      setPermission(result);
+      
+      if (result === 'granted') {
+        // Test notificare
+        new Notification('Comuna - Notificări activate!', {
+          body: 'Vei primi notificări despre anunțuri și evenimente noi.',
+          icon: '/icon-192x192.png',
+        });
+      } else if (result === 'denied') {
+        alert('Notificările au fost blocate. Pentru a le activa:\n\n1. Deschide Setări\n2. Găsește această aplicație\n3. Activează Notificările');
       }
     } catch (error) {
-      console.error('Error toggling notifications:', error);
-      
-      // Mesaj specific pentru iOS
-      if (/iPhone|iPad|iPod/.test(navigator.userAgent)) {
-        alert('Pentru a activa notificările pe iOS:\n\n1. Deschide Setări\n2. Mergi la Notificări\n3. Găsește această aplicație\n4. Activează "Allow Notifications"');
-      } else {
-        alert('Nu s-au putut activa notificările. Verifică setările browserului.');
-      }
+      console.error('Error requesting permission:', error);
+      alert('Eroare la activarea notificărilor.');
     }
-    
-    setLoading(false);
   };
+
+  const getButtonProps = () => {
+    switch (permission) {
+      case 'granted':
+        return {
+          icon: <Bell className="h-5 w-5 text-green-400" />,
+          text: 'Notificări active',
+          color: 'bg-green-900/20',
+        };
+      case 'denied':
+        return {
+          icon: <BellOff className="h-5 w-5 text-red-400" />,
+          text: 'Notificări blocate',
+          color: 'bg-red-900/20',
+        };
+      default:
+        return {
+          icon: <Bell className="h-5 w-5 text-gray-400" />,
+          text: 'Activează notificări',
+          color: 'bg-slate-800/50',
+        };
+    }
+  };
+
+  const { icon, text, color } = getButtonProps();
 
   return (
     <button
-      onClick={handleNotificationToggle}
-      disabled={loading}
-      className="relative p-2 rounded-lg bg-slate-800/50 hover:bg-slate-700/50 transition-colors group"
-      title={isSubscribed ? 'Dezactivează notificări' : 'Activează notificări'}
+      onClick={requestPermission}
+      disabled={permission !== 'default'}
+      className={`relative p-2 rounded-lg ${color} hover:bg-slate-700/50 transition-colors group`}
+      title={text}
     >
-      {isSubscribed ? (
-        <Bell className="h-5 w-5 text-green-400" />
-      ) : (
-        <BellOff className="h-5 w-5 text-gray-400 group-hover:text-white" />
-      )}
+      {icon}
       
       {/* Indicator pentru status */}
-      {!loading && (
-        <span className={`absolute top-0 right-0 w-2 h-2 rounded-full ${
-          isSubscribed ? 'bg-green-400' : 'bg-gray-600'
-        }`} />
-      )}
+      <span className={`absolute top-0 right-0 w-2 h-2 rounded-full ${
+        permission === 'granted' ? 'bg-green-400' : 
+        permission === 'denied' ? 'bg-red-400' : 
+        'bg-gray-600'
+      }`} />
     </button>
   );
 }
