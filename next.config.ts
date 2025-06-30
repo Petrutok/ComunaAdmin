@@ -2,8 +2,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  // Dezactivăm temporar minificarea pentru debugging
-  swcMinify: true,
   // Exclude firebase-messaging-sw.js din procesarea webpack
   webpack: (config: { externals: any[]; }) => {
     config.externals = [...(config.externals || []), { 'firebase-messaging-sw.js': 'self.firebase-messaging-sw' }];
