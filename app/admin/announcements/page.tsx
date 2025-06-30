@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useToast } from '@/components/ui/use-toast';
+import { useToast } from '@/hooks/use-toast';
 import {
   collection,
   query,
@@ -111,7 +111,8 @@ export default function AdminAnnouncementsPage() {
         description: "Anunțul a fost publicat cu succes.",
       });
 
-      // Trimite notificare
+      // Trimite notificare - comentat temporar
+      /*
       try {
         await fetch('/api/send-notification', {
           method: 'POST',
@@ -125,6 +126,7 @@ export default function AdminAnnouncementsPage() {
       } catch (notifError) {
         console.error('Error sending notification:', notifError);
       }
+      */
 
       loadAnnouncements();
     } catch (error) {
