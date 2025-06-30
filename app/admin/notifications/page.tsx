@@ -56,7 +56,35 @@ export default function AdminNotificationsPage() {
     setSending(true);
 
     try {
-      // Pentru OneSignal (metoda actuală)
+      // Dezactivat temporar - OneSignal dă eroare 403
+      toast({
+        title: "Funcție dezactivată temporar",
+        description: "Notificările manuale sunt dezactivate momentan. Folosește notificările automate la aprobare.",
+        variant: "destructive",
+      });
+      
+      // Salvează doar în istoric pentru referință
+      await addDoc(collection(db, COLLECTIONS.NOTIFICATIONS), {
+        title,
+        message,
+        url,
+        sentAt: new Date(),
+        sentBy: 'admin',
+        recipients: 0,
+        type: 'general',
+        status: 'not_sent'
+      });
+      
+      // Resetează formularul
+      setTitle('');
+      setMessage('');
+      setUrl('');
+      
+      // Reîncarcă lista
+      loadRecentNotifications();
+      
+      /*
+      // Cod original comentat
       const response = await fetch('/api/send-notification', {
         method: 'POST',
         headers: {
@@ -98,6 +126,7 @@ export default function AdminNotificationsPage() {
       } else {
         throw new Error(result.error || 'Eroare la trimitere');
       }
+      */
     } catch (error: any) {
       console.error('Error sending notification:', error);
       toast({
