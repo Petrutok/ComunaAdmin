@@ -17,6 +17,10 @@ export async function GET() {
     }
     
     const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
+    
+    // Fix private key newlines
+    serviceAccount.private_key = serviceAccount.private_key.replace(/\\n/g, '\n');
+    
     results.parsedJson = {
       hasType: !!serviceAccount.type,
       hasProjectId: !!serviceAccount.project_id,

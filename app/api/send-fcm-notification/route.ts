@@ -9,7 +9,14 @@ if (!admin.apps.length) {
       throw new Error('FIREBASE_SERVICE_ACCOUNT_JSON not found in environment variables');
     }
 
-    const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
+    // Parse the service account JSON
+    const serviceAccountRaw = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
+    
+    // Fix the private key newlines
+    const serviceAccount = {
+      ...serviceAccountRaw,
+      private_key: serviceAccountRaw.private_key.replace(/\\n/g, '\n')
+    };
     
     admin.initializeApp({
       credential: admin.credential.cert(serviceAccount),
@@ -68,6 +75,8 @@ export async function POST(request: NextRequest) {
       }
     });
 
+    console.log(`Found ${tokens.length} active tokens`);
+
     // Send notification
     const messagePayload = {
       notification: {
@@ -75,6 +84,10 @@ export async function POST(request: NextRequest) {
         body: message,
       },
       webpush: {
+        notification: {
+          icon: '/icon-192x192.png',
+          badge: '/icon-192x192.png',
+        },
         fcmOptions: {
           link: url || 'https://v2-zeta-lemon.vercel.app',
         },
