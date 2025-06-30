@@ -1,4 +1,4 @@
-// lib/firebase.ts - Real Firebase version
+// lib/firebase.ts - Updated with FCM
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { 
@@ -12,9 +12,11 @@ import {
   doc as firestoreDoc,
   updateDoc as firestoreUpdateDoc,
   deleteDoc as firestoreDeleteDoc,
-  limit as firestoreLimit
+  limit as firestoreLimit,
+  Timestamp
 } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
+import { getMessaging, isSupported } from 'firebase/messaging';
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY!,
@@ -32,6 +34,18 @@ const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 export const storage = getStorage(app);
+
+// Initialize messaging only in browser
+let messaging: any = null;
+if (typeof window !== 'undefined') {
+  isSupported().then(supported => {
+    if (supported) {
+      messaging = getMessaging(app);
+    }
+  });
+}
+
+export { messaging };
 
 // Re-export Firestore functions
 export const collection = firestoreCollection;
@@ -51,6 +65,7 @@ export const COLLECTIONS = {
   JOBS: 'jobs',
   NOTIFICATIONS: 'notifications',
   ADMINS: 'admins',
+  FCM_TOKENS: 'fcm_tokens',
 } as const;
 
 // Types
@@ -67,8 +82,8 @@ export interface Announcement {
     email?: string;
   };
   status: 'pending' | 'approved' | 'rejected';
-  createdAt: any; // Firestore Timestamp
-  updatedAt: any; // Firestore Timestamp
+  createdAt: any;
+  updatedAt: any;
   userId?: string;
   rejectionReason?: string;
 }
@@ -88,9 +103,9 @@ export interface Job {
     phone?: string;
   };
   status: 'pending' | 'approved' | 'rejected';
-  createdAt: any; // Firestore Timestamp
-  updatedAt: any; // Firestore Timestamp
-  validUntil?: any; // Firestore Timestamp
+  createdAt: any;
+  updatedAt: any;
+  validUntil?: any;
   rejectionReason?: string;
 }
 
@@ -99,8 +114,20 @@ export interface NotificationLog {
   title: string;
   message: string;
   url?: string;
-  sentAt: any; // Firestore Timestamp
+  sentAt: any;
   sentBy: string;
   recipients: number;
-  type: 'announcement' | 'job' | 'general' | 'emergency';
+  type: 'announcement' | 'job' | 'general' | 'emergency' | 'manual';
+  status?: 'sent' | 'failed' | 'pending';
+  error?: string;
+}
+
+export interface FCMToken {
+  id?: string;
+  token: string;
+  createdAt: any;
+  lastUsed?: any;
+  platform: 'web' | 'ios' | 'android';
+  userAgent?: string;
+  active: boolean;
 }
