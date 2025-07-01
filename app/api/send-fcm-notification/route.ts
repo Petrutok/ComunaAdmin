@@ -2,33 +2,32 @@
 import { NextRequest, NextResponse } from 'next/server';
 import * as admin from 'firebase-admin';
 
-// Initialize Firebase Admin SDK doar o singură dată
+// Initialize Firebase Admin only once
 if (!admin.apps.length) {
   try {
-    // Verifică dacă variabila de mediu există
     if (!process.env.FIREBASE_SERVICE_ACCOUNT_JSON) {
-      throw new Error('FIREBASE_SERVICE_ACCOUNT_JSON not found in environment variables');
+      throw new Error('FIREBASE_SERVICE_ACCOUNT_JSON not found');
     }
 
-    // Parse service account JSON din variabila de mediu
+    // Parse the service account JSON directly
     const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
     
     admin.initializeApp({
       credential: admin.credential.cert(serviceAccount),
+      projectId: 'village-hub-h1qiy',
     });
     
-    console.log('Firebase Admin SDK initialized successfully');
+    console.log('Firebase Admin initialized successfully');
   } catch (error) {
-    console.error('Failed to initialize Firebase Admin SDK:', error);
+    console.error('Firebase Admin init error:', error);
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
-    // Verifică dacă Firebase Admin este inițializat
     if (!admin.apps.length) {
       return NextResponse.json(
-        { error: 'Firebase Admin SDK not initialized' },
+        { error: 'Firebase Admin not initialized. Check server logs.' },
         { status: 500 }
       );
     }
@@ -43,10 +42,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Obține Firestore instance
     const db = admin.firestore();
-
-    // Obține toate token-urile FCM active
+    
+    // Get active FCM tokens
     const tokensSnapshot = await db
       .collection('fcm_tokens')
       .where('active', '==', true)
@@ -62,7 +60,6 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Extrage token-urile
     const tokens: string[] = [];
     tokensSnapshot.forEach((doc) => {
       const data = doc.data();
@@ -71,10 +68,8 @@ export async function POST(request: NextRequest) {
       }
     });
 
-    console.log(`Found ${tokens.length} active tokens`);
-
-    // Trimite notificarea folosind Firebase Admin SDK
-    const messagePayload = {
+    // Send FCM notification
+    const response = await admin.messaging().sendEachForMulticast({
       notification: {
         title,
         body: message,
@@ -83,54 +78,31 @@ export async function POST(request: NextRequest) {
         notification: {
           icon: '/icon-192x192.png',
           badge: '/icon-192x192.png',
-          vibrate: [200, 100, 200],
-          requireInteraction: false,
-          tag: 'notification-' + Date.now(),
         },
         fcmOptions: {
           link: url || 'https://v2-zeta-lemon.vercel.app',
         },
       },
-      tokens, // Array de token-uri
-    };
-
-    // Trimite notificarea la toate token-urile
-    const response = await admin.messaging().sendEachForMulticast(messagePayload);
+      tokens,
+    });
     
-    // Procesează rezultatele
     let successCount = 0;
     let failureCount = 0;
-    const failedTokens: string[] = [];
     
-    response.responses.forEach((resp, idx) => {
+    response.responses.forEach((resp) => {
       if (resp.success) {
         successCount++;
       } else {
         failureCount++;
-        failedTokens.push(tokens[idx]);
-        console.error('Failed to send to token:', tokens[idx], resp.error);
-        
-        // Dacă token-ul este invalid, marchează-l ca inactiv
-        if (resp.error?.code === 'messaging/invalid-registration-token' ||
-            resp.error?.code === 'messaging/registration-token-not-registered') {
-          // Marchează token-ul ca inactiv
-          db.collection('fcm_tokens')
-            .where('token', '==', tokens[idx])
-            .get()
-            .then(snapshot => {
-              snapshot.forEach(doc => {
-                doc.ref.update({ active: false });
-              });
-            });
-        }
+        console.error('Failed to send:', resp.error);
       }
     });
 
-    // Salvează notificarea în istoric
+    // Log notification
     await db.collection('notifications').add({
       title,
       message,
-      url: url || null,
+      url,
       sentAt: admin.firestore.FieldValue.serverTimestamp(),
       sentBy: 'admin',
       type: 'manual',
@@ -145,11 +117,10 @@ export async function POST(request: NextRequest) {
       successCount,
       failureCount,
       totalTokens: tokens.length,
-      failedTokens: failureCount > 0 ? failedTokens : undefined,
     });
 
   } catch (error) {
-    console.error('Error sending FCM notification:', error);
+    console.error('Error:', error);
     return NextResponse.json(
       { 
         error: 'Failed to send notification', 
@@ -160,10 +131,6 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// Endpoint pentru test
 export async function GET() {
-  return NextResponse.json({ 
-    status: 'FCM notification service is running',
-    initialized: admin.apps.length > 0 
-  });
+  return NextResponse.json({ error: 'Method not allowed' }, { status: 405 });
 }
