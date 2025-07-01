@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Bell, BellOff } from 'lucide-react';
 import { getMessaging, getToken, onMessage } from 'firebase/messaging';
-import { doc, setDoc, getDoc, collection, query, where, getDocs, updateDoc } from 'firebase/firestore';
+import { doc, setDoc, collection, query, where, getDocs, updateDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
 
@@ -13,15 +13,34 @@ export function NotificationButton() {
   const [tokenSaved, setTokenSaved] = useState(false);
   const { toast } = useToast();
 
+  // Generate a stable device fingerprint
+  const getDeviceFingerprint = () => {
+    const userAgent = navigator.userAgent;
+    const platform = navigator.platform;
+    const screenResolution = `${screen.width}x${screen.height}`;
+    const language = navigator.language;
+    
+    // Create a simple hash
+    const str = `${userAgent}-${platform}-${screenResolution}-${language}`;
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+      const char = str.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash; // Convert to 32bit integer
+    }
+    
+    return `device_${Math.abs(hash)}_${Date.now().toString(36)}`;
+  };
+
   useEffect(() => {
     if ('Notification' in window) {
       setPermission(Notification.permission);
       
-      // Verifică dacă avem deja un token salvat
+      // Check if we have a saved token
       const savedToken = localStorage.getItem('fcm_token');
       if (savedToken) {
         setTokenSaved(true);
-        console.log('FCM Token exists:', savedToken);
+        console.log('FCM Token exists in localStorage');
       }
     }
   }, []);
@@ -43,12 +62,12 @@ export function NotificationButton() {
       setPermission(result);
       
       if (result === 'granted') {
-        // Înregistrează Service Worker pentru FCM
+        // Register Service Worker for FCM
         if ('serviceWorker' in navigator) {
           const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
           console.log('FCM Service Worker registered');
           
-          // Obține FCM token
+          // Get FCM token
           const messaging = getMessaging();
           const vapidKey = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY || 'BM96R8cnKUeKqFaGKSJdKuNJ6mRkmyUmfCBH8kfVqK_Ht8Lx8wdKPzPTYpGxNwM8YL0RW1UoW_N1qFWJHBXDNEI';
           
@@ -60,57 +79,74 @@ export function NotificationButton() {
           if (token) {
             console.log('FCM Token obtained:', token);
             
-            // Salvează token în localStorage pentru testare
+            // Save token in localStorage
             localStorage.setItem('fcm_token', token);
             localStorage.setItem('fcm_token_date', new Date().toISOString());
             setTokenSaved(true);
             
-            // Salvează token în Firestore
+            // Clean up old tokens and save new one
             try {
-              const deviceId = localStorage.getItem('device_id') || `device_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-              localStorage.setItem('device_id', deviceId);
+              // Get device fingerprint
+              const deviceFingerprint = getDeviceFingerprint();
+              const storedDeviceId = localStorage.getItem('device_id');
+              const deviceId = storedDeviceId || deviceFingerprint;
               
-              // Mai întâi dezactivează toate token-urile vechi pentru acest dispozitiv
+              if (!storedDeviceId) {
+                localStorage.setItem('device_id', deviceId);
+              }
+              
+              // Deactivate ALL other tokens for this user agent pattern
+              const userAgentPattern = navigator.userAgent.includes('iPhone') ? 'iPhone' : 'Chrome';
               const oldTokensQuery = query(
                 collection(db, 'fcm_tokens'),
-                where('token', '==', token),
                 where('active', '==', true)
               );
               
               const oldTokensSnapshot = await getDocs(oldTokensQuery);
-              const updatePromises = oldTokensSnapshot.docs.map(doc => 
-                updateDoc(doc.ref, { 
-                  active: false, 
-                  deactivatedAt: new Date(),
-                  reason: 'token_refresh'
-                })
-              );
-              await Promise.all(updatePromises);
+              const deactivatePromises: Promise<any>[] = [];
               
-              // Apoi salvează noul token
+              for (const docSnapshot of oldTokensSnapshot.docs) {
+                const data = docSnapshot.data();
+                // Deactivate if it's the same token OR same device type
+                if (data.token === token || 
+                    (data.userAgent && data.userAgent.includes(userAgentPattern))) {
+                  deactivatePromises.push(
+                    updateDoc(docSnapshot.ref, { 
+                      active: false, 
+                      deactivatedAt: new Date(),
+                      reason: 'new_token_registered'
+                    })
+                  );
+                }
+              }
+              
+              await Promise.all(deactivatePromises);
+              console.log(`Deactivated ${deactivatePromises.length} old tokens`);
+              
+              // Save the new token
               await setDoc(doc(db, 'fcm_tokens', deviceId), {
                 token,
                 createdAt: new Date(),
                 lastUsed: new Date(),
                 platform: /iPhone|iPad|iPod/.test(navigator.userAgent) ? 'ios' : 'web',
                 userAgent: navigator.userAgent,
+                deviceFingerprint: deviceFingerprint,
                 active: true
               });
               
-              console.log('Token saved to Firestore with ID:', deviceId);
-              console.log('Deactivated', oldTokensSnapshot.size, 'old tokens');
+              console.log('New token saved to Firestore with ID:', deviceId);
               
             } catch (error) {
-              console.error('Error saving token to Firestore:', error);
+              console.error('Error managing tokens in Firestore:', error);
             }
             
-            // Listen pentru mesaje în foreground
+            // Listen for foreground messages
             onMessage(messaging, (payload) => {
-              console.log('Mesaj primit:', payload);
+              console.log('Message received in foreground:', payload);
               
               if (payload.notification) {
-                // Afișează DOAR toast, nu și notificare nativă
-                // Service Worker-ul se ocupă de notificarea nativă
+                // Show only toast, no native notification
+                // The service worker handles the native notification
                 toast({
                   title: payload.notification.title || 'Notificare nouă',
                   description: payload.notification.body,
@@ -118,7 +154,7 @@ export function NotificationButton() {
               }
             });
             
-            // Notificare de succes
+            // Success notification
             toast({
               title: "Notificări activate!",
               description: "Vei primi notificări despre anunțuri și evenimente noi.",
@@ -136,7 +172,7 @@ export function NotificationButton() {
         });
       }
     } catch (error) {
-      console.error('Eroare la activarea notificărilor:', error);
+      console.error('Error activating notifications:', error);
       toast({
         title: "Eroare",
         description: "Nu s-au putut activa notificările. Încearcă din nou.",
@@ -187,7 +223,7 @@ export function NotificationButton() {
         icon
       )}
       
-      {/* Indicator pentru status */}
+      {/* Status indicator */}
       <span className={`absolute top-0 right-0 w-2 h-2 rounded-full ${
         tokenSaved && permission === 'granted' ? 'bg-green-400' : 
         permission === 'denied' ? 'bg-red-400' : 
