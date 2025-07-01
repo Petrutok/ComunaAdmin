@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Bell, BellOff } from 'lucide-react';
 import { getMessaging, getToken, onMessage } from 'firebase/messaging';
-import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc, collection, query, where, getDocs, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
 
@@ -70,6 +70,24 @@ export function NotificationButton() {
               const deviceId = localStorage.getItem('device_id') || `device_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
               localStorage.setItem('device_id', deviceId);
               
+              // Mai întâi dezactivează toate token-urile vechi pentru acest dispozitiv
+              const oldTokensQuery = query(
+                collection(db, 'fcm_tokens'),
+                where('token', '==', token),
+                where('active', '==', true)
+              );
+              
+              const oldTokensSnapshot = await getDocs(oldTokensQuery);
+              const updatePromises = oldTokensSnapshot.docs.map(doc => 
+                updateDoc(doc.ref, { 
+                  active: false, 
+                  deactivatedAt: new Date(),
+                  reason: 'token_refresh'
+                })
+              );
+              await Promise.all(updatePromises);
+              
+              // Apoi salvează noul token
               await setDoc(doc(db, 'fcm_tokens', deviceId), {
                 token,
                 createdAt: new Date(),
@@ -80,10 +98,8 @@ export function NotificationButton() {
               });
               
               console.log('Token saved to Firestore with ID:', deviceId);
+              console.log('Deactivated', oldTokensSnapshot.size, 'old tokens');
               
-              // Verifică că s-a salvat
-              const savedDoc = await getDoc(doc(db, 'fcm_tokens', deviceId));
-              console.log('Verification - Token exists in Firestore:', savedDoc.exists());
             } catch (error) {
               console.error('Error saving token to Firestore:', error);
             }
