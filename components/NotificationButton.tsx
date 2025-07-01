@@ -3,8 +3,6 @@
 import { useEffect, useState } from 'react';
 import { Bell, BellOff } from 'lucide-react';
 import { getMessaging, getToken, onMessage } from 'firebase/messaging';
-import { doc, setDoc, updateDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
 
 export function NotificationButton() {
@@ -18,9 +16,10 @@ export function NotificationButton() {
       setPermission(Notification.permission);
       
       // Verifică dacă avem deja un token salvat
-      const savedToken = localStorage.getItem('fcm_token_saved');
-      if (savedToken === 'true') {
+      const savedToken = localStorage.getItem('fcm_token');
+      if (savedToken) {
         setTokenSaved(true);
+        console.log('FCM Token exists:', savedToken);
       }
     }
   }, []);
@@ -49,51 +48,35 @@ export function NotificationButton() {
           
           // Obține FCM token
           const messaging = getMessaging();
-          const vapidKey = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY;
+          const vapidKey = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY || 'BM96R8cnKUeKqFaGKSJdKuNJ6mRkmyUmfCBH8kfVqK_Ht8Lx8wdKPzPTYpGxNwM8YL0RW1UoW_N1qFWJHBXDNEI';
           
           const token = await getToken(messaging, {
-            vapidKey: vapidKey || 'BM96R8cnKUeKqFaGKSJdKuNJ6mRkmyUmfCBH8kfVqK_Ht8Lx8wdKPzPTYpGxNwM8YL0RW1UoW_N1qFWJHBXDNEI',
+            vapidKey: vapidKey,
             serviceWorkerRegistration: registration
           });
 
           if (token) {
-            console.log('FCM Token:', token);
+            console.log('FCM Token obtained:', token);
             
-            // Salvează token în Firestore
-            const deviceId = localStorage.getItem('device_id') || `device_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-            localStorage.setItem('device_id', deviceId);
-            
-            await setDoc(doc(db, 'fcm_tokens', deviceId), {
-              token,
-              createdAt: new Date(),
-              lastUsed: new Date(),
-              platform: /iPhone|iPad|iPod/.test(navigator.userAgent) ? 'ios' : 'web',
-              userAgent: navigator.userAgent,
-              active: true
-            });
-            
-            localStorage.setItem('fcm_token_saved', 'true');
+            // Salvează token în localStorage pentru testare
+            localStorage.setItem('fcm_token', token);
+            localStorage.setItem('fcm_token_date', new Date().toISOString());
             setTokenSaved(true);
+            
+            // TODO: Trimite token-ul la server când Firestore funcționează
+            console.log('Token saved locally. When Firestore is fixed, send to server.');
             
             // Listen pentru mesaje în foreground
             onMessage(messaging, (payload) => {
               console.log('Mesaj primit:', payload);
               
               if (payload.notification) {
-                // Afișează notificare custom sau toast
+                // Afișează DOAR toast, nu și notificare nativă
+                // Service Worker-ul se ocupă de notificarea nativă
                 toast({
                   title: payload.notification.title || 'Notificare nouă',
                   description: payload.notification.body,
                 });
-                
-                // Sau notificare nativă
-                if (document.visibilityState === 'visible') {
-                  new Notification(payload.notification.title || 'Notificare nouă', {
-                    body: payload.notification.body,
-                    icon: '/icon-192x192.png',
-                    badge: '/icon-192x192.png'
-                  });
-                }
               }
             });
             
