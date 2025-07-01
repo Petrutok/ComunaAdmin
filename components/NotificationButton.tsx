@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react';
 import { Bell, BellOff } from 'lucide-react';
 import { getMessaging, getToken, onMessage } from 'firebase/messaging';
+import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
 
 export function NotificationButton() {
@@ -63,8 +65,28 @@ export function NotificationButton() {
             localStorage.setItem('fcm_token_date', new Date().toISOString());
             setTokenSaved(true);
             
-            // TODO: Trimite token-ul la server când Firestore funcționează
-            console.log('Token saved locally. When Firestore is fixed, send to server.');
+            // Salvează token în Firestore
+            try {
+              const deviceId = localStorage.getItem('device_id') || `device_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+              localStorage.setItem('device_id', deviceId);
+              
+              await setDoc(doc(db, 'fcm_tokens', deviceId), {
+                token,
+                createdAt: new Date(),
+                lastUsed: new Date(),
+                platform: /iPhone|iPad|iPod/.test(navigator.userAgent) ? 'ios' : 'web',
+                userAgent: navigator.userAgent,
+                active: true
+              });
+              
+              console.log('Token saved to Firestore with ID:', deviceId);
+              
+              // Verifică că s-a salvat
+              const savedDoc = await getDoc(doc(db, 'fcm_tokens', deviceId));
+              console.log('Verification - Token exists in Firestore:', savedDoc.exists());
+            } catch (error) {
+              console.error('Error saving token to Firestore:', error);
+            }
             
             // Listen pentru mesaje în foreground
             onMessage(messaging, (payload) => {
