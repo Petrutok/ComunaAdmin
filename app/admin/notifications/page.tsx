@@ -7,53 +7,44 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { Bell, Send, Users, Clock, AlertCircle, CheckCircle, Smartphone } from 'lucide-react';
-import { addDoc, collection, getDocs, query, orderBy, limit, where } from 'firebase/firestore';
-import { db, COLLECTIONS } from '@/lib/firebase';
+import { Bell, Send, Users, Clock, CheckCircle, Smartphone } from 'lucide-react';
+import { collection, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 
 export default function AdminNotificationsPage() {
   const [title, setTitle] = useState('');
   const [message, setMessage] = useState('');
   const [url, setUrl] = useState('');
   const [sending, setSending] = useState(false);
+  const [activeSubscriptions, setActiveSubscriptions] = useState(0);
   const [recentNotifications, setRecentNotifications] = useState<any[]>([]);
-  const [activeTokens, setActiveTokens] = useState(0);
   const { toast } = useToast();
 
   useEffect(() => {
-    loadRecentNotifications();
-    loadActiveTokensCount();
+    loadData();
   }, []);
 
-  const loadRecentNotifications = async () => {
-    try {
-      const q = query(
-        collection(db, COLLECTIONS.NOTIFICATIONS),
-        orderBy('sentAt', 'desc'),
-        limit(5)
-      );
-      const snapshot = await getDocs(q);
-      const notifications = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-      setRecentNotifications(notifications);
-    } catch (error) {
-      console.error('Error loading notifications:', error);
-    }
-  };
+  const loadData = async () => {
+    // Count active subscriptions
+    const subsQuery = query(
+      collection(db, 'push_subscriptions'),
+      where('active', '==', true)
+    );
+    const subsSnapshot = await getDocs(subsQuery);
+    setActiveSubscriptions(subsSnapshot.size);
 
-  const loadActiveTokensCount = async () => {
-    try {
-      const q = query(
-        collection(db, COLLECTIONS.FCM_TOKENS),
-        where('active', '==', true)
-      );
-      const snapshot = await getDocs(q);
-      setActiveTokens(snapshot.size);
-    } catch (error) {
-      console.error('Error counting tokens:', error);
-    }
+    // Load recent notifications
+    const notifsQuery = query(
+      collection(db, 'notifications'),
+      orderBy('sentAt', 'desc'),
+      limit(5)
+    );
+    const notifsSnapshot = await getDocs(notifsQuery);
+    const notifs = notifsSnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+    setRecentNotifications(notifs);
   };
 
   const handleSendNotification = async (e: React.FormEvent) => {
@@ -71,11 +62,9 @@ export default function AdminNotificationsPage() {
     setSending(true);
 
     try {
-      const response = await fetch('/api/send-fcm-notification', {
+      const response = await fetch('/api/push-send', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           title: title.trim(),
           message: message.trim(),
@@ -88,17 +77,16 @@ export default function AdminNotificationsPage() {
       if (response.ok && result.success) {
         toast({
           title: "Notificare trimisă!",
-          description: `Trimisă cu succes la ${result.successCount} din ${result.totalTokens} dispozitive.`,
+          description: `Trimisă cu succes la ${result.sent} dispozitive.`,
         });
 
-        // Resetează formularul
+        // Reset form
         setTitle('');
         setMessage('');
         setUrl('');
         
-        // Reîncarcă datele
-        loadRecentNotifications();
-        loadActiveTokensCount();
+        // Reload data
+        loadData();
       } else {
         toast({
           title: "Eroare",
@@ -106,26 +94,16 @@ export default function AdminNotificationsPage() {
           variant: "destructive",
         });
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error sending notification:', error);
       toast({
         title: "Eroare de rețea",
-        description: "Nu s-a putut conecta la server. Verifică conexiunea.",
+        description: "Nu s-a putut conecta la server.",
         variant: "destructive",
       });
     } finally {
       setSending(false);
     }
-  };
-
-  const formatDate = (date: any) => {
-    const d = date?.toDate?.() || new Date(date);
-    return d.toLocaleDateString('ro-RO', {
-      day: 'numeric',
-      month: 'short',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
   };
 
   return (
@@ -134,7 +112,7 @@ export default function AdminNotificationsPage() {
         <h1 className="text-3xl font-bold text-white">Trimite Notificare</h1>
         <div className="flex items-center gap-2 text-sm text-gray-400">
           <Smartphone className="h-4 w-4" />
-          <span>{activeTokens} dispozitive active</span>
+          <span>{activeSubscriptions} dispozitive active</span>
         </div>
       </div>
 
@@ -146,7 +124,7 @@ export default function AdminNotificationsPage() {
               Notificare Nouă
             </CardTitle>
             <CardDescription className="text-gray-400">
-              Trimite o notificare către toate dispozitivele cu notificări active
+              Trimite o notificare către toate dispozitivele active
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -193,23 +171,20 @@ export default function AdminNotificationsPage() {
                   id="url"
                   value={url}
                   onChange={(e) => setUrl(e.target.value)}
-                  placeholder="Ex: /anunturi sau https://..."
+                  placeholder="Ex: /anunturi"
                   className="bg-slate-900 border-slate-600 text-white"
                 />
-                <p className="text-xs text-gray-400">
-                  Unde va fi redirecționat utilizatorul când apasă pe notificare
-                </p>
               </div>
 
               <Button
                 type="submit"
                 className="w-full"
-                disabled={sending || activeTokens === 0}
+                disabled={sending || activeSubscriptions === 0}
               >
                 {sending ? (
-                  <>Se trimite...</>
-                ) : activeTokens === 0 ? (
-                  <>Nu există dispozitive active</>
+                  "Se trimite..."
+                ) : activeSubscriptions === 0 ? (
+                  "Nu există dispozitive active"
                 ) : (
                   <>
                     <Send className="h-4 w-4 mr-2" />
@@ -222,7 +197,6 @@ export default function AdminNotificationsPage() {
         </Card>
 
         <div className="space-y-6">
-          {/* Informații despre notificări */}
           <Card className="bg-slate-800 border-slate-700">
             <CardHeader>
               <CardTitle className="text-white flex items-center gap-2">
@@ -236,9 +210,9 @@ export default function AdminNotificationsPage() {
                   <Bell className="h-4 w-4 text-blue-400" />
                 </div>
                 <div>
-                  <p className="text-gray-200">Firebase Cloud Messaging</p>
+                  <p className="text-gray-200">Web Push API</p>
                   <p className="text-gray-400 text-xs">
-                    Notificări native pentru web și mobile
+                    Notificări native fără dependențe externe
                   </p>
                 </div>
               </div>
@@ -247,38 +221,15 @@ export default function AdminNotificationsPage() {
                   <CheckCircle className="h-4 w-4 text-green-400" />
                 </div>
                 <div>
-                  <p className="text-gray-200">Suport iOS</p>
+                  <p className="text-gray-200">Compatibilitate</p>
                   <p className="text-gray-400 text-xs">
-                    Funcționează pe toate platformele
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center gap-3 text-sm">
-                <div className="p-2 bg-orange-500/20 rounded">
-                  <AlertCircle className="h-4 w-4 text-orange-400" />
-                </div>
-                <div>
-                  <p className="text-gray-200">Folosește cu măsură</p>
-                  <p className="text-gray-400 text-xs">
-                    Nu trimite prea multe notificări
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center gap-3 text-sm">
-                <div className="p-2 bg-purple-500/20 rounded">
-                  <Smartphone className="h-4 w-4 text-purple-400" />
-                </div>
-                <div>
-                  <p className="text-gray-200">{activeTokens} dispozitive</p>
-                  <p className="text-gray-400 text-xs">
-                    Cu notificări active
+                    iOS, Android, Desktop
                   </p>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          {/* Istoric notificări */}
           <Card className="bg-slate-800 border-slate-700">
             <CardHeader>
               <CardTitle className="text-white flex items-center gap-2">
@@ -297,33 +248,18 @@ export default function AdminNotificationsPage() {
                     <div key={notif.id} className="border-b border-slate-700 pb-3 last:border-0">
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
-                          <div className="flex items-center gap-2">
-                            <p className="text-white font-medium text-sm">
-                              {notif.title}
-                            </p>
-                            {notif.status === 'sent' ? (
-                              <CheckCircle className="h-3 w-3 text-green-400" />
-                            ) : (
-                              <AlertCircle className="h-3 w-3 text-orange-400" />
-                            )}
-                          </div>
+                          <p className="text-white font-medium text-sm">
+                            {notif.title}
+                          </p>
                           <p className="text-gray-400 text-xs mt-1">
                             {notif.message}
                           </p>
-                          <div className="flex items-center gap-3 mt-1">
-                            {notif.successCount !== undefined && (
-                              <p className="text-gray-500 text-xs">
-                              </p>
-                            )}
-                            {notif.failureCount !== undefined && notif.failureCount > 0 && (
-                              <p className="text-red-400 text-xs">
-                                {notif.failureCount} eșuate
-                              </p>
-                            )}
-                          </div>
+                          <p className="text-gray-500 text-xs mt-1">
+                            {notif.successCount || notif.sent || 0} trimise
+                          </p>
                         </div>
-                        <span className="text-xs text-gray-500 ml-2">
-                          {formatDate(notif.sentAt)}
+                        <span className="text-xs text-gray-500">
+                          {new Date(notif.sentAt?.seconds * 1000 || notif.sentAt).toLocaleDateString('ro-RO')}
                         </span>
                       </div>
                     </div>

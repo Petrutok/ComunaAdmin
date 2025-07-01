@@ -1,181 +1,70 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Bell, BellOff } from 'lucide-react';
-import { getMessaging, getToken, onMessage } from 'firebase/messaging';
-import { doc, setDoc, collection, query, where, getDocs, updateDoc, deleteDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
 
 export function NotificationButton() {
-  const [permission, setPermission] = useState<NotificationPermission>('default');
+  const [isSubscribed, setIsSubscribed] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [tokenSaved, setTokenSaved] = useState(false);
   const { toast } = useToast();
 
-  // Generate a stable device fingerprint
-  const getDeviceFingerprint = () => {
-    const userAgent = navigator.userAgent;
-    const platform = navigator.platform;
-    const screenResolution = `${screen.width}x${screen.height}`;
-    const language = navigator.language;
-    
-    // Create a simple hash
-    const str = `${userAgent}-${platform}-${screenResolution}-${language}`;
-    let hash = 0;
-    for (let i = 0; i < str.length; i++) {
-      const char = str.charCodeAt(i);
-      hash = ((hash << 5) - hash) + char;
-      hash = hash & hash; // Convert to 32bit integer
-    }
-    
-    return `device_${Math.abs(hash)}_${Date.now().toString(36)}`;
-  };
-
   useEffect(() => {
-    if ('Notification' in window) {
-      setPermission(Notification.permission);
-      
-      // Check if we have a saved token
-      const savedToken = localStorage.getItem('fcm_token');
-      if (savedToken) {
-        setTokenSaved(true);
-        console.log('FCM Token exists in localStorage');
-      }
-    }
+    checkSubscription();
   }, []);
 
-  const requestPermission = async () => {
-    if (!('Notification' in window)) {
-      toast({
-        title: "Browser incompatibil",
-        description: "Acest browser nu suportă notificări push.",
-        variant: "destructive",
-      });
-      return;
+  const checkSubscription = async () => {
+    if ('serviceWorker' in navigator && 'PushManager' in window) {
+      try {
+        const registration = await navigator.serviceWorker.ready;
+        const subscription = await registration.pushManager.getSubscription();
+        setIsSubscribed(!!subscription);
+      } catch (error) {
+        console.error('Error checking subscription:', error);
+      }
     }
+  };
 
+  const subscribe = async () => {
     setLoading(true);
 
     try {
-      const result = await Notification.requestPermission();
-      setPermission(result);
-      
-      if (result === 'granted') {
-        // Register Service Worker for FCM
-        if ('serviceWorker' in navigator) {
-          const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
-          console.log('FCM Service Worker registered');
-          
-          // Get FCM token
-          const messaging = getMessaging();
-          const vapidKey = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY || 'BM96R8cnKUeKqFaGKSJdKuNJ6mRkmyUmfCBH8kfVqK_Ht8Lx8wdKPzPTYpGxNwM8YL0RW1UoW_N1qFWJHBXDNEI';
-          
-          const token = await getToken(messaging, {
-            vapidKey: vapidKey,
-            serviceWorkerRegistration: registration
-          });
+      // Register service worker
+      const registration = await navigator.serviceWorker.register('/push-sw.js');
+      await navigator.serviceWorker.ready;
 
-          if (token) {
-            console.log('FCM Token obtained:', token);
-            
-            // Save token in localStorage
-            localStorage.setItem('fcm_token', token);
-            localStorage.setItem('fcm_token_date', new Date().toISOString());
-            setTokenSaved(true);
-            
-            // Clean up old tokens and save new one
-            try {
-              // Get device fingerprint
-              const deviceFingerprint = getDeviceFingerprint();
-              const storedDeviceId = localStorage.getItem('device_id');
-              const deviceId = storedDeviceId || deviceFingerprint;
-              
-              if (!storedDeviceId) {
-                localStorage.setItem('device_id', deviceId);
-              }
-              
-              // Deactivate ALL other tokens for this user agent pattern
-              const userAgentPattern = navigator.userAgent.includes('iPhone') ? 'iPhone' : 'Chrome';
-              const oldTokensQuery = query(
-                collection(db, 'fcm_tokens'),
-                where('active', '==', true)
-              );
-              
-              const oldTokensSnapshot = await getDocs(oldTokensQuery);
-              const deactivatePromises: Promise<any>[] = [];
-              
-              for (const docSnapshot of oldTokensSnapshot.docs) {
-                const data = docSnapshot.data();
-                // Deactivate if it's the same token OR same device type
-                if (data.token === token || 
-                    (data.userAgent && data.userAgent.includes(userAgentPattern))) {
-                  deactivatePromises.push(
-                    updateDoc(docSnapshot.ref, { 
-                      active: false, 
-                      deactivatedAt: new Date(),
-                      reason: 'new_token_registered'
-                    })
-                  );
-                }
-              }
-              
-              await Promise.all(deactivatePromises);
-              console.log(`Deactivated ${deactivatePromises.length} old tokens`);
-              
-              // Save the new token
-              await setDoc(doc(db, 'fcm_tokens', deviceId), {
-                token,
-                createdAt: new Date(),
-                lastUsed: new Date(),
-                platform: /iPhone|iPad|iPod/.test(navigator.userAgent) ? 'ios' : 'web',
-                userAgent: navigator.userAgent,
-                deviceFingerprint: deviceFingerprint,
-                active: true
-              });
-              
-              console.log('New token saved to Firestore with ID:', deviceId);
-              
-            } catch (error) {
-              console.error('Error managing tokens in Firestore:', error);
-            }
-            
-            // Listen for foreground messages
-            onMessage(messaging, (payload) => {
-              console.log('Message received in foreground:', payload);
-              
-              if (payload.notification) {
-                // Show only toast, no native notification
-                // The service worker handles the native notification
-                toast({
-                  title: payload.notification.title || 'Notificare nouă',
-                  description: payload.notification.body,
-                });
-              }
-            });
-            
-            // Success notification
-            toast({
-              title: "Notificări activate!",
-              description: "Vei primi notificări despre anunțuri și evenimente noi.",
-            });
-            
-          } else {
-            throw new Error('Nu s-a putut obține token FCM');
+      // Subscribe to push
+      const subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
+      });
+
+      // Save subscription to server
+      const response = await fetch('/api/push-subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          subscription,
+          deviceInfo: {
+            userAgent: navigator.userAgent,
+            platform: navigator.platform,
+            language: navigator.language
           }
-        }
-      } else if (result === 'denied') {
+        })
+      });
+
+      if (response.ok) {
+        setIsSubscribed(true);
         toast({
-          title: "Notificări blocate",
-          description: "Pentru a activa notificările, accesează setările browserului.",
-          variant: "destructive",
+          title: "Notificări activate!",
+          description: "Vei primi notificări despre evenimente importante.",
         });
       }
     } catch (error) {
-      console.error('Error activating notifications:', error);
+      console.error('Subscribe error:', error);
       toast({
         title: "Eroare",
-        description: "Nu s-au putut activa notificările. Încearcă din nou.",
+        description: "Nu s-au putut activa notificările.",
         variant: "destructive",
       });
     } finally {
@@ -183,51 +72,72 @@ export function NotificationButton() {
     }
   };
 
-  const getButtonProps = () => {
-    if (tokenSaved && permission === 'granted') {
-      return {
-        icon: <Bell className="h-5 w-5 text-green-400" />,
-        text: 'Notificări active',
-        color: 'bg-green-900/20',
-      };
-    } else if (permission === 'denied') {
-      return {
-        icon: <BellOff className="h-5 w-5 text-red-400" />,
-        text: 'Notificări blocate',
-        color: 'bg-red-900/20',
-      };
-    } else {
-      return {
-        icon: <Bell className="h-5 w-5 text-gray-400" />,
-        text: 'Activează notificări',
-        color: 'bg-slate-800/50',
-      };
+  const unsubscribe = async () => {
+    setLoading(true);
+
+    try {
+      const registration = await navigator.serviceWorker.ready;
+      const subscription = await registration.pushManager.getSubscription();
+      
+      if (subscription) {
+        await subscription.unsubscribe();
+        
+        // Notify server
+        await fetch('/api/push-subscribe', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            endpoint: subscription.endpoint
+          })
+        });
+        
+        setIsSubscribed(false);
+        toast({
+          title: "Notificări dezactivate",
+          description: "Nu vei mai primi notificări.",
+        });
+      }
+    } catch (error) {
+      console.error('Unsubscribe error:', error);
+      toast({
+        title: "Eroare",
+        description: "Nu s-au putut dezactiva notificările.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
     }
   };
 
-  const { icon, text, color } = getButtonProps();
-  const isDisabled = (permission !== 'default' && tokenSaved) || loading;
+  const handleClick = () => {
+    if (isSubscribed) {
+      unsubscribe();
+    } else {
+      subscribe();
+    }
+  };
 
   return (
     <button
-      onClick={requestPermission}
-      disabled={isDisabled}
-      className={`relative p-2 rounded-lg ${color} hover:bg-slate-700/50 transition-colors group ${
-        isDisabled ? 'cursor-not-allowed opacity-75' : 'cursor-pointer'
+      onClick={handleClick}
+      disabled={loading}
+      className={`relative p-2 rounded-lg transition-colors group ${
+        isSubscribed 
+          ? 'bg-green-900/20 hover:bg-green-800/30' 
+          : 'bg-slate-800/50 hover:bg-slate-700/50'
       }`}
-      title={text}
+      title={isSubscribed ? 'Notificări active' : 'Activează notificări'}
     >
       {loading ? (
         <div className="h-5 w-5 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
+      ) : isSubscribed ? (
+        <Bell className="h-5 w-5 text-green-400" />
       ) : (
-        icon
+        <Bell className="h-5 w-5 text-gray-400" />
       )}
       
-      {/* Status indicator */}
       <span className={`absolute top-0 right-0 w-2 h-2 rounded-full ${
-        tokenSaved && permission === 'granted' ? 'bg-green-400' : 
-        permission === 'denied' ? 'bg-red-400' : 
-        'bg-gray-600'
+        isSubscribed ? 'bg-green-400' : 'bg-gray-600'
       }`} />
     </button>
   );
