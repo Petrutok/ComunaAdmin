@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { Bell, Send } from 'lucide-react';
+import { NotificationManager } from '@/lib/notification-manager';
 
 export default function AdminNotificationsPage() {
   const [title, setTitle] = useState('');
@@ -31,19 +32,13 @@ export default function AdminNotificationsPage() {
     setSending(true);
 
     try {
-      const response = await fetch('/api/push-send', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: title.trim(),
-          message: message.trim(),
-          url: url.trim() || '/',
-        }),
-      });
+      const result = await NotificationManager.sendToAll(
+        title.trim(),
+        message.trim(),
+        url.trim() || '/'
+      );
 
-      const result = await response.json();
-
-      if (response.ok && result.success) {
+      if (result.success) {
         toast({
           title: "Notificare trimisă!",
           description: result.sent > 0 

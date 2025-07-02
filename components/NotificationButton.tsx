@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Bell, BellOff } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { NotificationManager } from '@/lib/notification-manager';
 
 export function NotificationButton() {
   const [isSubscribed, setIsSubscribed] = useState(false);
@@ -54,6 +55,9 @@ export function NotificationButton() {
       });
 
       if (response.ok) {
+        // Store subscription locally
+        await NotificationManager.addSubscription(subscription);
+        
         setIsSubscribed(true);
         toast({
           title: "Notificări activate!",
