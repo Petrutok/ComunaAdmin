@@ -1,7 +1,5 @@
 // app/api/push-subscribe/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { doc, setDoc, getDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
 
 export async function POST(request: NextRequest) {
   try {
@@ -14,21 +12,16 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    // Generate unique ID from endpoint
-    const subscriptionId = Buffer.from(subscription.endpoint).toString('base64').replace(/[^a-zA-Z0-9]/g, '').substring(0, 20);
-    
-    // Save to Firestore
-    await setDoc(doc(db, 'push_subscriptions', subscriptionId), {
-      subscription,
-      deviceInfo,
-      createdAt: new Date(),
-      lastUsed: new Date(),
-      active: true
+    // For now, just acknowledge the subscription
+    // In production, you'd save this to a database
+    console.log('New subscription:', {
+      endpoint: subscription.endpoint,
+      deviceInfo
     });
     
     return NextResponse.json({ 
-      success: true, 
-      subscriptionId 
+      success: true,
+      message: 'Subscription saved'
     });
     
   } catch (error) {
@@ -51,19 +44,8 @@ export async function DELETE(request: NextRequest) {
       );
     }
     
-    const subscriptionId = Buffer.from(endpoint).toString('base64').replace(/[^a-zA-Z0-9]/g, '').substring(0, 20);
-    
-    // Mark as inactive
-    const docRef = doc(db, 'push_subscriptions', subscriptionId);
-    const docSnap = await getDoc(docRef);
-    
-    if (docSnap.exists()) {
-      await setDoc(docRef, {
-        ...docSnap.data(),
-        active: false,
-        deactivatedAt: new Date()
-      });
-    }
+    // In production, remove from database
+    console.log('Unsubscribe:', endpoint);
     
     return NextResponse.json({ success: true });
     
