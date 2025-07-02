@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import { Bell, BellOff } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { NotificationManager } from '@/lib/notification-manager';
 
 export function NotificationButton() {
   const [isSubscribed, setIsSubscribed] = useState(false);
@@ -27,48 +26,66 @@ export function NotificationButton() {
   };
 
   const subscribe = async () => {
+    console.log('Starting subscription process...');
     setLoading(true);
 
     try {
+      // Check browser support
+      if (!('serviceWorker' in navigator)) {
+        throw new Error('Service Workers nu sunt suportate');
+      }
+      
+      if (!('PushManager' in window)) {
+        throw new Error('Push API nu este suportat');
+      }
+
+      console.log('Registering service worker...');
       // Register service worker
       const registration = await navigator.serviceWorker.register('/push-sw.js');
+      console.log('Service worker registered');
+      
+      // Wait for it to be ready
       await navigator.serviceWorker.ready;
+      console.log('Service worker ready');
+
+      // Get VAPID key
+      const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+      console.log('VAPID key exists:', !!vapidPublicKey);
+      
+      if (!vapidPublicKey) {
+        throw new Error('VAPID public key not configured');
+      }
+
+      // Request permission first
+      const permission = await Notification.requestPermission();
+      console.log('Notification permission:', permission);
+      
+      if (permission !== 'granted') {
+        throw new Error('Notification permission denied');
+      }
 
       // Subscribe to push
+      console.log('Subscribing to push...');
       const subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey: process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
+        applicationServerKey: vapidPublicKey
       });
+      console.log('Push subscription created:', subscription.endpoint);
 
-      // Save subscription to server
-      const response = await fetch('/api/push-subscribe', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          subscription,
-          deviceInfo: {
-            userAgent: navigator.userAgent,
-            platform: navigator.platform,
-            language: navigator.language
-          }
-        })
+      // For now, just save locally
+      localStorage.setItem('push_subscription', JSON.stringify(subscription));
+      
+      setIsSubscribed(true);
+      toast({
+        title: "Notificări activate!",
+        description: "Vei primi notificări despre evenimente importante.",
       });
-
-      if (response.ok) {
-        // Store subscription locally
-        await NotificationManager.addSubscription(subscription);
-        
-        setIsSubscribed(true);
-        toast({
-          title: "Notificări activate!",
-          description: "Vei primi notificări despre evenimente importante.",
-        });
-      }
+      
     } catch (error) {
       console.error('Subscribe error:', error);
       toast({
         title: "Eroare",
-        description: "Nu s-au putut activa notificările.",
+        description: error instanceof Error ? error.message : "Nu s-au putut activa notificările.",
         variant: "destructive",
       });
     } finally {
@@ -85,15 +102,7 @@ export function NotificationButton() {
       
       if (subscription) {
         await subscription.unsubscribe();
-        
-        // Notify server
-        await fetch('/api/push-subscribe', {
-          method: 'DELETE',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            endpoint: subscription.endpoint
-          })
-        });
+        localStorage.removeItem('push_subscription');
         
         setIsSubscribed(false);
         toast({

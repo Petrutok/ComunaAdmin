@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,60 +8,68 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { Bell, Send } from 'lucide-react';
-import { NotificationManager } from '@/lib/notification-manager';
 
 export default function AdminNotificationsPage() {
   const [title, setTitle] = useState('');
   const [message, setMessage] = useState('');
   const [url, setUrl] = useState('');
   const [sending, setSending] = useState(false);
+  const [hasSubscription, setHasSubscription] = useState(false);
   const { toast } = useToast();
 
-  const handleSendNotification = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!title.trim() || !message.trim()) {
+  useEffect(() => {
+    // Check if user has subscription
+    const sub = localStorage.getItem('push_subscription');
+    setHasSubscription(!!sub);
+  }, []);
+
+  const sendTestNotification = async () => {
+    const subscriptionStr = localStorage.getItem('push_subscription');
+    if (!subscriptionStr) {
       toast({
         title: "Eroare",
-        description: "Completează titlul și mesajul",
+        description: "Nu ai activat notificările. Activează-le mai întâi!",
         variant: "destructive",
       });
       return;
     }
 
     setSending(true);
-
+    
     try {
-      const result = await NotificationManager.sendToAll(
-        title.trim(),
-        message.trim(),
-        url.trim() || '/'
-      );
+      const subscription = JSON.parse(subscriptionStr);
+      
+      // Send to your own device
+      const response = await fetch('/api/push-send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: title || 'Test Notificare',
+          message: message || 'Aceasta este o notificare de test',
+          url: url || '/',
+          subscriptionsList: [subscription]
+        }),
+      });
 
-      if (result.success) {
+      const result = await response.json();
+
+      if (result.success && result.sent > 0) {
         toast({
           title: "Notificare trimisă!",
-          description: result.sent > 0 
-            ? `Trimisă cu succes la ${result.sent} dispozitive.`
-            : "Nu există dispozitive active momentan.",
+          description: "Verifică dispozitivul tău pentru notificare.",
         });
-
-        // Reset form
-        setTitle('');
-        setMessage('');
-        setUrl('');
       } else {
         toast({
           title: "Eroare",
-          description: result.error || "Nu s-a putut trimite notificarea",
+          description: "Nu s-a putut trimite notificarea.",
           variant: "destructive",
         });
       }
     } catch (error) {
-      console.error('Error sending notification:', error);
+      console.error('Send error:', error);
       toast({
-        title: "Eroare de rețea",
-        description: "Nu s-a putut conecta la server.",
+        title: "Eroare",
+        description: "Eroare la trimiterea notificării.",
         variant: "destructive",
       });
     } finally {
@@ -71,81 +79,60 @@ export default function AdminNotificationsPage() {
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
-      <h1 className="text-3xl font-bold text-white">Trimite Notificare</h1>
+      <h1 className="text-3xl font-bold text-white">Test Notificări</h1>
 
       <Card className="bg-slate-800 border-slate-700">
         <CardHeader>
           <CardTitle className="text-white flex items-center gap-2">
             <Bell className="h-5 w-5" />
-            Notificare Nouă
+            Trimite Notificare Test
           </CardTitle>
           <CardDescription className="text-gray-400">
-            Trimite o notificare către toate dispozitivele cu notificări active
+            Testează notificările pe dispozitivul tău
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSendNotification} className="space-y-4">
+          <form onSubmit={(e) => { e.preventDefault(); sendTestNotification(); }} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="title" className="text-gray-200">
-                Titlu notificare *
+                Titlu notificare
               </Label>
               <Input
                 id="title"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="Ex: Anunț important"
+                placeholder="Test Notificare"
                 className="bg-slate-900 border-slate-600 text-white"
-                required
-                maxLength={50}
               />
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="message" className="text-gray-200">
-                Mesaj *
+                Mesaj
               </Label>
               <Textarea
                 id="message"
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
-                placeholder="Scrie mesajul notificării..."
-                rows={4}
-                className="bg-slate-900 border-slate-600 text-white"
-                required
-                maxLength={200}
-              />
-              <p className="text-xs text-gray-400">
-                {message.length}/200 caractere
-              </p>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="url" className="text-gray-200">
-                Link (opțional)
-              </Label>
-              <Input
-                id="url"
-                value={url}
-                onChange={(e) => setUrl(e.target.value)}
-                placeholder="Ex: /anunturi"
+                placeholder="Aceasta este o notificare de test"
+                rows={3}
                 className="bg-slate-900 border-slate-600 text-white"
               />
-              <p className="text-xs text-gray-400">
-                Unde va fi redirecționat utilizatorul când apasă pe notificare
-              </p>
             </div>
 
             <Button
               type="submit"
               className="w-full"
-              disabled={sending}
+              disabled={sending || !hasSubscription}
             >
               {sending ? (
                 "Se trimite..."
+              ) : !hasSubscription ? (
+                "Activează notificările mai întâi"
               ) : (
                 <>
                   <Send className="h-4 w-4 mr-2" />
-                  Trimite Notificare
+                  Trimite Test
                 </>
               )}
             </Button>
@@ -153,12 +140,14 @@ export default function AdminNotificationsPage() {
         </CardContent>
       </Card>
 
-      <div className="bg-blue-900/20 border border-blue-700 rounded-lg p-4">
-        <p className="text-sm text-blue-300">
-          <strong>Notă:</strong> Pentru a primi notificări, utilizatorii trebuie să le activeze 
-          mai întâi folosind butonul de notificări din aplicație.
-        </p>
-      </div>
+      {!hasSubscription && (
+        <div className="bg-orange-900/20 border border-orange-700 rounded-lg p-4">
+          <p className="text-sm text-orange-300">
+            <strong>Atenție:</strong> Nu ai activat notificările pe acest dispozitiv. 
+            Folosește butonul de notificări din aplicație pentru a le activa.
+          </p>
+        </div>
+      )}
     </div>
   );
 }
