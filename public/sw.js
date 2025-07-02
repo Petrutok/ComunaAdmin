@@ -1,5 +1,6 @@
 self.addEventListener('push', function(event) {
   console.log('[Service Worker] Push Received.');
+  console.log('[Service Worker] Push data:', event.data ? event.data.text() : 'No data');
   
   let data = {
     title: 'Notificare nouă',
