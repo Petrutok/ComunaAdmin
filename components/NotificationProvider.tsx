@@ -38,6 +38,19 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
       setIsSupported(true);
       setPermission(Notification.permission);
       
+      // Check if running as PWA on iOS
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+      const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
+      
+      if (isIOS && !isStandalone) {
+        console.log('iOS detected - PWA installation required for notifications');
+        toast({
+          title: "Instalează aplicația",
+          description: "Pentru notificări pe iOS, adaugă aplicația pe ecranul principal",
+          duration: 5000,
+        });
+      }
+      
       // Register service worker
       registerServiceWorker();
     }
