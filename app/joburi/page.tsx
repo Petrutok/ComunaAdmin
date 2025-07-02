@@ -14,7 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { useToast } from '@/components/ui/use-toast';
+import { useToast } from '@/hooks/use-toast';
 import {
   collection,
   query,
@@ -36,6 +36,7 @@ import {
   Briefcase,
   Clock,
   Building,
+  Home,
 } from 'lucide-react';
 import {
   Dialog,
@@ -104,8 +105,8 @@ export default function JobsPage() {
         title: formData.title,
         company: formData.company,
         description: formData.description,
-        requirements: [], // Simplificat - nu mai cerem cerințe
-        benefits: [], // Simplificat - nu mai cerem beneficii
+        requirements: [],
+        benefits: [],
         salary: formData.salary || undefined,
         location: formData.location,
         type: formData.type,
@@ -120,10 +121,7 @@ export default function JobsPage() {
 
       await addDoc(collection(db, COLLECTIONS.JOBS), newJob);
 
-      // Închide dialogul de adăugare
       setShowAddDialog(false);
-      
-      // Afișează dialogul de succes
       setShowSuccessDialog(true);
       
       // Resetează formularul
@@ -178,11 +176,33 @@ export default function JobsPage() {
     }
   };
 
+  const handleContact = (job: Job) => {
+    // Dacă are telefon, preferăm telefonul
+    if (job.contact.phone) {
+      window.location.href = `tel:${job.contact.phone}`;
+    } else if (job.contact.email) {
+      window.location.href = `mailto:${job.contact.email}`;
+    }
+  };
+
   return (
     <div className="min-h-screen bg-slate-900">
       <div className="max-w-7xl mx-auto px-4 py-8">
+        {/* Home Button */}
+        <button
+          onClick={() => window.location.href = '/'}
+          className="fixed top-4 left-4 z-50 group"
+        >
+          <div className="bg-white/10 backdrop-blur-md text-white rounded-xl px-5 py-2.5 shadow-2xl hover:bg-white/20 transition-all duration-300 flex items-center gap-2.5 font-medium border border-white/20 hover:scale-105">
+            <Home className="h-5 w-5 group-hover:scale-110 transition-transform" />
+            <span className="bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent font-semibold">
+              Acasă
+            </span>
+          </div>
+        </button>
+
         {/* Header */}
-        <div className="mb-8">
+        <div className="mb-8 pt-16">
           <h1 className="text-3xl font-bold text-white mb-2">
             Locuri de Muncă în Comună
           </h1>
@@ -281,25 +301,6 @@ export default function JobsPage() {
                       {job.description}
                     </p>
                   </div>
-                  
-                  {job.requirements && job.requirements.length > 0 && (
-                    <div>
-                      <h4 className="text-sm font-medium text-gray-200 mb-2">Cerințe:</h4>
-                      <ul className="text-sm text-gray-400 space-y-1">
-                        {job.requirements.slice(0, 3).map((req, idx) => (
-                          <li key={idx} className="flex items-start">
-                            <span className="mr-2">•</span>
-                            <span className="line-clamp-1">{req}</span>
-                          </li>
-                        ))}
-                        {job.requirements.length > 3 && (
-                          <li className="text-gray-500">
-                            +{job.requirements.length - 3} altele...
-                          </li>
-                        )}
-                      </ul>
-                    </div>
-                  )}
 
                   <div className="pt-2 border-t border-slate-700">
                     <div className="flex items-center justify-between">
@@ -321,7 +322,7 @@ export default function JobsPage() {
                       </div>
                       <Button
                         size="sm"
-                        onClick={() => window.location.href = `${job.contact.email.includes('@') ? 'mailto:' : 'tel:'}${job.contact.email}`}
+                        onClick={() => handleContact(job)}
                       >
                         Contactează
                       </Button>
@@ -335,17 +336,17 @@ export default function JobsPage() {
 
         {/* Add Job Dialog - Simplified */}
         <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
-          <DialogContent className="bg-slate-800 border-slate-700 max-w-lg">
+          <DialogContent className="bg-slate-800 border-slate-700 max-w-lg max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle className="text-white">Publică un job</DialogTitle>
               <DialogDescription className="text-gray-400">
-                Completează informațiile esențiale despre poziția disponibilă.
+                Completează informațiile despre poziția disponibilă. Câmpurile marcate cu * sunt obligatorii.
               </DialogDescription>
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="title" className="text-gray-200">
-                  Ce cauți? *
+                  Titlu poziție *
                 </Label>
                 <Input
                   id="title"
@@ -353,7 +354,7 @@ export default function JobsPage() {
                   onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                   required
                   className="bg-slate-900 border-slate-600 text-white"
-                                      placeholder="Ex: Vânzător, Șofer, Muncitor, Îngrijitor, Bucătar"
+                  placeholder="Ex: Vânzător, Șofer, Muncitor, Îngrijitor, Bucătar"
                 />
               </div>
 
@@ -367,14 +368,14 @@ export default function JobsPage() {
                   onChange={(e) => setFormData({ ...formData, company: e.target.value })}
                   required
                   className="bg-slate-900 border-slate-600 text-white"
-                                      placeholder="Ex: Magazin Profi, Ferma Popescu, Restaurant La Noi"
+                  placeholder="Ex: Magazin Profi, Ferma Popescu, Restaurant La Noi"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="type" className="text-gray-200">
-                    Tip *
+                    Tip angajare *
                   </Label>
                   <Select
                     value={formData.type}
@@ -394,7 +395,7 @@ export default function JobsPage() {
 
                 <div className="space-y-2">
                   <Label htmlFor="location" className="text-gray-200">
-                    Unde? *
+                    Locație *
                   </Label>
                   <Input
                     id="location"
@@ -408,8 +409,21 @@ export default function JobsPage() {
               </div>
 
               <div className="space-y-2">
+                <Label htmlFor="salary" className="text-gray-200">
+                  Salariu oferit (opțional)
+                </Label>
+                <Input
+                  id="salary"
+                  value={formData.salary}
+                  onChange={(e) => setFormData({ ...formData, salary: e.target.value })}
+                  className="bg-slate-900 border-slate-600 text-white"
+                  placeholder="Ex: 2500 RON, Negociabil, Competitiv"
+                />
+              </div>
+
+              <div className="space-y-2">
                 <Label htmlFor="description" className="text-gray-200">
-                  Detalii despre job *
+                  Descriere job *
                 </Label>
                 <Textarea
                   id="description"
@@ -418,23 +432,43 @@ export default function JobsPage() {
                   required
                   rows={4}
                   className="bg-slate-900 border-slate-600 text-white"
-                  placeholder="Descrie pe scurt: program de lucru, ce trebuie să facă, experiență necesară (dacă e cazul)..."
+                  placeholder="Descrie pe scurt: program de lucru, responsabilități principale, experiență necesară (dacă e cazul)..."
                 />
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="contactEmail" className="text-gray-200">
-                  Contact *
-                </Label>
-                <Input
-                  id="contactEmail"
-                  type="email"
-                  value={formData.contactEmail}
-                  onChange={(e) => setFormData({ ...formData, contactEmail: e.target.value })}
-                  required
-                  className="bg-slate-900 border-slate-600 text-white"
-                  placeholder="Telefon sau email pentru contact"
-                />
+              <div className="border-t border-slate-700 pt-4">
+                <h4 className="text-white font-medium mb-3">Date de contact</h4>
+                
+                <div className="space-y-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="contactEmail" className="text-gray-200">
+                      Email *
+                    </Label>
+                    <Input
+                      id="contactEmail"
+                      type="email"
+                      value={formData.contactEmail}
+                      onChange={(e) => setFormData({ ...formData, contactEmail: e.target.value })}
+                      required
+                      className="bg-slate-900 border-slate-600 text-white"
+                      placeholder="email@exemplu.ro"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="contactPhone" className="text-gray-200">
+                      Telefon (opțional)
+                    </Label>
+                    <Input
+                      id="contactPhone"
+                      type="tel"
+                      value={formData.contactPhone}
+                      onChange={(e) => setFormData({ ...formData, contactPhone: e.target.value })}
+                      className="bg-slate-900 border-slate-600 text-white"
+                      placeholder="07xx xxx xxx"
+                    />
+                  </div>
+                </div>
               </div>
 
               <div className="flex gap-3 pt-4">
@@ -447,7 +481,7 @@ export default function JobsPage() {
                   Anulează
                 </Button>
                 <Button type="submit" className="flex-1">
-                  Publică
+                  Trimite spre aprobare
                 </Button>
               </div>
             </form>
@@ -458,7 +492,6 @@ export default function JobsPage() {
         <Dialog open={showSuccessDialog} onOpenChange={setShowSuccessDialog}>
           <DialogContent className="bg-slate-800 border-slate-700 max-w-md">
             <div className="flex flex-col items-center text-center space-y-4">
-              {/* Icon de succes */}
               <div className="flex h-16 w-16 items-center justify-center rounded-full bg-green-900/20">
                 <Check className="h-8 w-8 text-green-400" />
               </div>
@@ -476,8 +509,8 @@ export default function JobsPage() {
                     de obicei în mai puțin de 24 de ore.
                   </p>
                   <p className="text-xs text-gray-400 mt-4">
-                    După aprobare, job-ul va fi vizibil în secțiunea "Joburi" 
-                    și persoanele interesate vor putea aplica direct.
+                    După aprobare, job-ul va fi vizibil în această secțiune 
+                    și persoanele interesate vor putea lua legătura cu tine.
                   </p>
                 </DialogDescription>
               </DialogHeader>
