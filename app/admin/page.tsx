@@ -57,9 +57,8 @@ export default function AdminDashboard() {
 
   const loadDashboardData = async () => {
     try {
-      // Load announcements stats
-      const announcementsQuery = query(collection(db, COLLECTIONS.ANNOUNCEMENTS));
-      const announcementsSnapshot = await getDocs(announcementsQuery);
+      // Load ALL announcements without filtering by status first
+      const announcementsSnapshot = await getDocs(collection(db, COLLECTIONS.ANNOUNCEMENTS));
       const announcements = announcementsSnapshot.docs.map(doc => {
         const data = doc.data();
         return {
@@ -74,9 +73,8 @@ export default function AdminDashboard() {
       const pendingAnnouncements = announcements.filter(a => a.status === 'pending').length;
       const totalAnnouncements = announcements.length;
 
-      // Load jobs stats
-      const jobsQuery = query(collection(db, COLLECTIONS.JOBS));
-      const jobsSnapshot = await getDocs(jobsQuery);
+      // Load ALL jobs without filtering by status first
+      const jobsSnapshot = await getDocs(collection(db, COLLECTIONS.JOBS));
       const jobs = jobsSnapshot.docs.map(doc => {
         const data = doc.data();
         return {
