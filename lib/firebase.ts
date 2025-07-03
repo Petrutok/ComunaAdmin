@@ -99,8 +99,8 @@ export interface Job {
   location: string;
   type: 'full-time' | 'part-time' | 'contract' | 'internship';
   contact: {
-    email: string;
-    phone?: string;
+    phone: string;      // Acum phone este obligatoriu
+    email?: string;     // Acum email este opțional
   };
   status: 'pending' | 'approved' | 'rejected';
   createdAt: any;
