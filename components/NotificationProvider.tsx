@@ -33,15 +33,13 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
   const { toast } = useToast();
 
   useEffect(() => {
-    // Check if browser supports notifications
     if ('Notification' in window && 'serviceWorker' in navigator && 'PushManager' in window) {
       setIsSupported(true);
       setPermission(Notification.permission);
-      
-      // Check if running as PWA on iOS
-      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
       const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
-      
+
       if (isIOS && !isStandalone) {
         console.log('iOS detected - PWA installation required for notifications');
         toast({
@@ -50,8 +48,7 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
           duration: 5000,
         });
       }
-      
-      // Register service worker
+
       registerServiceWorker();
     }
   }, []);
@@ -61,8 +58,7 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
       const reg = await navigator.serviceWorker.register('/sw.js');
       console.log('Service Worker registered:', reg);
       setRegistration(reg);
-      
-      // Check if already subscribed
+
       const subscription = await reg.pushManager.getSubscription();
       setIsSubscribed(!!subscription);
     } catch (error) {
@@ -96,7 +92,6 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
     }
 
     try {
-      // Request permission
       const permission = await Notification.requestPermission();
       setPermission(permission);
 
@@ -109,19 +104,16 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
         return;
       }
 
-      // Get VAPID public key
       const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
       if (!vapidPublicKey) {
         throw new Error('VAPID public key not found');
       }
 
-      // Subscribe to push notifications
       const subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: urlBase64ToUint8Array(vapidPublicKey)
       });
 
-      // Send subscription to server
       const response = await fetch('/api/push-subscribe', {
         method: 'POST',
         headers: {
@@ -142,10 +134,8 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
       }
 
       setIsSubscribed(true);
-      
-      // Store subscription locally for testing
       localStorage.setItem('push_subscription', JSON.stringify(subscription));
-      
+
       toast({
         title: "Succes!",
         description: "Notificările au fost activate",
@@ -168,8 +158,7 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
       const subscription = await registration.pushManager.getSubscription();
       if (subscription) {
         await subscription.unsubscribe();
-        
-        // Remove from server
+
         await fetch('/api/push-subscribe', {
           method: 'DELETE',
           headers: {
@@ -179,10 +168,10 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
             endpoint: subscription.endpoint
           }),
         });
-        
+
         localStorage.removeItem('push_subscription');
         setIsSubscribed(false);
-        
+
         toast({
           title: "Notificări dezactivate",
           description: "Nu vei mai primi notificări",
