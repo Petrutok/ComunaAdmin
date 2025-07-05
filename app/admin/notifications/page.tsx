@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { Bell, Send } from 'lucide-react';
+import { Bell, Send, AlertCircle } from 'lucide-react';
 
 export default function AdminNotificationsPage() {
   const [title, setTitle] = useState('');
@@ -15,20 +15,35 @@ export default function AdminNotificationsPage() {
   const [url, setUrl] = useState('');
   const [sending, setSending] = useState(false);
   const [hasSubscription, setHasSubscription] = useState(false);
+  const [debugInfo, setDebugInfo] = useState<string>('');
   const { toast } = useToast();
 
   useEffect(() => {
-    // Check if user has subscription
-    const sub = localStorage.getItem('push_subscription');
-    setHasSubscription(!!sub);
+    checkSubscription();
   }, []);
 
+  const checkSubscription = () => {
+    // Check multiple possible subscription locations
+    const pushSub = localStorage.getItem('push_subscription');
+    const debugSub = localStorage.getItem('debug_subscription');
+    
+    if (pushSub || debugSub) {
+      setHasSubscription(true);
+      setDebugInfo(`Found subscription: ${pushSub ? 'push_subscription' : 'debug_subscription'}`);
+    } else {
+      setDebugInfo('No subscription found in localStorage');
+    }
+  };
+
   const sendTestNotification = async () => {
-    const subscriptionStr = localStorage.getItem('push_subscription');
+    // Try to get subscription from multiple sources
+    let subscriptionStr = localStorage.getItem('push_subscription') || 
+                         localStorage.getItem('debug_subscription');
+    
     if (!subscriptionStr) {
       toast({
         title: "Eroare",
-        description: "Nu ai activat notificările. Activează-le mai întâi!",
+        description: "Nu ai activat notificările. Folosește butonul de notificări din aplicație sau /debug-mobile",
         variant: "destructive",
       });
       return;
@@ -38,30 +53,37 @@ export default function AdminNotificationsPage() {
     
     try {
       const subscription = JSON.parse(subscriptionStr);
+      console.log('Using subscription:', subscription);
       
-      // Send to your own device
+      // Send notification
       const response = await fetch('/api/push-send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          title: title || 'Test Notificare',
-          message: message || 'Aceasta este o notificare de test',
+          title: title || 'Test Notificare Admin',
+          message: message || 'Aceasta este o notificare de test din panoul admin',
           url: url || '/',
           subscriptionsList: [subscription]
         }),
       });
 
       const result = await response.json();
+      console.log('Send result:', result);
 
       if (result.success && result.sent > 0) {
         toast({
           title: "Notificare trimisă!",
           description: "Verifică dispozitivul tău pentru notificare.",
         });
+        
+        // Clear form
+        setTitle('');
+        setMessage('');
+        setUrl('');
       } else {
         toast({
           title: "Eroare",
-          description: "Nu s-a putut trimite notificarea.",
+          description: result.error || "Nu s-a putut trimite notificarea.",
           variant: "destructive",
         });
       }
@@ -75,6 +97,30 @@ export default function AdminNotificationsPage() {
     } finally {
       setSending(false);
     }
+  };
+
+  const copyDebugSubscription = () => {
+    // This helps to sync subscription from debug page
+    const debugSub = localStorage.getItem('debug_subscription');
+    if (debugSub) {
+      localStorage.setItem('push_subscription', debugSub);
+      checkSubscription();
+      toast({
+        title: "Succes",
+        description: "Subscription copiat din debug page",
+      });
+    } else {
+      toast({
+        title: "Eroare",
+        description: "Nu există subscription în debug page",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    sendTestNotification();
   };
 
   return (
@@ -92,7 +138,7 @@ export default function AdminNotificationsPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={(e) => { e.preventDefault(); sendTestNotification(); }} className="space-y-4">
+          <div className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="title" className="text-gray-200">
                 Titlu notificare
@@ -101,7 +147,7 @@ export default function AdminNotificationsPage() {
                 id="title"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="Test Notificare"
+                placeholder="Test Notificare Admin"
                 className="bg-slate-900 border-slate-600 text-white"
               />
             </div>
@@ -120,8 +166,21 @@ export default function AdminNotificationsPage() {
               />
             </div>
 
+            <div className="space-y-2">
+              <Label htmlFor="url" className="text-gray-200">
+                URL (opțional)
+              </Label>
+              <Input
+                id="url"
+                value={url}
+                onChange={(e) => setUrl(e.target.value)}
+                placeholder="/"
+                className="bg-slate-900 border-slate-600 text-white"
+              />
+            </div>
+
             <Button
-              type="submit"
+              onClick={sendTestNotification}
               className="w-full"
               disabled={sending || !hasSubscription}
             >
@@ -136,18 +195,61 @@ export default function AdminNotificationsPage() {
                 </>
               )}
             </Button>
-          </form>
+          </div>
+
+          {/* Debug info */}
+          <div className="mt-4 p-3 bg-slate-900 rounded text-xs text-gray-400">
+            <p className="font-mono">{debugInfo}</p>
+          </div>
         </CardContent>
       </Card>
 
       {!hasSubscription && (
         <div className="bg-orange-900/20 border border-orange-700 rounded-lg p-4">
-          <p className="text-sm text-orange-300">
-            <strong>Atenție:</strong> Nu ai activat notificările pe acest dispozitiv. 
-            Folosește butonul de notificări din aplicație pentru a le activa.
-          </p>
+          <div className="flex items-start gap-3">
+            <AlertCircle className="h-5 w-5 text-orange-400 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-sm text-orange-300 font-medium mb-2">
+                Nu ai activat notificările pe acest dispozitiv
+              </p>
+              <p className="text-sm text-gray-400 mb-3">
+                Pentru a activa notificările:
+              </p>
+              <ol className="list-decimal list-inside text-sm text-gray-400 space-y-1 mb-3">
+                <li>Mergi la <a href="/debug-mobile" className="text-blue-400 underline">/debug-mobile</a></li>
+                <li>Apasă "iOS Workaround" (pentru iOS) sau "Test Subscription"</li>
+                <li>Revino aici după ce vezi "Subscription successful!"</li>
+              </ol>
+              <Button
+                onClick={copyDebugSubscription}
+                size="sm"
+                variant="outline"
+                className="mt-2"
+              >
+                Copiază subscription din debug
+              </Button>
+            </div>
+          </div>
         </div>
       )}
+
+      {/* Quick links */}
+      <Card className="bg-slate-800 border-slate-700">
+        <CardContent className="p-4">
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-gray-400">
+              Pentru debugging avansat:
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => window.open('/debug-mobile', '_blank')}
+            >
+              Deschide Debug Mobile
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
