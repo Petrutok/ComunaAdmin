@@ -246,6 +246,14 @@ export default function HomePage() {
           })}
         </div>
       </div>
+      
+      <div className="max-w-7xl mx-auto px-4 pb-8">
+  <Link href="/debug-mobile">
+    <Button className="w-full bg-red-600 hover:bg-red-700 text-white">
+      🔧 Debug Mobile (Dev Only)
+    </Button>
+  </Link>
+</div>
 
       {/* Footer */}
       <footer className="bg-slate-800 border-t border-slate-700 mt-12">
