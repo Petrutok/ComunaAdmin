@@ -27,9 +27,19 @@ export default function AdminNotificationsPage() {
     const pushSub = localStorage.getItem('push_subscription');
     const debugSub = localStorage.getItem('debug_subscription');
     
+    console.log('[Admin] Checking subscriptions...');
+    console.log('[Admin] push_subscription exists:', !!pushSub);
+    console.log('[Admin] debug_subscription exists:', !!debugSub);
+    
     if (pushSub || debugSub) {
       setHasSubscription(true);
-      setDebugInfo(`Found subscription: ${pushSub ? 'push_subscription' : 'debug_subscription'}`);
+      const subToCheck = pushSub || debugSub;
+      try {
+        const parsed = JSON.parse(subToCheck!);
+        setDebugInfo(`Found subscription: ${pushSub ? 'push_subscription' : 'debug_subscription'}\nEndpoint: ${parsed.endpoint?.substring(0, 50)}...`);
+      } catch (e) {
+        setDebugInfo(`Found subscription but failed to parse: ${e}`);
+      }
     } else {
       setDebugInfo('No subscription found in localStorage');
     }
@@ -39,6 +49,10 @@ export default function AdminNotificationsPage() {
     // Try to get subscription from multiple sources
     let subscriptionStr = localStorage.getItem('push_subscription') || 
                          localStorage.getItem('debug_subscription');
+    
+    console.log('[Admin] Looking for subscription...');
+    console.log('[Admin] push_subscription:', localStorage.getItem('push_subscription'));
+    console.log('[Admin] debug_subscription:', localStorage.getItem('debug_subscription'));
     
     if (!subscriptionStr) {
       toast({
@@ -53,22 +67,28 @@ export default function AdminNotificationsPage() {
     
     try {
       const subscription = JSON.parse(subscriptionStr);
-      console.log('Using subscription:', subscription);
+      console.log('[Admin] Using subscription:', subscription);
+      console.log('[Admin] Subscription endpoint:', subscription.endpoint);
+      
+      const payload = {
+        title: title || 'Test Notificare Admin',
+        message: message || 'Aceasta este o notificare de test din panoul admin',
+        url: url || '/',
+        subscriptionsList: [subscription]
+      };
+      
+      console.log('[Admin] Sending payload:', payload);
       
       // Send notification
       const response = await fetch('/api/push-send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: title || 'Test Notificare Admin',
-          message: message || 'Aceasta este o notificare de test din panoul admin',
-          url: url || '/',
-          subscriptionsList: [subscription]
-        }),
+        body: JSON.stringify(payload),
       });
 
+      console.log('[Admin] Response status:', response.status);
       const result = await response.json();
-      console.log('Send result:', result);
+      console.log('[Admin] Send result:', result);
 
       if (result.success && result.sent > 0) {
         toast({
@@ -81,6 +101,7 @@ export default function AdminNotificationsPage() {
         setMessage('');
         setUrl('');
       } else {
+        console.error('[Admin] Send failed:', result);
         toast({
           title: "Eroare",
           description: result.error || "Nu s-a putut trimite notificarea.",
@@ -88,10 +109,10 @@ export default function AdminNotificationsPage() {
         });
       }
     } catch (error) {
-      console.error('Send error:', error);
+      console.error('[Admin] Send error:', error);
       toast({
         title: "Eroare",
-        description: "Eroare la trimiterea notificării.",
+        description: `Eroare la trimiterea notificării: ${error instanceof Error ? error.message : 'Unknown error'}`,
         variant: "destructive",
       });
     } finally {

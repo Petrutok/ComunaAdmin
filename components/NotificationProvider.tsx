@@ -199,6 +199,20 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
         throw new Error('Failed to save subscription');
       }
 
+      // IMPORTANT: Salvează și în Firestore pentru notificări în masă
+      try {
+        const { saveSubscription } = await import('@/lib/notificationSystem');
+        await saveSubscription(subscription, {
+          userAgent: navigator.userAgent,
+          platform: navigator.platform,
+          isIOS: isIOS,
+          isPWA: isStandalone
+        });
+        console.log('[NotificationProvider] Subscription saved to Firestore');
+      } catch (firebaseError) {
+        console.error('[NotificationProvider] Failed to save to Firestore:', firebaseError);
+      }
+
       console.log('[NotificationProvider] Subscription saved to server');
       setIsSubscribed(true);
       
