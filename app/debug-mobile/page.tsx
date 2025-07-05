@@ -72,7 +72,7 @@ export default function DebugMobilePage() {
       }
 
       log('Registering SW...');
-      const reg = await navigator.serviceWorker.register('/sw-unified.js', {
+      const reg = await navigator.serviceWorker.register('/sw.js', {
         scope: '/',
         updateViaCache: 'none'
       });
