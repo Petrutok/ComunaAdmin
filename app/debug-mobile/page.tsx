@@ -1,11 +1,10 @@
-'use client';
-
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 
 export default function DebugMobilePage() {
   const [logs, setLogs] = useState<string[]>([]);
+  const swRegistrationRef = useRef<ServiceWorkerRegistration | undefined>(undefined);
 
   const log = (message: string) => {
     const timestamp = new Date().toLocaleTimeString();
@@ -39,6 +38,7 @@ export default function DebugMobilePage() {
       if (reg) {
         log(`SW Scope: ${reg.scope}`);
         log(`SW Active: ${reg.active ? 'YES' : 'NO'}`);
+        swRegistrationRef.current = reg;
       }
     } else {
       log('Service Worker: NOT supported');
@@ -65,6 +65,7 @@ export default function DebugMobilePage() {
     log('=== SERVICE WORKER TEST ===');
 
     try {
+      // Unregister all existing service workers
       const registrations = await navigator.serviceWorker.getRegistrations();
       for (let registration of registrations) {
         await registration.unregister();
@@ -82,8 +83,17 @@ export default function DebugMobilePage() {
       log(`Waiting: ${reg.waiting ? 'YES' : 'NO'}`);
       log(`Active: ${reg.active ? 'YES' : 'NO'}`);
 
+      // Wait for the service worker to be ready
       await navigator.serviceWorker.ready;
       log('SW is ready!');
+      
+      // Store the registration
+      swRegistrationRef.current = reg;
+      
+      // Wait a bit more for iOS
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      log('SW fully initialized');
+      
     } catch (error: any) {
       log(`SW Error: ${error.message}`);
     }
@@ -113,8 +123,24 @@ export default function DebugMobilePage() {
     log('=== SUBSCRIPTION TEST ===');
 
     try {
-      const reg = await navigator.serviceWorker.ready;
-      log('SW ready, getting subscription...');
+      // Check if we have a SW registration
+      let reg = swRegistrationRef.current || await navigator.serviceWorker.getRegistration();
+      
+      if (!reg) {
+        log('No SW registration found, registering...');
+        await testServiceWorker();
+        reg = swRegistrationRef.current || undefined;
+      }
+
+      if (!reg) {
+        throw new Error('Failed to get SW registration');
+      }
+
+      log('Using SW registration...');
+      
+      // Wait for SW to be ready
+      await navigator.serviceWorker.ready;
+      log('SW ready, checking for existing subscription...');
 
       let sub = await reg.pushManager.getSubscription();
       if (sub) {
@@ -131,19 +157,44 @@ export default function DebugMobilePage() {
         return;
       }
 
+      // Convert VAPID key
+      const applicationServerKey = urlBase64ToUint8Array(vapidKey);
+      log('VAPID key converted');
+
+      // Subscribe with explicit options
       sub = await reg.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(vapidKey)
+        applicationServerKey: applicationServerKey
       });
 
       log('Subscription successful!');
       log(`Endpoint: ${sub.endpoint.substring(0, 50)}...`);
+      log(`Keys: ${JSON.stringify({
+        p256dh: sub.getKey('p256dh') ? 'present' : 'missing',
+        auth: sub.getKey('auth') ? 'present' : 'missing'
+      })}`);
 
-      localStorage.setItem('debug_subscription', JSON.stringify(sub));
+      // Save subscription
+      localStorage.setItem('debug_subscription', JSON.stringify(sub.toJSON()));
       log('Saved to localStorage');
+      
     } catch (error: any) {
       log(`Subscription Error: ${error.message}`);
+      log(`Error name: ${error.name}`);
       log(`Error stack: ${error.stack}`);
+      
+      // iOS specific debugging
+      if (error.message.includes('service worker')) {
+        log('iOS SW issue detected - trying workaround...');
+        
+        // Try to get the registration again
+        const reg = await navigator.serviceWorker.getRegistration();
+        if (reg && reg.active) {
+          log('SW is active, retrying subscription...');
+          // Retry after a delay
+          setTimeout(() => testSubscription(), 2000);
+        }
+      }
     }
   };
 
@@ -199,11 +250,45 @@ export default function DebugMobilePage() {
     setLogs([]);
   };
 
+  const testIOSWorkaround = async () => {
+    log('=== iOS WORKAROUND TEST ===');
+    
+    try {
+      // Step 1: Ensure SW is registered and active
+      log('Step 1: Checking SW...');
+      let reg = await navigator.serviceWorker.getRegistration();
+      
+      if (!reg) {
+        log('No registration, creating new one...');
+        reg = await navigator.serviceWorker.register('/sw.js');
+      }
+      
+      // Step 2: Wait for activation
+      log('Step 2: Waiting for activation...');
+      await navigator.serviceWorker.ready;
+      
+      // Step 3: Force update
+      log('Step 3: Forcing update...');
+      await reg.update();
+      
+      // Step 4: Wait a bit
+      log('Step 4: Waiting 2 seconds...');
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      // Step 5: Try subscription
+      log('Step 5: Attempting subscription...');
+      await testSubscription();
+      
+    } catch (error: any) {
+      log(`Workaround failed: ${error.message}`);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-slate-900 p-4">
       <Card className="bg-slate-800 border-slate-700 max-w-2xl mx-auto">
         <CardHeader>
-          <CardTitle className="text-white">Mobile Debug</CardTitle>
+          <CardTitle className="text-white">Mobile Debug - iOS Fix</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-2 gap-2">
@@ -221,6 +306,9 @@ export default function DebugMobilePage() {
             </Button>
             <Button onClick={testPushNotification} size="sm">
               Test Push
+            </Button>
+            <Button onClick={testIOSWorkaround} size="sm" variant="secondary">
+              iOS Workaround
             </Button>
             <Button onClick={clearLogs} variant="destructive" size="sm">
               Clear Logs

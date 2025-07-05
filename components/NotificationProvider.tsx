@@ -36,16 +36,6 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
     if ('Notification' in window && 'serviceWorker' in navigator && 'PushManager' in window) {
       setIsSupported(true);
       setPermission(Notification.permission);
-
-      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
-      const isStandalone = window.matchMedia('(display-mode: standalone)').matches || 
-                          (window.navigator as any).standalone === true;
-
-      if (isIOS && !isStandalone) {
-        console.log('iOS detected - PWA installation required for notifications');
-        // Nu afișăm toast aici - lasă PWAInstallPrompt să se ocupe
-      }
-
       registerServiceWorker();
     }
   }, []);
@@ -53,6 +43,15 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
   const registerServiceWorker = async () => {
     try {
       console.log('[NotificationProvider] Registering service worker...');
+      
+      // Unregister old service workers first
+      const registrations = await navigator.serviceWorker.getRegistrations();
+      for (const reg of registrations) {
+        if (reg.scope !== new URL('/', window.location.href).href) {
+          await reg.unregister();
+          console.log('[NotificationProvider] Unregistered old SW:', reg.scope);
+        }
+      }
       
       const reg = await navigator.serviceWorker.register('/sw.js', {
         scope: '/',
@@ -62,20 +61,14 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
       console.log('[NotificationProvider] Service Worker registered:', reg);
       setRegistration(reg);
       
+      // Wait for the service worker to be ready
       await navigator.serviceWorker.ready;
       console.log('[NotificationProvider] Service Worker is ready');
 
+      // Check for existing subscription
       const subscription = await reg.pushManager.getSubscription();
       console.log('[NotificationProvider] Existing subscription:', !!subscription);
       setIsSubscribed(!!subscription);
-      
-      navigator.serviceWorker.addEventListener('message', event => {
-        console.log('[NotificationProvider] Message from SW:', event.data);
-      });
-      
-      reg.addEventListener('updatefound', () => {
-        console.log('[NotificationProvider] Service Worker update found');
-      });
       
     } catch (error) {
       console.error('[NotificationProvider] Service Worker registration failed:', error);
@@ -116,17 +109,8 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
       return;
     }
 
-    if (!registration) {
-      console.error('[NotificationProvider] No service worker registration');
-      toast({
-        title: "Eroare",
-        description: "Service Worker nu este înregistrat",
-        variant: "destructive"
-      });
-      return;
-    }
-
     try {
+      // Request notification permission
       console.log('[NotificationProvider] Requesting permission...');
       const permission = await Notification.requestPermission();
       console.log('[NotificationProvider] Permission result:', permission);
@@ -141,50 +125,85 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
         return;
       }
 
+      // Get or create service worker registration
+      let reg = registration;
+      if (!reg) {
+        console.log('[NotificationProvider] No registration found, creating new one...');
+        await registerServiceWorker();
+        reg = registration;
+        
+        // Wait for the new registration to be ready
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        // Get the registration again
+        const newReg = await navigator.serviceWorker.getRegistration();
+        reg = newReg || null;
+      }
+
+      if (!reg) {
+        throw new Error('Could not get service worker registration');
+      }
+
+      // Ensure service worker is ready
+      await navigator.serviceWorker.ready;
+      console.log('[NotificationProvider] Service worker ready');
+
+      // iOS specific: wait a bit more
+      if (isIOS) {
+        console.log('[NotificationProvider] iOS detected, waiting extra time...');
+        await new Promise(resolve => setTimeout(resolve, 2000));
+      }
+
+      // Check for existing subscription
+      let subscription = await reg.pushManager.getSubscription();
+      if (subscription) {
+        console.log('[NotificationProvider] Found existing subscription, unsubscribing...');
+        await subscription.unsubscribe();
+      }
+
+      // Get VAPID key
       const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
       if (!vapidPublicKey) {
-        console.error('[NotificationProvider] VAPID public key not found');
         throw new Error('VAPID public key not found');
       }
 
       console.log('[NotificationProvider] Subscribing to push manager...');
       
-      const subscription = await registration.pushManager.subscribe({
+      // Subscribe with proper options
+      subscription = await reg.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: urlBase64ToUint8Array(vapidPublicKey)
       });
 
       console.log('[NotificationProvider] Subscription successful:', subscription);
-      console.log('[NotificationProvider] Endpoint:', subscription.endpoint);
 
-      console.log('[NotificationProvider] Sending subscription to server...');
+      // Save subscription to server
       const response = await fetch('/api/push-subscribe', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          subscription,
+          subscription: subscription.toJSON(),
           deviceInfo: {
             userAgent: navigator.userAgent,
             platform: navigator.platform,
             timestamp: new Date().toISOString(),
-            isIOS: /iPad|iPhone|iPod/.test(navigator.userAgent),
-            isAndroid: /Android/.test(navigator.userAgent),
-            isPWA: window.matchMedia('(display-mode: standalone)').matches || 
-                   (window.navigator as any).standalone === true
+            isIOS: isIOS,
+            isPWA: isStandalone
           }
         }),
       });
 
       if (!response.ok) {
-        console.error('[NotificationProvider] Server response not OK:', response.status);
         throw new Error('Failed to save subscription');
       }
 
       console.log('[NotificationProvider] Subscription saved to server');
       setIsSubscribed(true);
-      localStorage.setItem('push_subscription', JSON.stringify(subscription));
+      
+      // Save to localStorage as backup
+      localStorage.setItem('push_subscription', JSON.stringify(subscription.toJSON()));
 
       toast({
         title: "Succes!",
@@ -192,31 +211,45 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
       });
 
       // Test notification after 2 seconds
-      setTimeout(() => {
-        console.log('[NotificationProvider] Sending test notification...');
-        fetch('/api/push-send', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            title: 'Test Notificare',
-            message: 'Notificările funcționează corect!',
-            url: '/',
-            subscriptionsList: [subscription]
-          })
-        }).then(res => {
-          console.log('[NotificationProvider] Test notification response:', res.status);
-        }).catch(err => {
-          console.error('[NotificationProvider] Test notification error:', err);
-        });
-      }, 2000);
+      if (!isIOS) {
+        setTimeout(() => {
+          console.log('[NotificationProvider] Sending test notification...');
+          fetch('/api/push-send', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              title: 'Test Notificare',
+              message: 'Notificările funcționează corect!',
+              url: '/',
+              subscriptionsList: [subscription.toJSON()]
+            })
+          });
+        }, 2000);
+      }
 
-    } catch (error) {
-      console.error('[NotificationProvider] Error subscribing:', error);
-      toast({
-        title: "Eroare",
-        description: "Nu s-au putut activa notificările. Vezi consola pentru detalii.",
-        variant: "destructive"
-      });
+    } catch (error: any) {
+      console.error('[NotificationProvider] Subscription error:', error);
+      
+      // iOS specific error handling
+      if (isIOS && error.message.includes('service worker')) {
+        toast({
+          title: "Eroare iOS",
+          description: "Reîncearcă după câteva secunde. Service Worker-ul se inițializează.",
+          variant: "destructive"
+        });
+        
+        // Retry after delay on iOS
+        setTimeout(() => {
+          console.log('[NotificationProvider] Retrying subscription for iOS...');
+          subscribe();
+        }, 3000);
+      } else {
+        toast({
+          title: "Eroare",
+          description: `Nu s-au putut activa notificările: ${error.message}`,
+          variant: "destructive"
+        });
+      }
     }
   };
 
