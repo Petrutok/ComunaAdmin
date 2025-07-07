@@ -176,27 +176,34 @@ export default function DebugMobilePage() {
         auth: sub.getKey('auth') ? 'present' : 'missing'
       })}`);
 
-      // Save subscription
-      localStorage.setItem('debug_subscription', JSON.stringify(sub.toJSON()));
-      log('Saved to localStorage');
+      // Save subscription to server
+      const response = await fetch('/api/push/subscribe', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          subscription: sub.toJSON(),
+          deviceInfo: {
+            userAgent: navigator.userAgent,
+            platform: 'ios'
+          }
+        }),
+      });
+
+      if (response.ok) {
+        log('Subscription saved to server');
+        // Save to localStorage as backup
+        localStorage.setItem('debug_subscription', JSON.stringify(sub.toJSON()));
+        log('Saved to localStorage');
+      } else {
+        throw new Error('Failed to save subscription to server');
+      }
       
     } catch (error: any) {
       log(`Subscription Error: ${error.message}`);
       log(`Error name: ${error.name}`);
       log(`Error stack: ${error.stack}`);
-      
-      // iOS specific debugging
-      if (error.message.includes('service worker')) {
-        log('iOS SW issue detected - trying workaround...');
-        
-        // Try to get the registration again
-        const reg = await navigator.serviceWorker.getRegistration();
-        if (reg && reg.active) {
-          log('SW is active, retrying subscription...');
-          // Retry after a delay
-          setTimeout(() => testSubscription(), 2000);
-        }
-      }
     }
   };
 
@@ -204,23 +211,15 @@ export default function DebugMobilePage() {
     log('=== PUSH TEST ===');
 
     try {
-      const subStr = localStorage.getItem('debug_subscription');
-      if (!subStr) {
-        log('ERROR: No subscription in localStorage');
-        return;
-      }
-
-      const sub = JSON.parse(subStr);
-      log('Sending push notification...');
-
-      const response = await fetch('/api/push-send', {
+      // Send via server API
+      const response = await fetch('/api/push/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          title: 'Test Push',
-          message: `Test at ${new Date().toLocaleTimeString()}`,
+          title: 'Test Push Notification',
+          body: `Test at ${new Date().toLocaleTimeString()}`,
           url: '/',
-          subscriptionsList: [sub]
+          tag: 'test-notification'
         })
       });
 
@@ -228,9 +227,9 @@ export default function DebugMobilePage() {
       log(`Response: ${JSON.stringify(result)}`);
 
       if (result.success) {
-        log('Push sent successfully! Check for notification...');
+        log(`Push sent successfully! Sent to ${result.sent} devices`);
       } else {
-        log(`Push failed: ${result.error}`);
+        log(`Push failed: ${result.error || 'Unknown error'}`);
       }
     } catch (error: any) {
       log(`Push Error: ${error.message}`);
