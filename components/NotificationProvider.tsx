@@ -1,77 +1,47 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useEffect, useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { Bell } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface NotificationContextType {
-  permission: NotificationPermission;
-  isSupported: boolean;
   isSubscribed: boolean;
+  isSupported: boolean;
   subscribe: () => Promise<void>;
   unsubscribe: () => Promise<void>;
 }
 
 const NotificationContext = createContext<NotificationContextType>({
-  permission: 'default',
-  isSupported: false,
   isSubscribed: false,
+  isSupported: false,
   subscribe: async () => {},
-  unsubscribe: async () => {}
+  unsubscribe: async () => {},
 });
 
 export const useNotifications = () => useContext(NotificationContext);
 
-interface NotificationProviderProps {
-  children: ReactNode;
-}
-
-export function NotificationProvider({ children }: NotificationProviderProps) {
-  const [permission, setPermission] = useState<NotificationPermission>('default');
-  const [isSupported, setIsSupported] = useState(false);
+export function NotificationProvider({ children }: { children: React.ReactNode }) {
   const [isSubscribed, setIsSubscribed] = useState(false);
-  const [registration, setRegistration] = useState<ServiceWorkerRegistration | null>(null);
+  const [isSupported, setIsSupported] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
-    if ('Notification' in window && 'serviceWorker' in navigator && 'PushManager' in window) {
-      setIsSupported(true);
-      setPermission(Notification.permission);
-      registerServiceWorker();
-    }
+    checkSupport();
   }, []);
 
-  const registerServiceWorker = async () => {
-    try {
-      console.log('[NotificationProvider] Registering service worker...');
-      
-      // Unregister old service workers first
-      const registrations = await navigator.serviceWorker.getRegistrations();
-      for (const reg of registrations) {
-        if (reg.scope !== new URL('/', window.location.href).href) {
-          await reg.unregister();
-          console.log('[NotificationProvider] Unregistered old SW:', reg.scope);
-        }
-      }
-      
-      const reg = await navigator.serviceWorker.register('/sw.js', {
-        scope: '/',
-        updateViaCache: 'none'
-      });
-      
-      console.log('[NotificationProvider] Service Worker registered:', reg);
-      setRegistration(reg);
-      
-      // Wait for the service worker to be ready
-      await navigator.serviceWorker.ready;
-      console.log('[NotificationProvider] Service Worker is ready');
-
-      // Check for existing subscription
-      const subscription = await reg.pushManager.getSubscription();
-      console.log('[NotificationProvider] Existing subscription:', !!subscription);
+  const checkSupport = async () => {
+    const supported = 'Notification' in window && 
+                     'serviceWorker' in navigator && 
+                     'PushManager' in window;
+    
+    setIsSupported(supported);
+    
+    if (supported) {
+      // Check if already subscribed
+      const registration = await navigator.serviceWorker.ready;
+      const subscription = await registration.pushManager.getSubscription();
       setIsSubscribed(!!subscription);
-      
-    } catch (error) {
-      console.error('[NotificationProvider] Service Worker registration failed:', error);
     }
   };
 
@@ -91,191 +61,93 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
   };
 
   const subscribe = async () => {
-    console.log('[NotificationProvider] Starting subscription process...');
-    
-    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
-    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || 
-                        (window.navigator as any).standalone === true;
-    
-    console.log('[NotificationProvider] Platform check - iOS:', isIOS, 'PWA:', isStandalone);
-    
-    if (isIOS && !isStandalone) {
-      toast({
-        title: "Instalează aplicația mai întâi",
-        description: "Pe iOS, notificările funcționează doar în aplicația instalată. Apasă Share → Add to Home Screen",
-        variant: "destructive",
-        duration: 6000
-      });
-      return;
-    }
-
     try {
-      // Request notification permission
-      console.log('[NotificationProvider] Requesting permission...');
-      const permission = await Notification.requestPermission();
-      console.log('[NotificationProvider] Permission result:', permission);
-      setPermission(permission);
+      // Check iOS specific requirements
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+      const isStandalone = window.matchMedia('(display-mode: standalone)').matches || 
+                          (window.navigator as any).standalone === true;
+      
+      if (isIOS && !isStandalone) {
+        toast({
+          title: "Instalează aplicația mai întâi",
+          description: "Pe iOS, notificările funcționează doar în aplicația instalată. Apasă Share → Add to Home Screen",
+          variant: "destructive",
+          duration: 6000
+        });
+        return;
+      }
 
+      // Request notification permission
+      const permission = await Notification.requestPermission();
+      
       if (permission !== 'granted') {
         toast({
           title: "Permisiune refuzată",
-          description: "Nu poți primi notificări fără permisiune",
+          description: "Nu s-au putut activa notificările",
           variant: "destructive"
         });
         return;
       }
 
-      // Get or create service worker registration
-      let reg = registration;
-      if (!reg) {
-        console.log('[NotificationProvider] No registration found, creating new one...');
-        await registerServiceWorker();
-        reg = registration;
-        
-        // Wait for the new registration to be ready
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        // Get the registration again
-        const newReg = await navigator.serviceWorker.getRegistration();
-        reg = newReg || null;
-      }
+      // Get service worker registration
+      const registration = await navigator.serviceWorker.ready;
 
-      if (!reg) {
-        throw new Error('Could not get service worker registration');
-      }
-
-      // Ensure service worker is ready
-      await navigator.serviceWorker.ready;
-      console.log('[NotificationProvider] Service worker ready');
-
-      // iOS specific: wait a bit more
-      if (isIOS) {
-        console.log('[NotificationProvider] iOS detected, waiting extra time...');
-        await new Promise(resolve => setTimeout(resolve, 2000));
-      }
-
-      // Check for existing subscription
-      let subscription = await reg.pushManager.getSubscription();
-      if (subscription) {
-        console.log('[NotificationProvider] Found existing subscription, unsubscribing...');
-        await subscription.unsubscribe();
-      }
-
-      // Get VAPID key
-      const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
-      if (!vapidPublicKey) {
-        throw new Error('VAPID public key not found');
-      }
-
-      console.log('[NotificationProvider] Subscribing to push manager...');
-      
-      // Subscribe with proper options
-      subscription = await reg.pushManager.subscribe({
+      // Subscribe to push notifications
+      const subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(vapidPublicKey)
+        applicationServerKey: urlBase64ToUint8Array(
+          process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!
+        )
       });
 
-      console.log('[NotificationProvider] Subscription successful:', subscription);
+      // Get device info
+      const deviceInfo = {
+        userAgent: navigator.userAgent,
+        platform: detectPlatform(),
+      };
 
-      // Save subscription to server
-      const response = await fetch('/api/push-subscribe', {
+      // Send subscription to server
+      const response = await fetch('/api/push/subscribe', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          subscription: subscription.toJSON(),
-          deviceInfo: {
-            userAgent: navigator.userAgent,
-            platform: navigator.platform,
-            timestamp: new Date().toISOString(),
-            isIOS: isIOS,
-            isPWA: isStandalone
-          }
+          subscription,
+          deviceInfo
         }),
       });
 
-      if (!response.ok) {
+      if (response.ok) {
+        setIsSubscribed(true);
+        toast({
+          title: "Succes!",
+          description: "Notificările au fost activate",
+        });
+      } else {
         throw new Error('Failed to save subscription');
       }
-
-      // IMPORTANT: Salvează și în Firestore pentru notificări în masă
-      try {
-        const { saveSubscription } = await import('@/lib/notificationSystem');
-        await saveSubscription(subscription, {
-          userAgent: navigator.userAgent,
-          platform: navigator.platform,
-          isIOS: isIOS,
-          isPWA: isStandalone
-        });
-        console.log('[NotificationProvider] Subscription saved to Firestore');
-      } catch (firebaseError) {
-        console.error('[NotificationProvider] Failed to save to Firestore:', firebaseError);
-      }
-
-      console.log('[NotificationProvider] Subscription saved to server');
-      setIsSubscribed(true);
-      
-      // Save to localStorage as backup
-      localStorage.setItem('push_subscription', JSON.stringify(subscription.toJSON()));
-
+    } catch (error) {
+      console.error('Error subscribing:', error);
       toast({
-        title: "Succes!",
-        description: "Notificările au fost activate",
+        title: "Eroare",
+        description: "Nu s-au putut activa notificările",
+        variant: "destructive"
       });
-
-      // Test notification after 2 seconds
-      if (!isIOS) {
-        setTimeout(() => {
-          console.log('[NotificationProvider] Sending test notification...');
-          fetch('/api/push-send', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              title: 'Test Notificare',
-              message: 'Notificările funcționează corect!',
-              url: '/',
-              subscriptionsList: [subscription.toJSON()]
-            })
-          });
-        }, 2000);
-      }
-
-    } catch (error: any) {
-      console.error('[NotificationProvider] Subscription error:', error);
-      
-      // iOS specific error handling
-      if (isIOS && error.message.includes('service worker')) {
-        toast({
-          title: "Eroare iOS",
-          description: "Reîncearcă după câteva secunde. Service Worker-ul se inițializează.",
-          variant: "destructive"
-        });
-        
-        // Retry after delay on iOS
-        setTimeout(() => {
-          console.log('[NotificationProvider] Retrying subscription for iOS...');
-          subscribe();
-        }, 3000);
-      } else {
-        toast({
-          title: "Eroare",
-          description: `Nu s-au putut activa notificările: ${error.message}`,
-          variant: "destructive"
-        });
-      }
     }
   };
 
   const unsubscribe = async () => {
-    if (!registration) return;
-
     try {
+      const registration = await navigator.serviceWorker.ready;
       const subscription = await registration.pushManager.getSubscription();
+      
       if (subscription) {
+        // Unsubscribe from push
         await subscription.unsubscribe();
-
-        await fetch('/api/push-subscribe', {
+        
+        // Notify server
+        await fetch('/api/push/subscribe', {
           method: 'DELETE',
           headers: {
             'Content-Type': 'application/json',
@@ -284,10 +156,8 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
             endpoint: subscription.endpoint
           }),
         });
-
-        localStorage.removeItem('push_subscription');
+        
         setIsSubscribed(false);
-
         toast({
           title: "Notificări dezactivate",
           description: "Nu vei mai primi notificări",
@@ -304,16 +174,42 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
   };
 
   return (
-    <NotificationContext.Provider 
-      value={{ 
-        permission, 
-        isSupported, 
-        isSubscribed, 
-        subscribe, 
-        unsubscribe 
-      }}
-    >
+    <NotificationContext.Provider value={{ isSubscribed, isSupported, subscribe, unsubscribe }}>
       {children}
     </NotificationContext.Provider>
+  );
+}
+
+function detectPlatform(): 'web' | 'ios' | 'android' {
+  const userAgent = navigator.userAgent || navigator.vendor;
+  
+  if (/android/i.test(userAgent)) {
+    return 'android';
+  }
+  
+  if (/iPad|iPhone|iPod/.test(userAgent) && !(window as any).MSStream) {
+    return 'ios';
+  }
+  
+  return 'web';
+}
+
+export function NotificationButton() {
+  const { isSubscribed, isSupported, subscribe, unsubscribe } = useNotifications();
+  
+  if (!isSupported) {
+    return null;
+  }
+
+  return (
+    <Button
+      onClick={isSubscribed ? unsubscribe : subscribe}
+      variant="outline"
+      size="sm"
+      className="flex items-center gap-2"
+    >
+      <Bell className={`h-4 w-4 ${isSubscribed ? 'text-green-500' : ''}`} />
+      {isSubscribed ? 'Notificări active' : 'Activează notificări'}
+    </Button>
   );
 }

@@ -1,5 +1,22 @@
 // app/api/push-subscribe/route.ts
 import { NextRequest, NextResponse } from 'next/server';
+import { db } from '@/lib/firebase';
+import { collection, doc, setDoc, updateDoc } from 'firebase/firestore';
+import crypto from 'crypto';
+
+function detectPlatform(userAgent?: string): 'web' | 'ios' | 'android' {
+  const ua = userAgent || '';
+  
+  if (/android/i.test(ua)) {
+    return 'android';
+  }
+  
+  if (/iPad|iPhone|iPod/.test(ua) && !(window as any).MSStream) {
+    return 'ios';
+  }
+  
+  return 'web';
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -12,16 +29,40 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    // For now, just acknowledge the subscription
-    // In production, you'd save this to a database
-    console.log('New subscription:', {
+    // Create a unique ID from the endpoint
+    const endpointHash = crypto
+      .createHash('sha256')
+      .update(subscription.endpoint)
+      .digest('hex')
+      .substring(0, 16);
+    
+    // Save subscription to Firestore
+    const subscriptionData = {
       endpoint: subscription.endpoint,
-      deviceInfo
-    });
+      keys: subscription.keys,
+      expirationTime: subscription.expirationTime,
+      active: true,
+      platform: deviceInfo?.platform || detectPlatform(deviceInfo?.userAgent),
+      userAgent: deviceInfo?.userAgent || '',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      lastUsedAt: null,
+      failureCount: 0
+    };
+    
+    // Use setDoc to create or update
+    await setDoc(
+      doc(db, 'push_subscriptions', endpointHash), 
+      subscriptionData,
+      { merge: true }
+    );
+    
+    console.log('Subscription saved to Firestore:', endpointHash);
     
     return NextResponse.json({ 
       success: true,
-      message: 'Subscription saved'
+      message: 'Subscription saved successfully',
+      id: endpointHash
     });
     
   } catch (error) {
@@ -44,8 +85,20 @@ export async function DELETE(request: NextRequest) {
       );
     }
     
-    // In production, remove from database
-    console.log('Unsubscribe:', endpoint);
+    // Create hash from endpoint
+    const endpointHash = crypto
+      .createHash('sha256')
+      .update(endpoint)
+      .digest('hex')
+      .substring(0, 16);
+    
+    // Update subscription as inactive instead of deleting
+    await updateDoc(doc(db, 'push_subscriptions', endpointHash), {
+      active: false,
+      updatedAt: new Date()
+    });
+    
+    console.log('Subscription deactivated:', endpointHash);
     
     return NextResponse.json({ success: true });
     

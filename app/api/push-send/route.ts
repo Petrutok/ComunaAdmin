@@ -1,6 +1,8 @@
 // app/api/push-send/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import webpush from 'web-push';
+import { db } from '@/lib/firebase';
+import { collection, query, where, getDocs, updateDoc, doc, addDoc } from 'firebase/firestore';
 
 // Configure web-push
 const vapidEmail = process.env.VAPID_EMAIL || 'mailto:admin@primaria.ro';
@@ -10,9 +12,6 @@ const privateKey = process.env.VAPID_PRIVATE_KEY;
 if (publicKey && privateKey) {
   webpush.setVapidDetails(vapidEmail, publicKey, privateKey);
 }
-
-// Temporary storage for subscriptions (in production, use a database)
-let subscriptions: any[] = [];
 
 export async function POST(request: NextRequest) {
   try {
@@ -33,8 +32,21 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    // Use provided subscriptions or stored ones
-    const targetSubscriptions = subscriptionsList || subscriptions;
+    let targetSubscriptions = subscriptionsList || [];
+    
+    // If no specific subscriptions provided, get all active ones from Firestore
+    if (!subscriptionsList || subscriptionsList.length === 0) {
+      const q = query(
+        collection(db, 'push_subscriptions'),
+        where('active', '==', true)
+      );
+      
+      const snapshot = await getDocs(q);
+      targetSubscriptions = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+    }
     
     if (targetSubscriptions.length === 0) {
       return NextResponse.json({
@@ -47,7 +59,10 @@ export async function POST(request: NextRequest) {
     const payload = JSON.stringify({
       title,
       body: message,
-      url: url || '/'
+      icon: '/icon-192x192.png',
+      badge: '/icon-192x192.png',
+      url: url || '/',
+      timestamp: new Date().toISOString()
     });
     
     let successCount = 0;
@@ -56,15 +71,47 @@ export async function POST(request: NextRequest) {
     // Send to all subscriptions
     const sendPromises = targetSubscriptions.map(async (subscription: any) => {
       try {
-        await webpush.sendNotification(subscription, payload);
+        const pushSubscription = {
+          endpoint: subscription.endpoint,
+          keys: subscription.keys
+        };
+        
+        await webpush.sendNotification(pushSubscription, payload);
         successCount++;
+        
+        // Update last used timestamp
+        if (subscription.id) {
+          await updateDoc(doc(db, 'push_subscriptions', subscription.id), {
+            lastUsedAt: new Date(),
+            failureCount: 0
+          });
+        }
       } catch (error: any) {
         failureCount++;
         console.error('Send error:', error);
+        
+        // Handle expired subscriptions
+        if (error.statusCode === 410 && subscription.id) {
+          await updateDoc(doc(db, 'push_subscriptions', subscription.id), {
+            active: false,
+            updatedAt: new Date()
+          });
+        }
       }
     });
     
     await Promise.all(sendPromises);
+    
+    // Save notification log
+    await addDoc(collection(db, 'notification_logs'), {
+      title,
+      message,
+      url,
+      sentAt: new Date(),
+      totalSent: successCount,
+      totalFailed: failureCount,
+      sentBy: 'admin'
+    });
     
     return NextResponse.json({
       success: true,
@@ -79,30 +126,5 @@ export async function POST(request: NextRequest) {
       { error: 'Failed to send push notifications' },
       { status: 500 }
     );
-  }
-}
-
-// Store subscriptions temporarily
-export async function PUT(request: NextRequest) {
-  try {
-    const { subscription } = await request.json();
-    
-    if (!subscription) {
-      return NextResponse.json({ error: 'Subscription required' }, { status: 400 });
-    }
-    
-    // Add to memory storage
-    const exists = subscriptions.find(sub => sub.endpoint === subscription.endpoint);
-    if (!exists) {
-      subscriptions.push(subscription);
-    }
-    
-    return NextResponse.json({ 
-      success: true, 
-      totalSubscriptions: subscriptions.length 
-    });
-    
-  } catch (error) {
-    return NextResponse.json({ error: 'Failed to store subscription' }, { status: 500 });
   }
 }

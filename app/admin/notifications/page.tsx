@@ -46,41 +46,20 @@ export default function AdminNotificationsPage() {
   };
 
   const sendTestNotification = async () => {
-    // Try to get subscription from multiple sources
-    let subscriptionStr = localStorage.getItem('push_subscription') || 
-                         localStorage.getItem('debug_subscription');
-    
-    console.log('[Admin] Looking for subscription...');
-    console.log('[Admin] push_subscription:', localStorage.getItem('push_subscription'));
-    console.log('[Admin] debug_subscription:', localStorage.getItem('debug_subscription'));
-    
-    if (!subscriptionStr) {
-      toast({
-        title: "Eroare",
-        description: "Nu ai activat notificările. Folosește butonul de notificări din aplicație sau /debug-mobile",
-        variant: "destructive",
-      });
-      return;
-    }
-
     setSending(true);
     
     try {
-      const subscription = JSON.parse(subscriptionStr);
-      console.log('[Admin] Using subscription:', subscription);
-      console.log('[Admin] Subscription endpoint:', subscription.endpoint);
-      
       const payload = {
         title: title || 'Test Notificare Admin',
-        message: message || 'Aceasta este o notificare de test din panoul admin',
+        body: message || 'Aceasta este o notificare de test din panoul admin',
         url: url || '/',
-        subscriptionsList: [subscription]
+        tag: 'admin-notification'
       };
       
-      console.log('[Admin] Sending payload:', payload);
+      console.log('[Admin] Sending push notification:', payload);
       
-      // Send notification
-      const response = await fetch('/api/push-send', {
+      // Send via Web Push API
+      const response = await fetch('/api/push/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -90,10 +69,10 @@ export default function AdminNotificationsPage() {
       const result = await response.json();
       console.log('[Admin] Send result:', result);
 
-      if (result.success && result.sent > 0) {
+      if (result.success) {
         toast({
           title: "Notificare trimisă!",
-          description: "Verifică dispozitivul tău pentru notificare.",
+          description: `Trimisă la ${result.sent} dispozitive. ${result.failed} eșuate.`,
         });
         
         // Clear form
@@ -118,157 +97,76 @@ export default function AdminNotificationsPage() {
     } finally {
       setSending(false);
     }
-  };
-
-  const copyDebugSubscription = () => {
-    // This helps to sync subscription from debug page
-    const debugSub = localStorage.getItem('debug_subscription');
-    if (debugSub) {
-      localStorage.setItem('push_subscription', debugSub);
-      checkSubscription();
-      toast({
-        title: "Succes",
-        description: "Subscription copiat din debug page",
-      });
-    } else {
-      toast({
-        title: "Eroare",
-        description: "Nu există subscription în debug page",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    sendTestNotification();
-  };
+  }; // <-- Aici lipsea paranteza de închidere
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
-      <h1 className="text-3xl font-bold text-white">Test Notificări</h1>
-
-      <Card className="bg-slate-800 border-slate-700">
+    <div className="container mx-auto p-6">
+      <Card>
         <CardHeader>
-          <CardTitle className="text-white flex items-center gap-2">
+          <CardTitle className="flex items-center gap-2">
             <Bell className="h-5 w-5" />
-            Trimite Notificare Test
+            Trimite Notificare Push
           </CardTitle>
-          <CardDescription className="text-gray-400">
-            Testează notificările pe dispozitivul tău
+          <CardDescription>
+            Trimite notificări push către utilizatorii care au permis notificări
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="title" className="text-gray-200">
-                Titlu notificare
-              </Label>
-              <Input
-                id="title"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="Test Notificare Admin"
-                className="bg-slate-900 border-slate-600 text-white"
-              />
+        <CardContent className="space-y-4">
+          {!hasSubscription && (
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 flex items-start gap-2">
+              <AlertCircle className="h-5 w-5 text-yellow-600 mt-0.5" />
+              <div className="text-sm text-yellow-800">
+                <p className="font-medium">Nu există subscripții active</p>
+                <p className="mt-1">Asigură-te că ai permis notificările în browser înainte de a trimite.</p>
+              </div>
             </div>
+          )}
 
-            <div className="space-y-2">
-              <Label htmlFor="message" className="text-gray-200">
-                Mesaj
-              </Label>
-              <Textarea
-                id="message"
-                value={message}
-                onChange={(e) => setMessage(e.target.value)}
-                placeholder="Aceasta este o notificare de test"
-                rows={3}
-                className="bg-slate-900 border-slate-600 text-white"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="url" className="text-gray-200">
-                URL (opțional)
-              </Label>
-              <Input
-                id="url"
-                value={url}
-                onChange={(e) => setUrl(e.target.value)}
-                placeholder="/"
-                className="bg-slate-900 border-slate-600 text-white"
-              />
-            </div>
-
-            <Button
-              onClick={sendTestNotification}
-              className="w-full"
-              disabled={sending || !hasSubscription}
-            >
-              {sending ? (
-                "Se trimite..."
-              ) : !hasSubscription ? (
-                "Activează notificările mai întâi"
-              ) : (
-                <>
-                  <Send className="h-4 w-4 mr-2" />
-                  Trimite Test
-                </>
-              )}
-            </Button>
+          <div className="space-y-2">
+            <Label htmlFor="title">Titlu notificare</Label>
+            <Input
+              id="title"
+              placeholder="Ex: Ofertă specială"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+            />
           </div>
 
-          {/* Debug info */}
-          <div className="mt-4 p-3 bg-slate-900 rounded text-xs text-gray-400">
-            <p className="font-mono">{debugInfo}</p>
+          <div className="space-y-2">
+            <Label htmlFor="message">Mesaj</Label>
+            <Textarea
+              id="message"
+              placeholder="Ex: Reducere 20% la toate produsele!"
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              rows={3}
+            />
           </div>
-        </CardContent>
-      </Card>
 
-      {!hasSubscription && (
-        <div className="bg-orange-900/20 border border-orange-700 rounded-lg p-4">
-          <div className="flex items-start gap-3">
-            <AlertCircle className="h-5 w-5 text-orange-400 mt-0.5" />
-            <div className="flex-1">
-              <p className="text-sm text-orange-300 font-medium mb-2">
-                Nu ai activat notificările pe acest dispozitiv
-              </p>
-              <p className="text-sm text-gray-400 mb-3">
-                Pentru a activa notificările:
-              </p>
-              <ol className="list-decimal list-inside text-sm text-gray-400 space-y-1 mb-3">
-                <li>Mergi la <a href="/debug-mobile" className="text-blue-400 underline">/debug-mobile</a></li>
-                <li>Apasă "iOS Workaround" (pentru iOS) sau "Test Subscription"</li>
-                <li>Revino aici după ce vezi "Subscription successful!"</li>
-              </ol>
-              <Button
-                onClick={copyDebugSubscription}
-                size="sm"
-                variant="outline"
-                className="mt-2"
-              >
-                Copiază subscription din debug
-              </Button>
+          <div className="space-y-2">
+            <Label htmlFor="url">URL destinație (opțional)</Label>
+            <Input
+              id="url"
+              placeholder="Ex: /oferte"
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+            />
+          </div>
+
+          {debugInfo && (
+            <div className="bg-gray-100 rounded p-3 text-xs font-mono whitespace-pre-wrap">
+              {debugInfo}
             </div>
-          </div>
-        </div>
-      )}
+          )}
 
-      {/* Quick links */}
-      <Card className="bg-slate-800 border-slate-700">
-        <CardContent className="p-4">
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-gray-400">
-              Pentru debugging avansat:
-            </span>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => window.open('/debug-mobile', '_blank')}
-            >
-              Deschide Debug Mobile
-            </Button>
-          </div>
+          <Button 
+            onClick={sendTestNotification} 
+            disabled={sending || (!title && !message)}
+            className="w-full"
+          >
+            <Send className="h-4 w-4 mr-2" />
+            {sending ? 'Se trimite...' : 'Trimite Notificare'}
+          </Button>
         </CardContent>
       </Card>
     </div>

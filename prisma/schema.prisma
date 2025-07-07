@@ -1,0 +1,46 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+model PushSubscription {
+  id            String   @id @default(cuid())
+  endpointHash  String   @unique
+  endpoint      String   @db.Text
+  p256dh        String
+  auth          String
+  active        Boolean  @default(true)
+  platform      String   @default("unknown")
+  userAgent     String?  @db.Text
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  lastUsedAt    DateTime?
+  failureCount  Int      @default(0)
+  
+  @@index([active])
+  @@index([platform])
+}
+
+model NotificationLog {
+  id           String   @id @default(cuid())
+  title        String
+  body         String   @db.Text
+  url          String?
+  imageUrl     String?
+  sentAt       DateTime @default(now())
+  totalSent    Int      @default(0)
+  totalFailed  Int      @default(0)
+  sentBy       String?
+  
+  @@index([sentAt])
+}

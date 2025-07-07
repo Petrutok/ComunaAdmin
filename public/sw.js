@@ -1,137 +1,111 @@
-// public/sw.js - iOS Compatible Service Worker
-const CACHE_NAME = 'comuna-v3';
-const urlsToCache = [
-  '/',
-  '/offline.html',
-  '/icon-192x192.png',
-  '/icon-512x512.png'
-];
+// Add this to your existing sw.js file
 
-// Install event
-self.addEventListener('install', (event) => {
-  console.log('[SW] Install event');
-  event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then((cache) => cache.addAll(urlsToCache))
-      .then(() => self.skipWaiting())
-  );
-});
-
-// Activate event
-self.addEventListener('activate', (event) => {
-  console.log('[SW] Activate event');
-  event.waitUntil(
-    caches.keys()
-      .then((cacheNames) => {
-        return Promise.all(
-          cacheNames.map((cacheName) => {
-            if (cacheName !== CACHE_NAME) {
-              return caches.delete(cacheName);
-            }
-          })
-        );
-      })
-      .then(() => self.clients.claim())
-  );
-});
-
-// Fetch event
-self.addEventListener('fetch', (event) => {
-  if (event.request.method !== 'GET') return;
+// Handle push events
+self.addEventListener('push', function(event) {
+  console.log('[Service Worker] Push Received.');
   
-  event.respondWith(
-    fetch(event.request)
-      .catch(() => caches.match(event.request))
-      .then((response) => response || caches.match('/offline.html'))
-  );
-});
-
-// Push event
-self.addEventListener('push', (event) => {
-  console.log('[SW] Push received:', event);
-  
-  let data = {
-    title: 'Comuna - Notificare',
-    body: 'Ai primit o notificare nouă',
-    icon: '/icon-192x192.png',
-    badge: '/icon-192x192.png',
-    tag: 'comuna-notification',
-    data: { url: '/' }
-  };
-
-  if (event.data) {
-    try {
-      const payload = event.data.json();
-      console.log('[SW] Push payload:', payload);
-      
-      data = {
-        title: payload.title || data.title,
-        body: payload.body || payload.message || data.body,
-        icon: payload.icon || data.icon,
-        badge: payload.badge || data.badge,
-        tag: payload.tag || data.tag,
-        data: {
-          url: payload.url || payload.data?.url || '/'
-        }
-      };
-    } catch (e) {
-      console.error('[SW] Error parsing push data:', e);
-    }
+  if (!event.data) {
+    console.log('[Service Worker] No data in push event');
+    return;
   }
 
-  const options = {
-    body: data.body,
-    icon: data.icon,
-    badge: data.badge,
-    tag: data.tag,
-    data: data.data,
-    requireInteraction: false,
-    silent: false,
-    vibrate: [200, 100, 200]
-  };
+  try {
+    const data = event.data.json();
+    const { notification } = data;
+    
+    const title = notification.title || 'Notificare nouă';
+    const options = {
+      body: notification.body || '',
+      icon: notification.icon || '/icon-192x192.png',
+      badge: notification.badge || '/icon-192x192.png',
+      image: notification.image,
+      vibrate: notification.vibrate || [200, 100, 200],
+      tag: notification.tag || 'default',
+      requireInteraction: notification.requireInteraction || false,
+      data: notification.data || {},
+      actions: notification.actions || []
+    };
 
-  console.log('[SW] Showing notification with options:', options);
-
-  event.waitUntil(
-    self.registration.showNotification(data.title, options)
-      .then(() => {
-        console.log('[SW] Notification displayed successfully');
-      })
-      .catch((error) => {
-        console.error('[SW] Error showing notification:', error);
-      })
-  );
+    event.waitUntil(
+      self.registration.showNotification(title, options)
+    );
+  } catch (error) {
+    console.error('[Service Worker] Error parsing push data:', error);
+  }
 });
 
-// Notification click
-self.addEventListener('notificationclick', (event) => {
-  console.log('[SW] Notification clicked');
+// Handle notification clicks
+self.addEventListener('notificationclick', function(event) {
+  console.log('[Service Worker] Notification click Received.');
+  
   event.notification.close();
 
   const urlToOpen = event.notification.data?.url || '/';
   
+  // Handle action clicks
+  if (event.action === 'close') {
+    return;
+  }
+  
+  // Open URL
   event.waitUntil(
-    clients.matchAll({
-      type: 'window',
-      includeUncontrolled: true
-    }).then((clientList) => {
-      for (const client of clientList) {
-        if (client.url === urlToOpen && 'focus' in client) {
-          return client.focus();
+    clients.matchAll({ type: 'window', includeUncontrolled: true })
+      .then(function(clientList) {
+        // Check if there's already a window/tab open
+        for (let i = 0; i < clientList.length; i++) {
+          const client = clientList[i];
+          if (client.url.includes(self.location.origin) && 'focus' in client) {
+            return client.navigate(urlToOpen).then(() => client.focus());
+          }
         }
-      }
-      if (clients.openWindow) {
-        return clients.openWindow(urlToOpen);
-      }
+        // If not, open a new window/tab
+        if (clients.openWindow) {
+          return clients.openWindow(urlToOpen);
+        }
+      })
+  );
+});
+
+// Handle push subscription change
+self.addEventListener('pushsubscriptionchange', function(event) {
+  console.log('[Service Worker] Push subscription changed.');
+  
+  event.waitUntil(
+    self.registration.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY)
+    })
+    .then(function(subscription) {
+      // Send new subscription to server
+      return fetch('/api/push/subscribe', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          subscription: subscription,
+          deviceInfo: {
+            userAgent: 'ServiceWorker',
+            platform: 'web'
+          }
+        })
+      });
     })
   );
 });
 
-// Message handler
-self.addEventListener('message', (event) => {
-  console.log('[SW] Message received:', event.data);
-  
-  if (event.data && event.data.type === 'SKIP_WAITING') {
-    self.skipWaiting();
+// Helper function
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding)
+    .replace(/\-/g, '+')
+    .replace(/_/g, '/');
+
+  const rawData = atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+
+  for (let i = 0; i < rawData.length; ++i) {
+    outputArray[i] = rawData.charCodeAt(i);
   }
-});
+  return outputArray;
+}
