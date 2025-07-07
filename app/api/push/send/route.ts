@@ -1,4 +1,3 @@
-// app/api/push-send/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import webpush from 'web-push';
 import { db } from '@/lib/firebase';
@@ -23,45 +22,39 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { title, message, url, subscriptionsList } = await request.json();
+    const { title, body, url, tag } = await request.json();
     
-    if (!title || !message) {
+    if (!title || !body) {
       return NextResponse.json(
-        { error: 'Title and message are required' },
+        { error: 'Title and body are required' },
         { status: 400 }
       );
     }
+
+    // Get all active subscriptions from Firestore
+    const q = query(
+      collection(db, 'push_subscriptions'),
+      where('active', '==', true)
+    );
     
-    let targetSubscriptions = subscriptionsList || [];
+    const snapshot = await getDocs(q);
     
-    // If no specific subscriptions provided, get all active ones from Firestore
-    if (!subscriptionsList || subscriptionsList.length === 0) {
-      const q = query(
-        collection(db, 'push_subscriptions'),
-        where('active', '==', true)
-      );
-      
-      const snapshot = await getDocs(q);
-      targetSubscriptions = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-    }
-    
-    if (targetSubscriptions.length === 0) {
+    if (snapshot.empty) {
       return NextResponse.json({
         success: true,
         sent: 0,
-        message: 'No active subscriptions'
+        failed: 0,
+        message: 'No active subscriptions found'
       });
     }
-    
+
     const payload = JSON.stringify({
       title,
-      body: message,
+      body,
       icon: '/icon-192x192.png',
       badge: '/icon-192x192.png',
       url: url || '/',
+      tag: tag || 'admin-notification',
       timestamp: new Date().toISOString()
     });
     
@@ -69,30 +62,33 @@ export async function POST(request: NextRequest) {
     let failureCount = 0;
     
     // Send to all subscriptions
-    const sendPromises = targetSubscriptions.map(async (subscription: any) => {
+    const sendPromises = snapshot.docs.map(async (docSnapshot) => {
+      const subscription = docSnapshot.data();
+      
       try {
         const pushSubscription = {
           endpoint: subscription.endpoint,
-          keys: subscription.keys
+          keys: {
+            p256dh: subscription.keys?.p256dh,
+            auth: subscription.keys?.auth
+          }
         };
         
         await webpush.sendNotification(pushSubscription, payload);
         successCount++;
         
         // Update last used timestamp
-        if (subscription.id) {
-          await updateDoc(doc(db, 'push_subscriptions', subscription.id), {
-            lastUsedAt: new Date(),
-            failureCount: 0
-          });
-        }
+        await updateDoc(doc(db, 'push_subscriptions', docSnapshot.id), {
+          lastUsedAt: new Date(),
+          failureCount: 0
+        });
       } catch (error: any) {
         failureCount++;
         console.error('Send error:', error);
         
         // Handle expired subscriptions
-        if (error.statusCode === 410 && subscription.id) {
-          await updateDoc(doc(db, 'push_subscriptions', subscription.id), {
+        if (error.statusCode === 410) {
+          await updateDoc(doc(db, 'push_subscriptions', docSnapshot.id), {
             active: false,
             updatedAt: new Date()
           });
@@ -105,7 +101,7 @@ export async function POST(request: NextRequest) {
     // Save notification log
     await addDoc(collection(db, 'notification_logs'), {
       title,
-      message,
+      body,
       url,
       sentAt: new Date(),
       totalSent: successCount,
@@ -117,7 +113,7 @@ export async function POST(request: NextRequest) {
       success: true,
       sent: successCount,
       failed: failureCount,
-      total: targetSubscriptions.length
+      total: snapshot.size
     });
     
   } catch (error) {
