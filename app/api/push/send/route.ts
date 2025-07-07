@@ -55,7 +55,11 @@ export async function POST(request: NextRequest) {
       badge: '/icon-192x192.png',
       url: url || '/',
       tag: tag || 'admin-notification',
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      // Adaugă pentru iOS:
+      data: {
+        url: url || '/'
+      }
     });
     
     let successCount = 0;

@@ -1,100 +1,126 @@
-// Add this to your existing sw.js file
+// Service Worker pentru Comuna App
+console.log('[SW] Service Worker loading...');
 
-// Handle push events
+// Cache configuration
+const CACHE_NAME = 'comuna-v2';
+const urlsToCache = [
+  '/',
+  '/offline.html',
+  '/icon-192x192.png',
+  '/icon-512x512.png'
+];
+
+// Install event
+self.addEventListener('install', (event) => {
+  console.log('[SW] Install event');
+  event.waitUntil(
+    caches.open(CACHE_NAME)
+      .then((cache) => cache.addAll(urlsToCache))
+      .then(() => self.skipWaiting())
+  );
+});
+
+// Activate event
+self.addEventListener('activate', (event) => {
+  console.log('[SW] Activate event');
+  event.waitUntil(
+    caches.keys()
+      .then((cacheNames) => {
+        return Promise.all(
+          cacheNames.map((cacheName) => {
+            if (cacheName !== CACHE_NAME) {
+              return caches.delete(cacheName);
+            }
+          })
+        );
+      })
+      .then(() => self.clients.claim())
+  );
+});
+
+// Fetch event
+self.addEventListener('fetch', (event) => {
+  if (event.request.method !== 'GET') return;
+  
+  event.respondWith(
+    fetch(event.request)
+      .catch(() => caches.match(event.request))
+      .then((response) => response || caches.match('/offline.html'))
+  );
+});
+
+// Push event
 self.addEventListener('push', function(event) {
-  console.log('[Service Worker] Push Received.');
+  console.log('[SW] Push received');
   
   if (!event.data) {
-    console.log('[Service Worker] No data in push event');
+    console.log('[SW] No data in push event');
     return;
   }
 
-  try {
-    const data = event.data.json();
-    const { notification } = data;
-    
-    const title = notification.title || 'Notificare nouă';
-    const options = {
-      body: notification.body || '',
-      icon: notification.icon || '/icon-192x192.png',
-      badge: notification.badge || '/icon-192x192.png',
-      image: notification.image,
-      vibrate: notification.vibrate || [200, 100, 200],
-      tag: notification.tag || 'default',
-      requireInteraction: notification.requireInteraction || false,
-      data: notification.data || {},
-      actions: notification.actions || []
-    };
+  let data = {
+    title: 'Notificare nouă',
+    body: 'Ai primit o notificare',
+    icon: '/icon-192x192.png',
+    badge: '/icon-192x192.png'
+  };
 
-    event.waitUntil(
-      self.registration.showNotification(title, options)
-    );
-  } catch (error) {
-    console.error('[Service Worker] Error parsing push data:', error);
+  try {
+    data = event.data.json();
+    console.log('[SW] Push data:', data);
+  } catch (e) {
+    console.error('[SW] Error parsing push data:', e);
   }
+
+  const options = {
+    body: data.body || data.message || 'Notificare nouă',
+    icon: data.icon || '/icon-192x192.png',
+    badge: data.badge || '/icon-192x192.png',
+    tag: data.tag || 'default',
+    requireInteraction: false,
+    renotify: true,
+    silent: false,
+    vibrate: [200, 100, 200],
+    data: {
+      url: data.url || data.data?.url || '/'
+    }
+  };
+
+  event.waitUntil(
+    self.registration.showNotification(data.title || 'Notificare', options)
+      .then(() => console.log('[SW] Notification shown'))
+      .catch((error) => console.error('[SW] Error showing notification:', error))
+  );
 });
 
-// Handle notification clicks
+// Notification click event
 self.addEventListener('notificationclick', function(event) {
-  console.log('[Service Worker] Notification click Received.');
-  
+  console.log('[SW] Notification clicked');
   event.notification.close();
 
   const urlToOpen = event.notification.data?.url || '/';
   
-  // Handle action clicks
-  if (event.action === 'close') {
-    return;
-  }
-  
-  // Open URL
   event.waitUntil(
-    clients.matchAll({ type: 'window', includeUncontrolled: true })
-      .then(function(clientList) {
-        // Check if there's already a window/tab open
-        for (let i = 0; i < clientList.length; i++) {
-          const client = clientList[i];
-          if (client.url.includes(self.location.origin) && 'focus' in client) {
-            return client.navigate(urlToOpen).then(() => client.focus());
-          }
+    clients.matchAll({ 
+      type: 'window', 
+      includeUncontrolled: true 
+    }).then(function(clientList) {
+      // Focus existing window
+      for (let i = 0; i < clientList.length; i++) {
+        const client = clientList[i];
+        if (client.url.includes(self.location.origin) && 'focus' in client) {
+          return client.navigate(urlToOpen).then(() => client.focus());
         }
-        // If not, open a new window/tab
-        if (clients.openWindow) {
-          return clients.openWindow(urlToOpen);
-        }
-      })
-  );
-});
-
-// Handle push subscription change
-self.addEventListener('pushsubscriptionchange', function(event) {
-  console.log('[Service Worker] Push subscription changed.');
-  
-  event.waitUntil(
-    self.registration.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array(process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY)
-    })
-    .then(function(subscription) {
-      // Send new subscription to server
-      return fetch('/api/push/subscribe', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          subscription: subscription,
-          deviceInfo: {
-            userAgent: 'ServiceWorker',
-            platform: 'web'
-          }
-        })
-      });
+      }
+      // Open new window
+      if (clients.openWindow) {
+        return clients.openWindow(urlToOpen);
+      }
     })
   );
 });
 
-// Helper function
+// Helper function for VAPID key
 function urlBase64ToUint8Array(base64String) {
   const padding = '='.repeat((4 - base64String.length % 4) % 4);
   const base64 = (base64String + padding)
@@ -109,3 +135,5 @@ function urlBase64ToUint8Array(base64String) {
   }
   return outputArray;
 }
+
+console.log('[SW] Service Worker loaded');
