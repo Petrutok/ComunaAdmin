@@ -22,6 +22,7 @@ function AdminNav() {
   const navItems = [
     { href: '/admin', label: 'Dashboard', icon: Home },
     { href: '/admin/notifications', label: 'Notificări', icon: Bell },
+    { href: '/admin/notification-stats', label: 'Statistici', icon: Bell },
     { href: '/admin/announcements', label: 'Anunțuri', icon: Newspaper },
     { href: '/admin/jobs', label: 'Joburi', icon: Briefcase },
   ];
