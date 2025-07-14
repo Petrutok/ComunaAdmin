@@ -64,19 +64,28 @@ export async function POST(request: NextRequest) {
     
     let successCount = 0;
     let failureCount = 0;
+    const errors: string[] = [];
     
     // Send to all subscriptions
     const sendPromises = snapshot.docs.map(async (docSnapshot) => {
-      const subscription = docSnapshot.data();
+      const subscriptionData = docSnapshot.data();
       
       try {
-        const pushSubscription = {
-          endpoint: subscription.endpoint,
-          keys: {
-            p256dh: subscription.keys?.p256dh,
-            auth: subscription.keys?.auth
-          }
-        };
+        // IMPORTANT: Folosim subscription salvat sau construim din date
+        let pushSubscription;
+        
+        if (subscriptionData.subscription) {
+          // Folosim subscription-ul complet salvat
+          pushSubscription = subscriptionData.subscription;
+        } else if (subscriptionData.keys) {
+          // Construim din date separate
+          pushSubscription = {
+            endpoint: subscriptionData.endpoint,
+            keys: subscriptionData.keys
+          };
+        } else {
+          throw new Error('No valid subscription data found');
+        }
         
         await webpush.sendNotification(pushSubscription, payload);
         successCount++;
@@ -88,7 +97,8 @@ export async function POST(request: NextRequest) {
         });
       } catch (error: any) {
         failureCount++;
-        console.error('Send error:', error);
+        console.error('Send error for doc:', docSnapshot.id, error);
+        errors.push(`${docSnapshot.id}: ${error.message}`);
         
         // Handle expired subscriptions
         if (error.statusCode === 410) {
@@ -110,14 +120,16 @@ export async function POST(request: NextRequest) {
       sentAt: new Date(),
       totalSent: successCount,
       totalFailed: failureCount,
-      sentBy: 'admin'
+      sentBy: 'admin',
+      errors: errors.length > 0 ? errors : null
     });
     
     return NextResponse.json({
       success: true,
       sent: successCount,
       failed: failureCount,
-      total: snapshot.size
+      total: snapshot.size,
+      errors: errors.length > 0 ? errors : undefined
     });
     
   } catch (error) {
