@@ -177,40 +177,113 @@ export default function DebugMobilePage() {
       })}`);
 
       // Save subscription to server
-      const response = await fetch('/api/push/subscribe', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          subscription: sub.toJSON(),
-          deviceInfo: {
-            userAgent: navigator.userAgent,
-            platform: 'ios'
-          }
-        }),
-      });
+      log('Sending subscription to server...');
+    const response = await fetch('/api/push/subscribe', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        subscription: sub.toJSON(),
+        deviceInfo: {
+          userAgent: navigator.userAgent,
+          platform: 'ios'
+        }
+      }),
+    });
 
-      if (response.ok) {
-        log('Subscription saved to server');
-        // Save to localStorage as backup
-        localStorage.setItem('debug_subscription', JSON.stringify(sub.toJSON()));
-        log('Saved to localStorage');
-      } else {
-        throw new Error('Failed to save subscription to server');
-      }
-      
-    } catch (error: any) {
-      log(`Subscription Error: ${error.message}`);
-      log(`Error name: ${error.name}`);
-      log(`Error stack: ${error.stack}`);
+    log(`Server response status: ${response.status}`);
+    const responseText = await response.text();
+    log(`Server response: ${responseText}`);
+
+    if (response.ok) {
+      const result = JSON.parse(responseText);
+      log('Subscription saved to server');
+      log(`Subscription ID: ${result.id}`);
+      localStorage.setItem('debug_subscription', JSON.stringify(sub.toJSON()));
+      log('Saved to localStorage');
+    } else {
+      throw new Error(`Server error: ${response.status} - ${responseText}`);
     }
-  };
+    
+  } catch (error: any) {
+    log(`Subscription Error: ${error.message}`);
+    log(`Error name: ${error.name}`);
+    if (error.stack) {
+      log(`Error stack: ${error.stack.split('\n')[0]}`);
+    }
+  }
+};
+
+  const checkSubscriptions = async () => {
+  log('=== CHECK SUBSCRIPTIONS ===');
+  
+  try {
+    const response = await fetch('/api/push/check');
+    const data = await response.json();
+    
+    log(`Total subscriptions: ${data.total}`);
+    log(`Active subscriptions: ${data.active}`);
+    
+    if (data.subscriptions && data.subscriptions.length > 0) {
+      data.subscriptions.forEach((sub: any, index: number) => {
+        log(`Sub ${index + 1}: ${sub.active ? 'ACTIVE' : 'INACTIVE'} - ${sub.platform} - ${sub.endpoint}`);
+      });
+    } else {
+      log('No subscriptions found in database');
+    }
+  } catch (error: any) {
+    log(`Check error: ${error.message}`);
+  }
+};
 
   const testPushNotification = async () => {
     log('=== PUSH TEST ===');
-
+const checkSubscriptions = async () => {
+  log('=== CHECK SUBSCRIPTIONS ===');
+  
+  try {
+    const response = await fetch('/api/push/check');
+    const data = await response.json();
+    
+    log(`Total subscriptions: ${data.total}`);
+    log(`Active subscriptions: ${data.active}`);
+    
+    if (data.subscriptions && data.subscriptions.length > 0) {
+      data.subscriptions.forEach((sub: any, index: number) => {
+        log(`Sub ${index + 1}: ${sub.active ? 'ACTIVE' : 'INACTIVE'} - ${sub.platform} - ${sub.endpoint}`);
+      });
+    } else {
+      log('No subscriptions found in database');
+    }
+  } catch (error: any) {
+    log(`Check error: ${error.message}`);
+  }
+};
     try {
+
+      const checkSubscriptions = async () => {
+  log('=== CHECK SUBSCRIPTIONS ===');
+  
+  try {
+    const response = await fetch('/api/push/check');
+    const data = await response.json();
+    
+    log(`Total subscriptions: ${data.total}`);
+    log(`Active subscriptions: ${data.active}`);
+    
+    if (data.subscriptions && data.subscriptions.length > 0) {
+      data.subscriptions.forEach((sub: any, index: number) => {
+        log(`Sub ${index + 1}: ${sub.active ? 'ACTIVE' : 'INACTIVE'} - ${sub.platform} - ${sub.endpoint}`);
+      });
+    } else {
+      log('No subscriptions found in database');
+    }
+  } catch (error: any) {
+    log(`Check error: ${error.message}`);
+  }
+};
+
       // Send via server API
       const response = await fetch('/api/push/send', {
         method: 'POST',
@@ -295,6 +368,9 @@ export default function DebugMobilePage() {
           <div className="grid grid-cols-2 gap-2">
             <Button onClick={checkEnvironment} size="sm">
               Check Environment
+            </Button>
+            <Button onClick={checkSubscriptions} size="sm">
+              Check DB
             </Button>
             <Button onClick={testServiceWorker} size="sm">
               Test Service Worker

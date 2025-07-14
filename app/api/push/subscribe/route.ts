@@ -7,6 +7,12 @@ export async function POST(request: NextRequest) {
   try {
     const { subscription, deviceInfo } = await request.json();
     
+    console.log('[Subscribe] Received subscription:', {
+      endpoint: subscription.endpoint?.substring(0, 50) + '...',
+      hasKeys: !!subscription.keys,
+      platform: deviceInfo?.platform
+    });
+    
     if (!subscription || !subscription.endpoint) {
       return NextResponse.json(
         { error: 'Invalid subscription' },
@@ -21,10 +27,12 @@ export async function POST(request: NextRequest) {
       .digest('hex')
       .substring(0, 16);
     
-    // Save subscription to Firestore - IMPORTANT: salvăm tot subscription-ul
+    console.log('[Subscribe] Generated hash:', endpointHash);
+    
+    // Save subscription to Firestore
     const subscriptionData = {
       endpoint: subscription.endpoint,
-      keys: subscription.keys,  // Aceste keys sunt necesare pentru a trimite notificări
+      keys: subscription.keys,
       expirationTime: subscription.expirationTime,
       active: true,
       platform: deviceInfo?.platform || 'web',
@@ -33,18 +41,23 @@ export async function POST(request: NextRequest) {
       updatedAt: new Date(),
       lastUsedAt: null,
       failureCount: 0,
-      // IMPORTANT: Salvăm întregul subscription pentru compatibilitate
       subscription: subscription
     };
     
-    // Use setDoc to create or update
-    await setDoc(
-      doc(db, 'push_subscriptions', endpointHash), 
-      subscriptionData,
-      { merge: true }
-    );
+    console.log('[Subscribe] Saving to Firestore...');
     
-    console.log('Subscription saved to Firestore:', endpointHash);
+    try {
+      await setDoc(
+        doc(db, 'push_subscriptions', endpointHash), 
+        subscriptionData,
+        { merge: true }
+      );
+      
+      console.log('[Subscribe] Saved successfully to Firestore');
+    } catch (firestoreError: any) {
+      console.error('[Subscribe] Firestore error:', firestoreError);
+      throw firestoreError;
+    }
     
     return NextResponse.json({ 
       success: true,
@@ -52,16 +65,18 @@ export async function POST(request: NextRequest) {
       id: endpointHash
     });
     
-  } catch (error) {
-    console.error('Subscribe error:', error);
+  } catch (error: any) {
+    console.error('[Subscribe] Error:', error);
     return NextResponse.json(
-      { error: 'Failed to save subscription' },
+      { 
+        error: error.message || 'Failed to save subscription',
+        details: error.toString()
+      },
       { status: 500 }
     );
   }
 }
 
-// Handle DELETE requests
 export async function DELETE(request: NextRequest) {
   try {
     const { endpoint } = await request.json();
@@ -73,14 +88,12 @@ export async function DELETE(request: NextRequest) {
       );
     }
     
-    // Create ID from endpoint
     const endpointHash = crypto
       .createHash('sha256')
       .update(endpoint)
       .digest('hex')
       .substring(0, 16);
     
-    // Mark as inactive instead of deleting
     await setDoc(
       doc(db, 'push_subscriptions', endpointHash),
       { active: false, updatedAt: new Date() },
