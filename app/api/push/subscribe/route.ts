@@ -1,4 +1,3 @@
-// test modificare din terminal
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/firebase';
 import { collection, doc, setDoc } from 'firebase/firestore';
@@ -11,7 +10,8 @@ export async function POST(request: NextRequest) {
     console.log('[Subscribe] Received subscription:', {
       endpoint: subscription.endpoint?.substring(0, 50) + '...',
       hasKeys: !!subscription.keys,
-      platform: deviceInfo?.platform
+      platform: deviceInfo?.platform,
+      expirationTime: subscription.expirationTime
     });
     
     if (!subscription || !subscription.endpoint) {
@@ -30,11 +30,10 @@ export async function POST(request: NextRequest) {
     
     console.log('[Subscribe] Generated hash:', endpointHash);
     
-    // Save subscription to Firestore
-    const subscriptionData = {
+    // Save subscription to Firestore - Handle undefined values
+    const subscriptionData: any = {
       endpoint: subscription.endpoint,
       keys: subscription.keys,
-      expirationTime: subscription.expirationTime,
       active: true,
       platform: deviceInfo?.platform || 'web',
       userAgent: deviceInfo?.userAgent || '',
@@ -44,6 +43,11 @@ export async function POST(request: NextRequest) {
       failureCount: 0,
       subscription: subscription
     };
+    
+    // Only add expirationTime if it exists (iOS doesn't have it)
+    if (subscription.expirationTime !== undefined && subscription.expirationTime !== null) {
+      subscriptionData.expirationTime = subscription.expirationTime;
+    }
     
     console.log('[Subscribe] Saving to Firestore...');
     
