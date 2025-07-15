@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import webpush from 'web-push';
-import { adminDb } from '@/lib/firebase-admin';
+import { db } from '@/lib/firebase';
+import { collection, getDocs, query, where, doc, updateDoc, addDoc } from 'firebase/firestore';
+
+// Prevent pre-rendering during build
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
 
 // Configure web-push
 const vapidEmail = process.env.VAPID_EMAIL || 'mailto:admin@primaria.ro';
@@ -32,15 +37,54 @@ export async function POST(request: NextRequest) {
 
     console.log('[Push Send] Getting active subscriptions...');
     
-    // Get all active subscriptions from Firestore using Admin SDK
-    const snapshot = await adminDb
-      .collection('push_subscriptions')
-      .where('active', '==', true)
-      .get();
+    // Dynamic import of firebase-admin only when needed
+    let adminDb = null;
+    try {
+      const { getAdminDb } = await import('@/lib/firebase-admin');
+      adminDb = getAdminDb();
+    } catch (error) {
+      console.log('[Push Send] Firebase Admin not available, using client SDK');
+    }
     
-    console.log(`[Push Send] Found ${snapshot.size} active subscriptions`);
+    let subscriptions: any[] = [];
     
-    if (snapshot.empty) {
+    if (adminDb) {
+      // Use Firebase Admin
+      console.log('[Push Send] Using Firebase Admin SDK');
+      const snapshot = await adminDb
+        .collection('push_subscriptions')
+        .where('active', '==', true)
+        .get();
+      
+      subscriptions = snapshot.docs.map((doc: any) => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+    } else {
+      // Fallback to client SDK
+      console.log('[Push Send] Using Firebase Client SDK');
+      try {
+        const q = query(
+          collection(db, 'push_subscriptions'),
+          where('active', '==', true)
+        );
+        const clientSnapshot = await getDocs(q);
+        subscriptions = clientSnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
+      } catch (error: any) {
+        console.error('[Push Send] Client SDK error:', error);
+        return NextResponse.json(
+          { error: 'Database access error. Please check Firebase configuration.' },
+          { status: 500 }
+        );
+      }
+    }
+    
+    console.log(`[Push Send] Found ${subscriptions.length} active subscriptions`);
+    
+    if (subscriptions.length === 0) {
       return NextResponse.json({
         success: true,
         sent: 0,
@@ -67,9 +111,7 @@ export async function POST(request: NextRequest) {
     const errors: string[] = [];
     
     // Send to all subscriptions
-    const sendPromises = snapshot.docs.map(async (docSnapshot) => {
-      const subscriptionData = docSnapshot.data();
-      
+    const sendPromises = subscriptions.map(async (subscriptionData) => {
       try {
         // Check if we have valid subscription data
         if (!subscriptionData.subscription || !subscriptionData.subscription.endpoint) {
@@ -83,41 +125,64 @@ export async function POST(request: NextRequest) {
         successCount++;
         
         // Update last used timestamp
-        await adminDb
-          .collection('push_subscriptions')
-          .doc(docSnapshot.id)
-          .update({
+        if (adminDb) {
+          await adminDb
+            .collection('push_subscriptions')
+            .doc(subscriptionData.id)
+            .update({
+              lastUsedAt: new Date(),
+              failureCount: 0
+            });
+        } else {
+          await updateDoc(doc(db, 'push_subscriptions', subscriptionData.id), {
             lastUsedAt: new Date(),
             failureCount: 0
           });
+        }
         
-        console.log(`[Push Send] Successfully sent to ${docSnapshot.id}`);
+        console.log(`[Push Send] Successfully sent to ${subscriptionData.id}`);
       } catch (error: any) {
         failureCount++;
-        console.error('Send error for doc:', docSnapshot.id, error.message);
-        errors.push(`${docSnapshot.id}: ${error.message}`);
+        console.error('Send error for doc:', subscriptionData.id, error.message);
+        errors.push(`${subscriptionData.id}: ${error.message}`);
         
         // Handle expired subscriptions
         if (error.statusCode === 410) {
-          console.log(`[Push Send] Subscription expired, deactivating: ${docSnapshot.id}`);
-          await adminDb
-            .collection('push_subscriptions')
-            .doc(docSnapshot.id)
-            .update({
+          console.log(`[Push Send] Subscription expired, deactivating: ${subscriptionData.id}`);
+          if (adminDb) {
+            await adminDb
+              .collection('push_subscriptions')
+              .doc(subscriptionData.id)
+              .update({
+                active: false,
+                updatedAt: new Date(),
+                error: 'Subscription expired'
+              });
+          } else {
+            await updateDoc(doc(db, 'push_subscriptions', subscriptionData.id), {
               active: false,
               updatedAt: new Date(),
               error: 'Subscription expired'
             });
+          }
         } else {
           // Increment failure count
-          await adminDb
-            .collection('push_subscriptions')
-            .doc(docSnapshot.id)
-            .update({
+          if (adminDb) {
+            await adminDb
+              .collection('push_subscriptions')
+              .doc(subscriptionData.id)
+              .update({
+                failureCount: (subscriptionData.failureCount || 0) + 1,
+                lastError: error.message,
+                lastErrorAt: new Date()
+              });
+          } else {
+            await updateDoc(doc(db, 'push_subscriptions', subscriptionData.id), {
               failureCount: (subscriptionData.failureCount || 0) + 1,
               lastError: error.message,
               lastErrorAt: new Date()
             });
+          }
         }
       }
     });
@@ -125,16 +190,29 @@ export async function POST(request: NextRequest) {
     await Promise.all(sendPromises);
     
     // Save notification log
-    await adminDb.collection('notification_logs').add({
-      title,
-      body,
-      url,
-      sentAt: new Date(),
-      totalSent: successCount,
-      totalFailed: failureCount,
-      sentBy: 'admin',
-      errors: errors.length > 0 ? errors : null
-    });
+    if (adminDb) {
+      await adminDb.collection('notification_logs').add({
+        title,
+        body,
+        url,
+        sentAt: new Date(),
+        totalSent: successCount,
+        totalFailed: failureCount,
+        sentBy: 'admin',
+        errors: errors.length > 0 ? errors : null
+      });
+    } else {
+      await addDoc(collection(db, 'notification_logs'), {
+        title,
+        body,
+        url,
+        sentAt: new Date(),
+        totalSent: successCount,
+        totalFailed: failureCount,
+        sentBy: 'admin',
+        errors: errors.length > 0 ? errors : null
+      });
+    }
     
     console.log(`[Push Send] Complete. Sent: ${successCount}, Failed: ${failureCount}`);
     
@@ -142,7 +220,7 @@ export async function POST(request: NextRequest) {
       success: true,
       sent: successCount,
       failed: failureCount,
-      total: snapshot.size,
+      total: subscriptions.length,
       errors: errors.length > 0 ? errors : undefined
     });
     

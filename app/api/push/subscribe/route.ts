@@ -3,6 +3,11 @@ import { db } from '@/lib/firebase';
 import { collection, doc, setDoc } from 'firebase/firestore';
 import crypto from 'crypto';
 
+// Prevent pre-rendering during build
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
+
 export async function POST(request: NextRequest) {
   try {
     const { subscription, deviceInfo } = await request.json();
