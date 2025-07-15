@@ -1,8 +1,6 @@
-// test modificare din terminal
 import { NextRequest, NextResponse } from 'next/server';
 import webpush from 'web-push';
-import { db } from '@/lib/firebase';
-import { collection, query, where, getDocs, updateDoc, doc, addDoc } from 'firebase/firestore';
+import { adminDb } from '@/lib/firebase-admin';
 
 // Configure web-push
 const vapidEmail = process.env.VAPID_EMAIL || 'mailto:admin@primaria.ro';
@@ -32,13 +30,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get all active subscriptions from Firestore
-    const q = query(
-      collection(db, 'push_subscriptions'),
-      where('active', '==', true)
-    );
+    console.log('[Push Send] Getting active subscriptions...');
     
-    const snapshot = await getDocs(q);
+    // Get all active subscriptions from Firestore using Admin SDK
+    const snapshot = await adminDb
+      .collection('push_subscriptions')
+      .where('active', '==', true)
+      .get();
+    
+    console.log(`[Push Send] Found ${snapshot.size} active subscriptions`);
     
     if (snapshot.empty) {
       return NextResponse.json({
@@ -57,7 +57,6 @@ export async function POST(request: NextRequest) {
       url: url || '/',
       tag: tag || 'admin-notification',
       timestamp: new Date().toISOString(),
-      // Adaugă pentru iOS:
       data: {
         url: url || '/'
       }
@@ -72,41 +71,53 @@ export async function POST(request: NextRequest) {
       const subscriptionData = docSnapshot.data();
       
       try {
-        // IMPORTANT: Folosim subscription salvat sau construim din date
-        let pushSubscription;
-        
-        if (subscriptionData.subscription) {
-          // Folosim subscription-ul complet salvat
-          pushSubscription = subscriptionData.subscription;
-        } else if (subscriptionData.keys) {
-          // Construim din date separate
-          pushSubscription = {
-            endpoint: subscriptionData.endpoint,
-            keys: subscriptionData.keys
-          };
-        } else {
-          throw new Error('No valid subscription data found');
+        // Check if we have valid subscription data
+        if (!subscriptionData.subscription || !subscriptionData.subscription.endpoint) {
+          throw new Error('Invalid subscription data');
         }
         
-        await webpush.sendNotification(pushSubscription, payload);
+        console.log(`[Push Send] Sending to ${subscriptionData.platform} device...`);
+        
+        // Use the stored subscription object
+        await webpush.sendNotification(subscriptionData.subscription, payload);
         successCount++;
         
         // Update last used timestamp
-        await updateDoc(doc(db, 'push_subscriptions', docSnapshot.id), {
-          lastUsedAt: new Date(),
-          failureCount: 0
-        });
+        await adminDb
+          .collection('push_subscriptions')
+          .doc(docSnapshot.id)
+          .update({
+            lastUsedAt: new Date(),
+            failureCount: 0
+          });
+        
+        console.log(`[Push Send] Successfully sent to ${docSnapshot.id}`);
       } catch (error: any) {
         failureCount++;
-        console.error('Send error for doc:', docSnapshot.id, error);
+        console.error('Send error for doc:', docSnapshot.id, error.message);
         errors.push(`${docSnapshot.id}: ${error.message}`);
         
         // Handle expired subscriptions
         if (error.statusCode === 410) {
-          await updateDoc(doc(db, 'push_subscriptions', docSnapshot.id), {
-            active: false,
-            updatedAt: new Date()
-          });
+          console.log(`[Push Send] Subscription expired, deactivating: ${docSnapshot.id}`);
+          await adminDb
+            .collection('push_subscriptions')
+            .doc(docSnapshot.id)
+            .update({
+              active: false,
+              updatedAt: new Date(),
+              error: 'Subscription expired'
+            });
+        } else {
+          // Increment failure count
+          await adminDb
+            .collection('push_subscriptions')
+            .doc(docSnapshot.id)
+            .update({
+              failureCount: (subscriptionData.failureCount || 0) + 1,
+              lastError: error.message,
+              lastErrorAt: new Date()
+            });
         }
       }
     });
@@ -114,7 +125,7 @@ export async function POST(request: NextRequest) {
     await Promise.all(sendPromises);
     
     // Save notification log
-    await addDoc(collection(db, 'notification_logs'), {
+    await adminDb.collection('notification_logs').add({
       title,
       body,
       url,
@@ -125,6 +136,8 @@ export async function POST(request: NextRequest) {
       errors: errors.length > 0 ? errors : null
     });
     
+    console.log(`[Push Send] Complete. Sent: ${successCount}, Failed: ${failureCount}`);
+    
     return NextResponse.json({
       success: true,
       sent: successCount,
@@ -133,10 +146,10 @@ export async function POST(request: NextRequest) {
       errors: errors.length > 0 ? errors : undefined
     });
     
-  } catch (error) {
-    console.error('Push send error:', error);
+  } catch (error: any) {
+    console.error('[Push Send] Error:', error);
     return NextResponse.json(
-      { error: 'Failed to send push notifications' },
+      { error: 'Failed to send push notifications: ' + error.message },
       { status: 500 }
     );
   }

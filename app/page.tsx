@@ -15,7 +15,7 @@ import {
   Recycle,
   Newspaper
 } from 'lucide-react';
-import { NotificationButton } from '@/components/NotificationButton';
+import NotificationButton from '@/components/NotificationButton';
 
 export default function HomePage() {
   const cards = [
