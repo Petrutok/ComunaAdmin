@@ -1,3 +1,4 @@
+// test modificare din terminal
 import { NextRequest, NextResponse } from 'next/server';
 import webpush from 'web-push';
 import { db } from '@/lib/firebase';
