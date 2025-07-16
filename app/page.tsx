@@ -90,15 +90,15 @@ export default function HomePage() {
       color: "text-yellow-400",
       bgColor: "bg-yellow-500/20"
     },
-    {
-      title: "Documente și Formulare",
-      description: "Descarcă documente oficiale și formulare necesare",
-      icon: FileText,
-      link: "/documents",
-      buttonText: "Vezi Documente",
-      color: "text-indigo-400",
-      bgColor: "bg-indigo-500/20"
-    },
+   {
+     title: "Cereri Online",
+     description: "Completează și trimite cereri direct din aplicație",
+     icon: FileText,
+     link: "/cereri-online",
+     buttonText: "Completează cerere",
+     color: "text-purple-400",
+     bgColor: "bg-purple-500/20"
+},
     {
       title: "Ședințe Consiliu",
       description: "Ordine de zi, hotărâri și procese verbale",
