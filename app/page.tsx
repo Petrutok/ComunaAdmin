@@ -15,7 +15,6 @@ import {
   Recycle,
   Newspaper
 } from 'lucide-react';
-import NotificationButton from '@/components/NotificationButton';
 
 export default function HomePage() {
   const cards = [
@@ -122,40 +121,23 @@ export default function HomePage() {
         </div>
         
         <div className="max-w-7xl mx-auto px-4 py-12 relative z-10">
-          {/* Butonul de notificări în colțul din dreapta sus */}
-          <div className="absolute top-4 right-4">
-            <NotificationButton />
-          </div>
-          
           <div className="text-center">
             <div className="flex items-center justify-center mb-6 space-x-4">
               {/* Logo SVG Primărie */}
               <div className="relative group">
                 <div className="absolute inset-0 bg-blue-500 rounded-2xl blur-xl opacity-50 group-hover:opacity-70 transition-opacity"></div>
                 <div className="relative bg-slate-800/80 backdrop-blur-sm rounded-2xl p-4 border border-slate-700">
-                  <svg
-                    width="48"
-                    height="48"
-                    viewBox="0 0 48 48"
-                    fill="none"
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="w-12 h-12"
-                  >
-                    {/* Clădire primărie */}
+                  {/* SVG LOGO (fără modificări) */}
+                  <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-12 h-12">
                     <path d="M24 4L6 14V44H18V32H30V44H42V14L24 4Z" fill="url(#gradient1)" stroke="white" strokeWidth="2"/>
-                    {/* Acoperiș */}
                     <path d="M24 4L42 14H6L24 4Z" fill="url(#gradient2)" stroke="white" strokeWidth="2"/>
-                    {/* Uși și ferestre */}
                     <rect x="10" y="20" width="6" height="6" fill="white" fillOpacity="0.8"/>
                     <rect x="21" y="20" width="6" height="6" fill="white" fillOpacity="0.8"/>
                     <rect x="32" y="20" width="6" height="6" fill="white" fillOpacity="0.8"/>
-                    {/* Turn cu ceas */}
                     <circle cx="24" cy="12" r="4" fill="white" fillOpacity="0.9"/>
                     <circle cx="24" cy="12" r="3" fill="#1e293b"/>
                     <line x1="24" y1="12" x2="24" y2="10" stroke="white" strokeWidth="1"/>
                     <line x1="24" y1="12" x2="26" y2="12" stroke="white" strokeWidth="1"/>
-                    
-                    {/* Gradients */}
                     <defs>
                       <linearGradient id="gradient1" x1="0%" y1="0%" x2="100%" y2="100%">
                         <stop offset="0%" stopColor="#3b82f6" />
@@ -169,7 +151,7 @@ export default function HomePage() {
                   </svg>
                 </div>
               </div>
-              
+
               {/* Titlu */}
               <div className="text-left">
                 <h1 className="text-5xl md:text-6xl font-black text-white tracking-tight">
@@ -180,7 +162,7 @@ export default function HomePage() {
                 </p>
               </div>
             </div>
-            
+
             {/* Separator animat */}
             <div className="flex items-center justify-center mb-6">
               <div className="h-px bg-gradient-to-r from-transparent via-white/30 to-transparent w-64"></div>
@@ -189,7 +171,7 @@ export default function HomePage() {
               </div>
               <div className="h-px bg-gradient-to-r from-transparent via-white/30 to-transparent w-64"></div>
             </div>
-            
+
             {/* Descriere */}
             <p className="text-lg md:text-xl text-gray-300 max-w-3xl mx-auto leading-relaxed">
               Platformă digitală pentru cetățeni - raportează probleme, plătește taxe, 
@@ -207,14 +189,13 @@ export default function HomePage() {
             return (
               <div key={index} className="transform transition-all duration-300">
                 <Card className="h-full bg-slate-800 border-slate-700 shadow-lg hover:shadow-2xl transition-all duration-300 hover:-translate-y-2 overflow-hidden group rounded-2xl relative flex flex-col">
-                  {/* Decorative gradient line at top */}
                   <div className={`absolute top-0 left-0 right-0 h-1 bg-gradient-to-r ${
                     index % 4 === 0 ? 'from-red-400 to-red-600' :
                     index % 4 === 1 ? 'from-blue-400 to-blue-600' :
                     index % 4 === 2 ? 'from-green-400 to-green-600' :
                     'from-purple-400 to-purple-600'
                   }`} />
-                  
+
                   <CardHeader className="pb-3 md:pb-4 text-center pt-6 md:pt-8 flex-1 flex flex-col">
                     <CardTitle className="text-sm sm:text-base md:text-xl font-bold mb-3 md:mb-4 text-white">
                       {card.title}
@@ -228,7 +209,7 @@ export default function HomePage() {
                       {card.description}
                     </CardDescription>
                   </CardHeader>
-                  
+
                   <CardContent className="pt-2 pb-4 md:pb-6 px-3 md:px-6">
                     <Link href={card.link} className="block">
                       <Button 
@@ -246,14 +227,14 @@ export default function HomePage() {
           })}
         </div>
       </div>
-      
+
       <div className="max-w-7xl mx-auto px-4 pb-8">
-  <Link href="/debug-mobile">
-    <Button className="w-full bg-red-600 hover:bg-red-700 text-white">
-      🔧 Debug Mobile (Dev Only)
-    </Button>
-  </Link>
-</div>
+        <Link href="/debug-mobile">
+          <Button className="w-full bg-red-600 hover:bg-red-700 text-white">
+            🔧 Debug Mobile (Dev Only)
+          </Button>
+        </Link>
+      </div>
 
       {/* Footer */}
       <footer className="bg-slate-800 border-t border-slate-700 mt-12">
