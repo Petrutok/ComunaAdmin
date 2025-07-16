@@ -4,88 +4,115 @@ import { useEffect, useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
 
 export default function AutoNotificationPrompt() {
-  const [hasPrompted, setHasPrompted] = useState(false);
+  const [hasChecked, setHasChecked] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
-    // Verifică dacă am cerut deja permisiunea
-    const prompted = localStorage.getItem('notification_prompted');
-    if (prompted) {
-      setHasPrompted(true);
-      return;
-    }
+    // Verifică doar o dată per sesiune
+    if (hasChecked) return;
+    setHasChecked(true);
 
-    // Așteaptă puțin pentru o experiență mai bună
-    const timer = setTimeout(() => {
-      requestNotificationPermission();
-    }, 2000);
-
-    return () => clearTimeout(timer);
-  }, []);
-
-  const requestNotificationPermission = async () => {
-    // Verifică suportul
+    // Verifică dacă sunt suportate notificările
     if (!('Notification' in window) || !('serviceWorker' in navigator) || !('PushManager' in window)) {
       console.log('[AutoNotification] Push notifications not supported');
       return;
     }
 
-    try {
-      // Verifică permisiunea curentă
-      if (Notification.permission === 'granted') {
-        // Deja avem permisiune, înregistrează direct
-        await subscribeToNotifications();
-        return;
-      }
+    // Verifică permisiunea curentă
+    const currentPermission = Notification.permission;
+    console.log('[AutoNotification] Current permission:', currentPermission);
 
-      if (Notification.permission === 'denied') {
-        // Utilizatorul a refuzat anterior
-        localStorage.setItem('notification_prompted', 'true');
-        return;
+    // Dacă permisiunea nu a fost cerută niciodată, cere-o după 3 secunde
+    if (currentPermission === 'default') {
+      const timer = setTimeout(() => {
+        requestNotificationPermission();
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+
+    // Dacă avem deja permisiune dar nu suntem subscrisi, subscrie automat
+    if (currentPermission === 'granted') {
+      checkAndSubscribe();
+    }
+  }, [hasChecked]);
+
+  const checkAndSubscribe = async () => {
+    try {
+      const registration = await navigator.serviceWorker.ready;
+      const existingSubscription = await registration.pushManager.getSubscription();
+      
+      if (!existingSubscription) {
+        console.log('[AutoNotification] No subscription found, creating one...');
+        await subscribeToNotifications();
+      } else {
+        console.log('[AutoNotification] Already subscribed');
       }
+    } catch (error) {
+      console.error('[AutoNotification] Error checking subscription:', error);
+    }
+  };
+
+  const requestNotificationPermission = async () => {
+    try {
+      console.log('[AutoNotification] Requesting permission...');
+      
+      // Afișează un toast informativ înainte de a cere permisiunea
+      toast({
+        title: "Activează notificările",
+        description: "Primește notificări despre evenimente importante din comună",
+        duration: 5000,
+      });
+
+      // Așteaptă puțin pentru ca utilizatorul să citească toast-ul
+      await new Promise(resolve => setTimeout(resolve, 1000));
 
       // Cere permisiunea
       const permission = await Notification.requestPermission();
-      localStorage.setItem('notification_prompted', 'true');
+      console.log('[AutoNotification] Permission result:', permission);
       
       if (permission === 'granted') {
         await subscribeToNotifications();
         toast({
-          title: "Notificări activate!",
-          description: "Vei primi notificări despre evenimente importante din comună",
+          title: "Notificări activate! ✅",
+          description: "Vei primi notificări despre evenimente importante",
         });
+      } else if (permission === 'denied') {
+        console.log('[AutoNotification] Permission denied by user');
       }
     } catch (error) {
-      console.error('[AutoNotification] Error:', error);
+      console.error('[AutoNotification] Error requesting permission:', error);
     }
   };
 
   const subscribeToNotifications = async () => {
     try {
+      console.log('[AutoNotification] Starting subscription process...');
+      
       // Așteaptă să fie gata service worker-ul
       const registration = await navigator.serviceWorker.ready;
+      console.log('[AutoNotification] Service worker ready');
       
       // Verifică dacă există deja o subscripție
       let subscription = await registration.pushManager.getSubscription();
       
       if (subscription) {
-        // Deja subscris
-        return;
-      }
+        console.log('[AutoNotification] Already has subscription, updating server...');
+      } else {
+        // Creează subscripție nouă
+        const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+        if (!vapidPublicKey) {
+          console.error('[AutoNotification] VAPID public key not found');
+          return;
+        }
 
-      // Creează subscripție nouă
-      const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
-      if (!vapidPublicKey) {
-        console.error('[AutoNotification] VAPID public key not found');
-        return;
+        const convertedVapidKey = urlBase64ToUint8Array(vapidPublicKey);
+        
+        subscription = await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: convertedVapidKey
+        });
+        console.log('[AutoNotification] Created new subscription');
       }
-
-      const convertedVapidKey = urlBase64ToUint8Array(vapidPublicKey);
-      
-      subscription = await registration.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: convertedVapidKey
-      });
 
       // Trimite la server
       const response = await fetch('/api/push/subscribe', {
@@ -106,7 +133,18 @@ export default function AutoNotificationPrompt() {
         throw new Error('Failed to save subscription');
       }
 
-      console.log('[AutoNotification] Successfully subscribed to push notifications');
+      const result = await response.json();
+      console.log('[AutoNotification] Successfully subscribed:', result);
+      
+      // Trimite o notificare de test locală
+      if ('showNotification' in registration) {
+        registration.showNotification('Notificări activate! 🎉', {
+          body: 'Vei primi notificări despre evenimente importante din comună',
+          icon: '/icon-192x192.png',
+          badge: '/icon-192x192.png',
+          tag: 'welcome-notification'
+        });
+      }
     } catch (error) {
       console.error('[AutoNotification] Subscribe error:', error);
     }
