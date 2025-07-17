@@ -11,7 +11,9 @@ export async function generatePDF(data: RequestData): Promise<Buffer> {
           bottom: 50,
           left: 50,
           right: 50
-        }
+        },
+        autoFirstPage: true,
+        bufferPages: true
       });
 
       const chunks: Buffer[] = [];
@@ -25,14 +27,12 @@ export async function generatePDF(data: RequestData): Promise<Buffer> {
          .text('Județul ______', 50, 65)
          .text(`Nr. _____ / ${new Date().toLocaleDateString('ro-RO')}`, 450, 65);
 
-      // Titlu cerere
+      // Titlu cerere - folosim font implicit, fără Helvetica-Bold
       doc.fontSize(16)
-         .font('Helvetica-Bold')
          .text(getRequestTitle(data.tipCerere).toUpperCase(), 50, 120, { align: 'center' });
 
-      // Reset font
-      doc.font('Helvetica')
-         .fontSize(11);
+      // Reset font size
+      doc.fontSize(11);
 
       // Conținut specific tipului de cerere
       const content = getRequestContent(data);
