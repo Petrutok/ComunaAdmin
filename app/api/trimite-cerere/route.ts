@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Resend } from 'resend';
-import { generatePDF } from '@/lib/pdf-generator';
+import { generateSimplePDF } from '@/lib/simple-pdf-generator'
 import { RequestData, REQUEST_TYPES } from '@/lib/types/request-types';
 
 // Inițializare Resend
@@ -28,8 +28,8 @@ export async function POST(request: NextRequest) {
 
     console.log('[TrimitereCerere] Generare PDF pentru:', data.tipCerere);
 
-    // Generează PDF
-    const pdfBuffer = await generatePDF(data);
+    // Generează PDF/HTML
+    const pdfBuffer = await generateSimplePDF(data);
     
     // Pregătește email
     const emailSubject = `Cerere nouă - ${REQUEST_TYPES[data.tipCerere]} - ${data.numeComplet}`;
@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
       html: emailContent,
       attachments: [
         {
-          filename: `Cerere_${data.tipCerere}_${data.numeComplet.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`,
+          filename: `Cerere_${data.tipCerere}_${data.numeComplet.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.html`,
           content: pdfBuffer.toString('base64'),
         }
       ],
