@@ -15,6 +15,7 @@ import {
   Recycle,
   Newspaper
 } from 'lucide-react';
+import { Resend } from 'resend';
 
 export default function HomePage() {
   const cards = [
@@ -252,3 +253,5 @@ export default function HomePage() {
     </div>
   );
 }
+
+

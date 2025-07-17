@@ -1,30 +1,5 @@
 import PDFDocument from 'pdfkit';
-
-// Export tipurile din fișierul route
-export type RequestType = 'adeverinta-domiciliu' | 'adeverinta-apia' | 'declaratie-proprie' | 
-                         'audienta-primar' | 'spatiu-verde' | 'eliberare-documente' | 'alte-cereri';
-
-export const REQUEST_TYPES = {
-  'adeverinta-domiciliu': 'Adeverință de domiciliu',
-  'adeverinta-apia': 'Cerere eliberare adeverință APIA',
-  'declaratie-proprie': 'Declarație pe propria răspundere',
-  'audienta-primar': 'Cerere pentru audiență la primar',
-  'spatiu-verde': 'Solicitare spațiu verde / teren agricol',
-  'eliberare-documente': 'Cerere pentru eliberare documente',
-  'alte-cereri': 'Alte cereri'
-} as const;
-
-interface RequestData {
-  numeComplet: string;
-  cnp: string;
-  localitate: string;
-  adresa: string;
-  telefon: string;
-  email: string;
-  tipCerere: RequestType;
-  scopulCererii: string;
-  documente?: string[];
-}
+import { RequestData, RequestType } from '@/lib/types/request-types';
 
 export async function generatePDF(data: RequestData): Promise<Buffer> {
   return new Promise((resolve, reject) => {

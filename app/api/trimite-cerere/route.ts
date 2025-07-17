@@ -1,34 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Resend } from 'resend';
 import { generatePDF } from '@/lib/pdf-generator';
+import { RequestData, REQUEST_TYPES } from '@/lib/types/request-types';
 
-// Inițializare Resend (alternativă mai bună la Nodemailer)
+// Inițializare Resend
 const resend = new Resend(process.env.RESEND_API_KEY);
-
-// Tipuri de cereri disponibile
-export const REQUEST_TYPES = {
-  'adeverinta-domiciliu': 'Adeverință de domiciliu',
-  'adeverinta-apia': 'Cerere eliberare adeverință APIA',
-  'declaratie-proprie': 'Declarație pe propria răspundere',
-  'audienta-primar': 'Cerere pentru audiență la primar',
-  'spatiu-verde': 'Solicitare spațiu verde / teren agricol',
-  'eliberare-documente': 'Cerere pentru eliberare documente',
-  'alte-cereri': 'Alte cereri'
-} as const;
-
-export type RequestType = keyof typeof REQUEST_TYPES;
-
-export interface RequestData {
-  numeComplet: string;
-  cnp: string;
-  localitate: string;
-  adresa: string;
-  telefon: string;
-  email: string;
-  tipCerere: RequestType;
-  scopulCererii: string;
-  documente?: string[];
-}
 
 export async function POST(request: NextRequest) {
   try {
