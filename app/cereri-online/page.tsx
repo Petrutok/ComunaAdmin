@@ -1,163 +1,346 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { useToast } from '@/hooks/use-toast';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { 
+  Search, 
   FileText, 
-  Send, 
-  Home, 
-  Loader2,
-  CheckCircle,
-  User,
-  Phone,
-  Mail,
-  MapPin,
-  FileCheck
+  Home,
+  Building2,
+  Heart,
+  Wheat,
+  Receipt,
+  Users,
+  Globe,
+  ArrowRight,
+  Send
 } from 'lucide-react';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-
-const REQUEST_TYPES = {
-  'adeverinta-domiciliu': {
-    label: 'Adeverință de domiciliu',
-    description: 'Pentru acte, înmatriculări, etc.',
-    icon: '🏠'
-  },
-  'adeverinta-apia': {
-    label: 'Adeverință APIA',
-    description: 'Pentru dosare APIA și subvenții agricole',
-    icon: '🌾'
-  },
-  'declaratie-proprie': {
-    label: 'Declarație pe propria răspundere',
-    description: 'Declarație cu valoare juridică',
-    icon: '📝'
-  },
-  'audienta-primar': {
-    label: 'Audiență la primar',
-    description: 'Solicitare întâlnire cu primarul',
-    icon: '🤝'
-  },
-  'spatiu-verde': {
-    label: 'Spațiu verde / Teren',
-    description: 'Solicitare atribuire teren',
-    icon: '🌳'
-  },
-  'eliberare-documente': {
-    label: 'Eliberare documente',
-    description: 'Certificate, copii, extrase',
-    icon: '📄'
-  },
-  'alte-cereri': {
-    label: 'Alte cereri',
-    description: 'Orice altă solicitare',
-    icon: '📋'
-  }
-};
 
 export default function CereriOnlinePage() {
-  const [formData, setFormData] = useState({
-    numeComplet: '',
-    cnp: '',
-    localitate: '',
-    adresa: '',
-    telefon: '',
-    email: '',
-    tipCerere: '',
-    scopulCererii: '',
-  });
-  
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [showSuccess, setShowSuccess] = useState(false);
-  const { toast } = useToast();
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('all');
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    
-    // Validări
-    if (!formData.tipCerere) {
-      toast({
-        title: "Eroare",
-        description: "Selectează tipul cererii",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    if (formData.cnp.length !== 13 || !/^\d+$/.test(formData.cnp)) {
-      toast({
-        title: "Eroare",
-        description: "CNP-ul trebuie să conțină exact 13 cifre",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    setIsSubmitting(true);
-    
-    try {
-      const response = await fetch('/api/trimite-cerere', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
+  const requestsData = [
+    {
+      category: "Solicitări Generale",
+      icon: Globe,
+      color: "text-purple-400",
+      bgColor: "bg-purple-500/20",
+      borderColor: "border-purple-500",
+      requests: [
+        {
+          title: "Trimite cerere către orice compartiment de specialitate din instituție",
+          description: "Cerere generală pentru diverse compartimente",
+          formType: "cerere-generala"
         },
-        body: JSON.stringify(formData),
-      });
-
-      const result = await response.json();
-
-      if (result.success) {
-        setShowSuccess(true);
-        // Reset form
-        setFormData({
-          numeComplet: '',
-          cnp: '',
-          localitate: '',
-          adresa: '',
-          telefon: '',
-          email: '',
-          tipCerere: '',
-          scopulCererii: '',
-        });
-      } else {
-        toast({
-          title: "Eroare",
-          description: result.error || "Nu s-a putut trimite cererea",
-          variant: "destructive"
-        });
-      }
-    } catch (error) {
-      console.error('Error:', error);
-      toast({
-        title: "Eroare",
-        description: "Eroare de conexiune. Încearcă din nou.",
-        variant: "destructive"
-      });
-    } finally {
-      setIsSubmitting(false);
+        {
+          title: "Cerere permis de lucru cu foc",
+          description: "Pentru lucrări care implică foc deschis",
+          formType: "permis-foc"
+        }
+      ]
+    },
+    {
+      category: "Urbanism",
+      icon: Building2,
+      color: "text-blue-400",
+      bgColor: "bg-blue-500/20",
+      borderColor: "border-blue-500",
+      requests: [
+        {
+          title: "Cerere pentru emiterea autorizației de construire/desființare",
+          description: "Pentru construcții noi sau demolări",
+          formType: "autorizatie-construire"
+        },
+        {
+          title: "Cerere pentru emiterea certificatului de urbanism",
+          description: "Persoane fizice/juridice",
+          formType: "certificat-urbanism"
+        },
+        {
+          title: "Cerere pentru prelungirea valabilității autorizației de construire/desființare",
+          description: "Extindere perioadă autorizație",
+          formType: "prelungire-autorizatie"
+        },
+        {
+          title: "Cerere pentru prelungirea valabilității certificatului de urbanism",
+          description: "Extindere perioadă certificat",
+          formType: "prelungire-certificat"
+        },
+        {
+          title: "Comunicare privind începerea execuției lucrărilor",
+          description: "Notificare către primărie",
+          formType: "incepere-lucrari"
+        },
+        {
+          title: "Comunicare privind încheierea execuției lucrărilor",
+          description: "Notificare finalizare lucrări",
+          formType: "incheiere-lucrari"
+        }
+      ]
+    },
+    {
+      category: "Asistență Socială",
+      icon: Heart,
+      color: "text-red-400",
+      bgColor: "bg-red-500/20",
+      borderColor: "border-red-500",
+      requests: [
+        {
+          title: "Cerere lemne foc",
+          description: "Ajutor pentru încălzirea locuinței",
+          formType: "lemne-foc"
+        },
+        {
+          title: "Adeverință indemnizație creștere copil",
+          description: "Pentru părinți cu copii mici",
+          formType: "indemnizatie-copil"
+        },
+        {
+          title: "Adeverință indemnizație de șomaj",
+          description: "Pentru persoane fără loc de muncă",
+          formType: "indemnizatie-somaj"
+        },
+        {
+          title: "Cerere informare și consiliere",
+          description: "Asistență și îndrumare socială",
+          formType: "consiliere"
+        },
+        {
+          title: "Cerere modificare beneficii sociale (ASF, VMG, etc)",
+          description: "Actualizare beneficii existente",
+          formType: "modificare-beneficii"
+        },
+        {
+          title: "Cerere pentru acordarea alocației de stat pentru copii",
+          description: "Alocație lunară pentru copii",
+          formType: "alocatie-copii"
+        },
+        {
+          title: "Cerere pentru acordarea indemnizației de creștere a copilului",
+          description: "Indemnizație/stimulent de inserție",
+          formType: "indemnizatie-crestere"
+        },
+        {
+          title: "Cerere pentru acordarea indemnizației de șomaj",
+          description: "Ajutor pentru persoane fără loc de muncă",
+          formType: "cerere-somaj"
+        },
+        {
+          title: "Cerere și declarație pe propria răspundere pentru acordarea unor drepturi de asistență socială",
+          description: "Declarație pentru beneficii sociale",
+          formType: "declaratie-asistenta"
+        },
+        {
+          title: "Cerere suspendare indemnizație pentru creșterea copilului",
+          description: "Suspendare temporară indemnizație",
+          formType: "suspendare-indemnizatie"
+        },
+        {
+          title: "Solicitare înscriere pentru ocuparea unui loc de muncă",
+          description: "Cerere pentru angajare",
+          formType: "inscriere-munca"
+        }
+      ]
+    },
+    {
+      category: "Registru Agricol",
+      icon: Wheat,
+      color: "text-green-400",
+      bgColor: "bg-green-500/20",
+      borderColor: "border-green-500",
+      requests: [
+        {
+          title: "Cerere eliberare adeverință de rol",
+          description: "Confirmare proprietăți înregistrate",
+          formType: "adeverinta-rol"
+        },
+        {
+          title: "Cerere adeverință APIA - Persoană fizică",
+          description: "Pentru subvenții agricole persoane fizice",
+          formType: "apia-pf"
+        },
+        {
+          title: "Cerere adeverință APIA - Persoană juridică",
+          description: "Pentru subvenții agricole persoane juridice",
+          formType: "apia-pj"
+        },
+        {
+          title: "Declarație pentru completarea registrului agricol",
+          description: "Actualizare date registru agricol",
+          formType: "declaratie-registru"
+        },
+        {
+          title: "Cerere privind eliberarea certificatului de nomenclatură stradală",
+          description: "Certificat denumire stradă",
+          formType: "nomenclatura-stradala"
+        }
+      ]
+    },
+    {
+      category: "Taxe și Impozite",
+      icon: Receipt,
+      color: "text-yellow-400",
+      bgColor: "bg-yellow-500/20",
+      borderColor: "border-yellow-500",
+      requests: [
+        {
+          title: "Cerere eliberare certificat fiscal - Persoană fizică",
+          description: "Situație fiscală persoane fizice",
+          formType: "certificat-fiscal-pf"
+        },
+        {
+          title: "Cerere eliberare certificat fiscal - Persoană juridică",
+          description: "Situație fiscală persoane juridice",
+          formType: "certificat-fiscal-pj"
+        },
+        {
+          title: "Cerere pentru scoaterea din evidențele fiscale a clădirilor/terenurilor",
+          description: "Radiere imobile din evidențe",
+          formType: "radiere-imobile"
+        },
+        {
+          title: "Cerere pentru scoaterea din evidență a mijloacelor de transport",
+          description: "Radiere vehicule din evidențe",
+          formType: "radiere-auto"
+        },
+        {
+          title: "Declarație fiscală pentru stabilirea impozitului pe mijloace de transport",
+          description: "Persoane fizice/juridice",
+          formType: "declaratie-auto"
+        },
+        {
+          title: "Declarație fiscală pentru stabilirea impozitului pe mijloace de transport marfă peste 12 tone",
+          description: "Vehicule de mare tonaj",
+          formType: "declaratie-marfa"
+        },
+        {
+          title: "Declarație fiscală pentru stabilirea impozitului pe mijloace de transport pe apă",
+          description: "Ambarcațiuni și nave",
+          formType: "declaratie-apa"
+        },
+        {
+          title: "Declarație fiscală pentru stabilirea impozitului pe teren - Persoane fizice",
+          description: "ITL-003",
+          formType: "declaratie-teren-pf"
+        },
+        {
+          title: "Declarație fiscală pentru stabilirea impozitului pe teren - Persoane juridice",
+          description: "Pentru firme și organizații",
+          formType: "declaratie-teren-pj"
+        },
+        {
+          title: "Declarație fiscală pentru stabilirea impozitului pe clădire - Persoane fizice",
+          description: "Impozit clădiri rezidențiale",
+          formType: "declaratie-cladire-pf"
+        },
+        {
+          title: "Declarație fiscală pentru stabilirea impozitului pe clădire - Persoane juridice",
+          description: "Impozit clădiri comerciale",
+          formType: "declaratie-cladire-pj"
+        }
+      ]
+    },
+    {
+      category: "SPCLEP (Stare Civilă)",
+      icon: Users,
+      color: "text-orange-400",
+      bgColor: "bg-orange-500/20",
+      borderColor: "border-orange-500",
+      requests: [
+        {
+          title: "Cerere pentru eliberare act de identitate",
+          description: "CI/Buletin nou sau duplicat",
+          formType: "act-identitate"
+        },
+        {
+          title: "Cerere pentru stabilirea reședinței",
+          description: "Viză de reședință",
+          formType: "stabilire-resedinta"
+        },
+        {
+          title: "Cerere transcriere certificat de naștere",
+          description: "Pentru acte emise în străinătate",
+          formType: "transcriere-nastere"
+        },
+        {
+          title: "Cerere transcriere certificat de căsătorie",
+          description: "Pentru căsătorii încheiate în străinătate",
+          formType: "transcriere-casatorie"
+        },
+        {
+          title: "Cerere transcriere certificat de deces",
+          description: "Pentru decese înregistrate în străinătate",
+          formType: "transcriere-deces"
+        },
+        {
+          title: "Cerere eliberare certificat de naștere",
+          description: "Original sau duplicat",
+          formType: "certificat-nastere"
+        },
+        {
+          title: "Cerere eliberare certificat de căsătorie",
+          description: "Original sau duplicat",
+          formType: "certificat-casatorie"
+        },
+        {
+          title: "Cerere eliberare certificat de deces",
+          description: "Original sau duplicat",
+          formType: "certificat-deces"
+        }
+      ]
     }
+  ];
+
+  // Get unique categories
+  const categories = useMemo(() => {
+    return ['all', ...requestsData.map(cat => cat.category)];
+  }, []);
+
+  // Flatten all requests for searching
+  const allRequests = useMemo(() => {
+    return requestsData.flatMap(category => 
+      category.requests.map(req => ({
+        ...req,
+        category: category.category,
+        icon: category.icon,
+        color: category.color,
+        bgColor: category.bgColor,
+        borderColor: category.borderColor
+      }))
+    );
+  }, []);
+
+  // Filter requests based on search and category
+  const filteredRequests = useMemo(() => {
+    return allRequests.filter(req => {
+      const matchesSearch = req.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           req.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           req.category.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesCategory = selectedCategory === 'all' || req.category === selectedCategory;
+      return matchesSearch && matchesCategory;
+    });
+  }, [allRequests, searchTerm, selectedCategory]);
+
+  // Group filtered requests by category
+  const groupedRequests = useMemo(() => {
+    return requestsData.map(category => ({
+      ...category,
+      requests: filteredRequests.filter(req => req.category === category.category)
+    })).filter(category => category.requests.length > 0);
+  }, [filteredRequests]);
+
+  const handleRequestClick = (formType: string) => {
+    // Aici se va naviga către formularul specific
+    window.location.href = `/cereri-online/formular/${formType}`;
   };
 
   return (
-    <div className="min-h-screen bg-slate-900">
-      <div className="max-w-4xl mx-auto px-4 py-8">
+    <div className="min-h-screen bg-slate-900 text-white">
+      <div className="p-4 max-w-7xl mx-auto">
         {/* Home Button */}
         <button
           onClick={() => window.location.href = '/'}
@@ -172,268 +355,165 @@ export default function CereriOnlinePage() {
         </button>
 
         {/* Header */}
-        <div className="text-center pt-16 pb-8">
-          <div className="inline-flex items-center justify-center p-3 bg-blue-500 rounded-xl mb-4">
-            <FileText className="h-8 w-8 text-white" />
+        <div className="text-center pt-16 pb-6">
+          <div className="inline-flex items-center justify-center p-2.5 bg-blue-500 rounded-xl mb-4">
+            <Send className="h-6 w-6 text-white" />
           </div>
           
           <h1 className="text-3xl md:text-4xl font-bold text-white mb-2">
             Cereri Online
           </h1>
           
-          <p className="text-lg text-gray-300">
-            Completează și trimite cereri direct către primărie
+          <p className="text-lg text-gray-300 max-w-2xl mx-auto">
+            Trimite cereri și solicitări direct către primărie
           </p>
         </div>
 
-        {/* Main Form */}
-        <Card className="bg-slate-800 border-slate-700">
-          <CardHeader>
-            <CardTitle className="text-white">Formular cerere</CardTitle>
-            <CardDescription className="text-gray-400">
-              Toate câmpurile marcate cu * sunt obligatorii
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-6">
-              {/* Tip cerere */}
-              <div className="space-y-2">
-                <Label htmlFor="tipCerere" className="text-gray-200">
-                  Tip cerere *
-                </Label>
-                <Select
-                  value={formData.tipCerere}
-                  onValueChange={(value) => setFormData({ ...formData, tipCerere: value })}
-                >
-                  <SelectTrigger className="bg-slate-900 border-slate-600 text-white">
-                    <SelectValue placeholder="Selectează tipul cererii" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Object.entries(REQUEST_TYPES).map(([key, type]) => (
-                      <SelectItem key={key} value={key}>
-                        <div className="flex items-center gap-2">
-                          <span>{type.icon}</span>
-                          <div>
-                            <p className="font-medium">{type.label}</p>
-                            <p className="text-xs text-gray-500">{type.description}</p>
-                          </div>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Date personale */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="numeComplet" className="text-gray-200">
-                    <User className="inline h-4 w-4 mr-1" />
-                    Nume complet *
-                  </Label>
-                  <Input
-                    id="numeComplet"
-                    value={formData.numeComplet}
-                    onChange={(e) => setFormData({ ...formData, numeComplet: e.target.value })}
-                    required
-                    className="bg-slate-900 border-slate-600 text-white"
-                    placeholder="Ion Popescu"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="cnp" className="text-gray-200">
-                    CNP *
-                  </Label>
-                  <Input
-                    id="cnp"
-                    value={formData.cnp}
-                    onChange={(e) => setFormData({ ...formData, cnp: e.target.value })}
-                    required
-                    maxLength={13}
-                    pattern="\d{13}"
-                    className="bg-slate-900 border-slate-600 text-white"
-                    placeholder="1234567890123"
-                  />
-                </div>
-              </div>
-
-              {/* Adresă */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="localitate" className="text-gray-200">
-                    <MapPin className="inline h-4 w-4 mr-1" />
-                    Localitate *
-                  </Label>
-                  <Input
-                    id="localitate"
-                    value={formData.localitate}
-                    onChange={(e) => setFormData({ ...formData, localitate: e.target.value })}
-                    required
-                    className="bg-slate-900 border-slate-600 text-white"
-                    placeholder="Comuna, Sat"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="adresa" className="text-gray-200">
-                    Adresă completă *
-                  </Label>
-                  <Input
-                    id="adresa"
-                    value={formData.adresa}
-                    onChange={(e) => setFormData({ ...formData, adresa: e.target.value })}
-                    required
-                    className="bg-slate-900 border-slate-600 text-white"
-                    placeholder="Str. Principală, Nr. 10"
-                  />
-                </div>
-              </div>
-
-              {/* Contact */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="telefon" className="text-gray-200">
-                    <Phone className="inline h-4 w-4 mr-1" />
-                    Telefon *
-                  </Label>
-                  <Input
-                    id="telefon"
-                    type="tel"
-                    value={formData.telefon}
-                    onChange={(e) => setFormData({ ...formData, telefon: e.target.value })}
-                    required
-                    className="bg-slate-900 border-slate-600 text-white"
-                    placeholder="07xx xxx xxx"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="email" className="text-gray-200">
-                    <Mail className="inline h-4 w-4 mr-1" />
-                    Email *
-                  </Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    required
-                    className="bg-slate-900 border-slate-600 text-white"
-                    placeholder="email@exemplu.ro"
-                  />
-                </div>
-              </div>
-
-              {/* Scop cerere */}
-              <div className="space-y-2">
-                <Label htmlFor="scopulCererii" className="text-gray-200">
-                  Scopul cererii / Detalii *
-                </Label>
-                <Textarea
-                  id="scopulCererii"
-                  value={formData.scopulCererii}
-                  onChange={(e) => setFormData({ ...formData, scopulCererii: e.target.value })}
-                  required
-                  rows={4}
-                  className="bg-slate-900 border-slate-600 text-white"
-                  placeholder="Descrie detaliat motivul cererii tale..."
+        {/* Search and Filter Section */}
+        <Card className="mb-6 bg-slate-800 border-slate-700">
+          <CardContent className="p-6">
+            <div className="flex flex-col sm:flex-row gap-4">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                <Input
+                  type="text"
+                  placeholder="Caută cereri..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10 bg-slate-700 border-slate-600 text-white placeholder:text-gray-400 focus:border-blue-500"
                 />
               </div>
-
-              {/* Submit */}
-              <div className="flex justify-end gap-4">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => window.location.href = '/'}
-                >
-                  Anulează
-                </Button>
-                <Button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="min-w-[150px]"
-                >
-                  {isSubmitting ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Se trimite...
-                    </>
-                  ) : (
-                    <>
-                      <Send className="mr-2 h-4 w-4" />
-                      Trimite cererea
-                    </>
-                  )}
-                </Button>
+              <div className="flex gap-2 flex-wrap">
+                {categories.map(category => (
+                  <Button
+                    key={category}
+                    variant={selectedCategory === category ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setSelectedCategory(category)}
+                    className={selectedCategory === category 
+                      ? "bg-white text-slate-900 hover:bg-gray-100" 
+                      : "bg-slate-700 hover:bg-slate-600 text-white border-slate-600"}
+                  >
+                    {category === 'all' ? 'Toate' : category}
+                  </Button>
+                ))}
               </div>
-            </form>
+            </div>
           </CardContent>
         </Card>
+
+        {/* Requests by Category */}
+        <div className="space-y-6">
+          {groupedRequests.map((category, index) => {
+            const Icon = category.icon;
+            return (
+              <Card key={`category-${index}`} className={`bg-slate-800 border-2 ${category.borderColor} overflow-hidden`}>
+                <CardHeader className={`${category.bgColor} pb-4`}>
+                  <div className="flex items-center gap-3">
+                    <div className="bg-slate-700 rounded-full p-3 shadow-md">
+                      <Icon className={`h-6 w-6 ${category.color}`} />
+                    </div>
+                    <CardTitle className="text-xl text-white">
+                      {category.category}
+                    </CardTitle>
+                    <Badge className="ml-auto bg-slate-700 text-white border-0">
+                      {category.requests.length} {category.requests.length === 1 ? 'cerere' : 'cereri'}
+                    </Badge>
+                  </div>
+                </CardHeader>
+                <CardContent className="pt-4">
+                  <div className="space-y-3">
+                    {category.requests.map((request, reqIndex) => (
+                      <div 
+                        key={`req-${reqIndex}`}
+                        className="group cursor-pointer"
+                        onClick={() => handleRequestClick(request.formType)}
+                      >
+                        <div className="flex items-center justify-between p-4 rounded-lg hover:bg-slate-700/50 transition-all duration-200 border border-slate-700 hover:border-slate-600">
+                          <div className="flex items-start gap-3 flex-1">
+                            <FileText className="h-5 w-5 text-gray-400 flex-shrink-0 mt-0.5" />
+                            <div className="space-y-1">
+                              <p className="text-sm font-medium text-gray-200 group-hover:text-white transition-colors">
+                                {request.title}
+                              </p>
+                              <p className="text-xs text-gray-500">
+                                {request.description}
+                              </p>
+                            </div>
+                          </div>
+                          <Button
+                            size="sm"
+                            className="flex items-center gap-2 bg-blue-500 hover:bg-blue-600 text-white transition-all duration-200 group-hover:gap-3"
+                          >
+                            <span className="text-sm font-medium hidden sm:inline">
+                              Completează
+                            </span>
+                            <ArrowRight className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+
+        {/* Empty State */}
+        {filteredRequests.length === 0 && (
+          <Card className="text-center py-12 bg-slate-800 border-slate-700">
+            <CardContent>
+              <FileText className="h-12 w-12 text-gray-600 mx-auto mb-4" />
+              <p className="text-gray-400">
+                Nu s-au găsit cereri care să corespundă criteriilor de căutare.
+              </p>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Info Box */}
         <Card className="mt-6 bg-blue-900/20 border-blue-700">
           <CardContent className="pt-6">
-            <div className="flex items-start gap-3">
-              <FileCheck className="h-5 w-5 text-blue-400 mt-0.5" />
-              <div className="text-sm text-gray-300">
-                <p className="font-medium text-white mb-1">Informații importante:</p>
-                <ul className="space-y-1 text-gray-400">
-                  <li>• Cererea va fi generată automat în format PDF</li>
-                  <li>• Vei primi o copie pe email-ul specificat</li>
-                  <li>• Răspunsul va fi trimis în maxim 30 de zile</li>
-                  <li>• Pentru urgențe, contactează direct primăria</li>
-                </ul>
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold text-white">Cum funcționează?</h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="flex items-start gap-3">
+                  <div className="bg-blue-500/20 rounded-full p-2 mt-0.5">
+                    <span className="text-blue-400 font-bold text-sm">1</span>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-white">Alege tipul cererii</p>
+                    <p className="text-xs text-gray-400">Selectează din categoriile disponibile</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="bg-blue-500/20 rounded-full p-2 mt-0.5">
+                    <span className="text-blue-400 font-bold text-sm">2</span>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-white">Completează formularul</p>
+                    <p className="text-xs text-gray-400">Introdu toate datele necesare</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="bg-blue-500/20 rounded-full p-2 mt-0.5">
+                    <span className="text-blue-400 font-bold text-sm">3</span>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-white">Primești confirmarea</p>
+                    <p className="text-xs text-gray-400">Pe email și în maxim 30 de zile răspunsul</p>
+                  </div>
+                </div>
               </div>
             </div>
           </CardContent>
         </Card>
 
-        {/* Success Dialog */}
-        <Dialog open={showSuccess} onOpenChange={setShowSuccess}>
-          <DialogContent className="bg-slate-800 border-slate-700">
-            <div className="text-center space-y-4">
-              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-green-900/20">
-                <CheckCircle className="h-8 w-8 text-green-400" />
-              </div>
-              
-              <DialogHeader>
-                <DialogTitle className="text-2xl font-bold text-white">
-                  Cerere trimisă cu succes!
-                </DialogTitle>
-                <DialogDescription className="text-gray-300 space-y-3">
-                  <p>
-                    Cererea ta a fost înregistrată și trimisă către primărie.
-                  </p>
-                  <p className="text-sm">
-                    Vei primi o copie a cererii pe email-ul specificat.
-                    Răspunsul va fi comunicat în maxim 30 de zile.
-                  </p>
-                </DialogDescription>
-              </DialogHeader>
-              
-              <div className="flex gap-3">
-                <Button
-                  variant="outline"
-                  onClick={() => setShowSuccess(false)}
-                  className="flex-1"
-                >
-                  Închide
-                </Button>
-                <Button
-                  onClick={() => {
-                    setShowSuccess(false);
-                    window.location.href = '/';
-                  }}
-                  className="flex-1"
-                >
-                  Înapoi acasă
-                </Button>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
+        {/* Total requests info */}
+        <div className="mt-6 text-center text-sm text-gray-400">
+          Total: {allRequests.length} tipuri de cereri disponibile
+        </div>
       </div>
     </div>
   );
