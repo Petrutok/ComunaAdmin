@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import {Card, CardContent, CardDescription, CardHeader, CardTitle} from '@/components/ui/card';
 import {Button} from '@/components/ui/button';
+import {Badge} from '@/components/ui/badge';
 import {
   AlertTriangle,
   Users,
@@ -13,9 +14,15 @@ import {
   Briefcase,
   Home,
   Recycle,
-  Newspaper
+  Newspaper,
+  Bell,
+  Menu,
+  MapPin,
+  Phone,
+  Shield
 } from 'lucide-react';
 import { Resend } from 'resend';
+import Image from 'next/image';
 
 export default function HomePage() {
   const cards = [
@@ -113,72 +120,133 @@ export default function HomePage() {
     
   return (
     <div className="min-h-screen bg-slate-900">
-      {/* Header */}
-      <div className="bg-gradient-to-b from-slate-900 via-slate-800 to-slate-800 shadow-2xl border-b border-slate-700/50 relative overflow-hidden">
-        {/* Background decorativ */}
-        <div className="absolute inset-0">
-          <div className="absolute top-0 left-1/4 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl"></div>
-          <div className="absolute top-0 right-1/4 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl"></div>
+      {/* Modern Header */}
+      <header className="relative bg-gradient-to-b from-slate-900 via-slate-800/95 to-slate-800/90 backdrop-blur-lg border-b border-slate-700/50">
+        {/* Background Pattern */}
+        <div className="absolute inset-0 overflow-hidden">
+          <div className="absolute -top-40 -right-40 w-80 h-80 bg-blue-500/10 rounded-full blur-3xl"></div>
+          <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-purple-500/10 rounded-full blur-3xl"></div>
+          <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-blue-500/20 to-transparent"></div>
         </div>
         
-        <div className="max-w-7xl mx-auto px-4 py-12 relative z-10">
-          <div className="text-center">
-            <div className="flex items-center justify-center mb-6 space-x-4">
-              {/* Logo SVG Primărie */}
+        <div className="relative max-w-7xl mx-auto px-4">
+          {/* Top Bar */}
+          <div className="flex items-center justify-between py-4 border-b border-slate-700/30">
+            <div className="flex items-center gap-4 text-sm text-gray-400">
+              <a href="tel:0232123456" className="flex items-center gap-1.5 hover:text-white transition-colors">
+                <Phone className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">0232 123 456</span>
+              </a>
+              <span className="hidden sm:inline text-slate-700">|</span>
+              <div className="flex items-center gap-1.5">
+                <MapPin className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Comuna Filipești, Bacău</span>
+              </div>
+            </div>
+            
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-gray-400 hover:text-white hover:bg-slate-700/50"
+            >
+              <Bell className="h-4 w-4" />
+              <span className="ml-2 hidden sm:inline">Notificări</span>
+            </Button>
+          </div>
+          
+          {/* Main Header Content */}
+          <div className="py-8 md:py-12">
+            <div className="flex flex-col md:flex-row items-center gap-6 md:gap-10">
+              {/* Logo Container */}
               <div className="relative group">
-                <div className="absolute inset-0 bg-blue-500 rounded-2xl blur-xl opacity-50 group-hover:opacity-70 transition-opacity"></div>
-                <div className="relative bg-slate-800/80 backdrop-blur-sm rounded-2xl p-4 border border-slate-700">
-                  {/* SVG LOGO (fără modificări) */}
-                  <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-12 h-12">
-                    <path d="M24 4L6 14V44H18V32H30V44H42V14L24 4Z" fill="url(#gradient1)" stroke="white" strokeWidth="2"/>
-                    <path d="M24 4L42 14H6L24 4Z" fill="url(#gradient2)" stroke="white" strokeWidth="2"/>
-                    <rect x="10" y="20" width="6" height="6" fill="white" fillOpacity="0.8"/>
-                    <rect x="21" y="20" width="6" height="6" fill="white" fillOpacity="0.8"/>
-                    <rect x="32" y="20" width="6" height="6" fill="white" fillOpacity="0.8"/>
-                    <circle cx="24" cy="12" r="4" fill="white" fillOpacity="0.9"/>
-                    <circle cx="24" cy="12" r="3" fill="#1e293b"/>
-                    <line x1="24" y1="12" x2="24" y2="10" stroke="white" strokeWidth="1"/>
-                    <line x1="24" y1="12" x2="26" y2="12" stroke="white" strokeWidth="1"/>
-                    <defs>
-                      <linearGradient id="gradient1" x1="0%" y1="0%" x2="100%" y2="100%">
-                        <stop offset="0%" stopColor="#3b82f6" />
-                        <stop offset="100%" stopColor="#1e40af" />
-                      </linearGradient>
-                      <linearGradient id="gradient2" x1="0%" y1="0%" x2="100%" y2="0%">
-                        <stop offset="0%" stopColor="#dc2626" />
-                        <stop offset="100%" stopColor="#991b1b" />
-                      </linearGradient>
-                    </defs>
-                  </svg>
+                {/* Glow Effect */}
+                <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-purple-500 rounded-2xl blur-2xl opacity-20 group-hover:opacity-30 transition-opacity"></div>
+                
+                {/* Logo Background */}
+                <div className="relative bg-slate-800/80 backdrop-blur-sm rounded-2xl p-1 border border-slate-700/50 shadow-2xl">
+                  <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-xl p-4">
+                    {/* Aici ar trebui să fie logo-ul tău real */}
+                    <div className="w-20 h-20 md:w-24 md:h-24 bg-gradient-to-br from-blue-500/20 to-purple-500/20 rounded-xl flex items-center justify-center">
+                      <svg 
+                        viewBox="0 0 100 100" 
+                        className="w-16 h-16 md:w-20 md:h-20"
+                        fill="none"
+                      >
+                        {/* Simplified representation of your logo */}
+                        <rect x="10" y="30" width="80" height="50" rx="8" fill="#3B82F6" opacity="0.2"/>
+                        <rect x="20" y="40" width="60" height="30" rx="4" fill="#1E40AF" opacity="0.4"/>
+                        <circle cx="30" cy="25" r="15" fill="#60A5FA" opacity="0.3"/>
+                        <path d="M25 55 L35 45 L45 50 L55 40 L65 48 L75 45" stroke="#3B82F6" strokeWidth="2"/>
+                        <circle cx="50" cy="25" r="8" fill="#DBEAFE"/>
+                      </svg>
+                    </div>
+                  </div>
                 </div>
               </div>
-
-              {/* Titlu */}
-              <div className="text-left">
-                <h1 className="text-5xl md:text-6xl font-black text-white tracking-tight">
-                  Comuna
-                </h1>
-                <p className="text-sm text-blue-400 font-semibold uppercase tracking-wider">
-                  Primăria Digitală
+              
+              {/* Title Section */}
+              <div className="text-center md:text-left flex-1">
+                <div className="flex items-center justify-center md:justify-start gap-3 mb-2">
+                  <h1 className="text-3xl md:text-5xl font-bold bg-gradient-to-r from-white via-blue-100 to-white bg-clip-text text-transparent">
+                    Primăria Digitală
+                  </h1>
+                  <Badge className="bg-blue-500/20 text-blue-300 border-blue-500/30 hidden md:inline-flex">
+                    v2.0
+                  </Badge>
+                </div>
+                
+                <p className="text-lg md:text-xl text-gray-300 mb-4">
+                  Comuna Filipești — Servicii publice la un click distanță
                 </p>
+                
+                <div className="flex flex-wrap items-center justify-center md:justify-start gap-4 text-sm">
+                  <div className="flex items-center gap-2 text-gray-400">
+                    <div className="h-2 w-2 bg-green-400 rounded-full animate-pulse"></div>
+                    <span>Disponibil 24/7</span>
+                  </div>
+                  <span className="text-slate-700 hidden sm:inline">•</span>
+                  <div className="flex items-center gap-2 text-gray-400">
+                    <Users className="h-4 w-4" />
+                    <span>Pentru toți cetățenii</span>
+                  </div>
+                  <span className="text-slate-700 hidden sm:inline">•</span>
+                  <div className="flex items-center gap-2 text-gray-400">
+                    <Shield className="h-4 w-4" />
+                    <span>100% Securizat</span>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Quick Actions (Desktop) */}
+              <div className="hidden lg:flex items-center gap-3">
+                <Button
+                  variant="outline"
+                  className="bg-slate-800/50 border-slate-700 text-white hover:bg-slate-700/50"
+                >
+                  <Phone className="h-4 w-4 mr-2" />
+                  Contact
+                </Button>
+                <Button className="bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white shadow-lg">
+                  <Bell className="h-4 w-4 mr-2" />
+                  Activează Notificări
+                </Button>
               </div>
             </div>
-
-            {/* Separator animat */}
-            <div className="flex items-center justify-center mb-6">
-              <div className="h-px bg-gradient-to-r from-transparent via-white/30 to-transparent w-64"></div>
-              <div className="mx-4">
-                <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse"></div>
-              </div>
-              <div className="h-px bg-gradient-to-r from-transparent via-white/30 to-transparent w-64"></div>
-            </div>
-
-            {/* Descriere */}
-            <p className="text-lg md:text-xl text-gray-300 max-w-3xl mx-auto leading-relaxed">
-              Platformă digitală pentru cetățeni - raportează probleme, plătește taxe, 
-              informează-te despre evenimente și proiecte locale
-            </p>
           </div>
+        </div>
+        
+        {/* Bottom Gradient Line */}
+        <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-purple-500/50 to-transparent"></div>
+      </header>
+
+      {/* Subtitle Section */}
+      <div className="bg-slate-800/50 backdrop-blur-sm border-b border-slate-700/30">
+        <div className="max-w-7xl mx-auto px-4 py-4">
+          <p className="text-center text-gray-300">
+            <span className="text-blue-400 font-medium">Accesează rapid</span> serviciile locale • 
+            <span className="text-green-400 font-medium"> Economisește timp</span> • 
+            <span className="text-purple-400 font-medium"> Fii informat</span>
+          </p>
         </div>
       </div>
 
@@ -253,5 +321,3 @@ export default function HomePage() {
     </div>
   );
 }
-
-
