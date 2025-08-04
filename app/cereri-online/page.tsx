@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -16,12 +17,15 @@ import {
   Users,
   Globe,
   ArrowRight,
-  Send
+  Send,
+  Loader2
 } from 'lucide-react';
 
 export default function CereriOnlinePage() {
+  const router = useRouter();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
+  const [loadingRequest, setLoadingRequest] = useState<string | null>(null);
 
   const requestsData = [
     {
@@ -123,26 +127,6 @@ export default function CereriOnlinePage() {
           title: "Cerere pentru acordarea indemnizației de creștere a copilului",
           description: "Indemnizație/stimulent de inserție",
           formType: "indemnizatie-crestere"
-        },
-        {
-          title: "Cerere pentru acordarea indemnizației de șomaj",
-          description: "Ajutor pentru persoane fără loc de muncă",
-          formType: "cerere-somaj"
-        },
-        {
-          title: "Cerere și declarație pe propria răspundere pentru acordarea unor drepturi de asistență socială",
-          description: "Declarație pentru beneficii sociale",
-          formType: "declaratie-asistenta"
-        },
-        {
-          title: "Cerere suspendare indemnizație pentru creșterea copilului",
-          description: "Suspendare temporară indemnizație",
-          formType: "suspendare-indemnizatie"
-        },
-        {
-          title: "Solicitare înscriere pentru ocuparea unui loc de muncă",
-          description: "Cerere pentru angajare",
-          formType: "inscriere-munca"
         }
       ]
     },
@@ -218,29 +202,14 @@ export default function CereriOnlinePage() {
           formType: "declaratie-marfa"
         },
         {
-          title: "Declarație fiscală pentru stabilirea impozitului pe mijloace de transport pe apă",
-          description: "Ambarcațiuni și nave",
-          formType: "declaratie-apa"
-        },
-        {
           title: "Declarație fiscală pentru stabilirea impozitului pe teren - Persoane fizice",
           description: "ITL-003",
           formType: "declaratie-teren-pf"
         },
         {
-          title: "Declarație fiscală pentru stabilirea impozitului pe teren - Persoane juridice",
-          description: "Pentru firme și organizații",
-          formType: "declaratie-teren-pj"
-        },
-        {
           title: "Declarație fiscală pentru stabilirea impozitului pe clădire - Persoane fizice",
           description: "Impozit clădiri rezidențiale",
           formType: "declaratie-cladire-pf"
-        },
-        {
-          title: "Declarație fiscală pentru stabilirea impozitului pe clădire - Persoane juridice",
-          description: "Impozit clădiri comerciale",
-          formType: "declaratie-cladire-pj"
         }
       ]
     },
@@ -267,29 +236,9 @@ export default function CereriOnlinePage() {
           formType: "transcriere-nastere"
         },
         {
-          title: "Cerere transcriere certificat de căsătorie",
-          description: "Pentru căsătorii încheiate în străinătate",
-          formType: "transcriere-casatorie"
-        },
-        {
-          title: "Cerere transcriere certificat de deces",
-          description: "Pentru decese înregistrate în străinătate",
-          formType: "transcriere-deces"
-        },
-        {
           title: "Cerere eliberare certificat de naștere",
           description: "Original sau duplicat",
           formType: "certificat-nastere"
-        },
-        {
-          title: "Cerere eliberare certificat de căsătorie",
-          description: "Original sau duplicat",
-          formType: "certificat-casatorie"
-        },
-        {
-          title: "Cerere eliberare certificat de deces",
-          description: "Original sau duplicat",
-          formType: "certificat-deces"
         }
       ]
     }
@@ -333,9 +282,21 @@ export default function CereriOnlinePage() {
     })).filter(category => category.requests.length > 0);
   }, [filteredRequests]);
 
-  const handleRequestClick = (formType: string) => {
-    // Aici se va naviga către formularul specific
-    window.location.href = `/cereri-online/formular/${formType}`;
+  const handleRequestClick = async (formType: string) => {
+    try {
+      setLoadingRequest(formType);
+      // Folosim Next.js router pentru navigare
+      await router.push(`/cereri-online/formular/${formType}`);
+    } catch (error) {
+      console.error('Eroare la navigare:', error);
+      setLoadingRequest(null);
+      // Fallback la window.location dacă router-ul eșuează
+      window.location.href = `/cereri-online/formular/${formType}`;
+    }
+  };
+
+  const handleHomeClick = () => {
+    router.push('/');
   };
 
   return (
@@ -343,7 +304,7 @@ export default function CereriOnlinePage() {
       <div className="p-4 max-w-7xl mx-auto">
         {/* Home Button */}
         <button
-          onClick={() => window.location.href = '/'}
+          onClick={handleHomeClick}
           className="fixed top-4 left-4 z-50 group"
         >
           <div className="bg-white/10 backdrop-blur-md text-white rounded-xl px-5 py-2.5 shadow-2xl hover:bg-white/20 transition-all duration-300 flex items-center gap-2.5 font-medium border border-white/20 hover:scale-105">
@@ -443,12 +404,24 @@ export default function CereriOnlinePage() {
                           </div>
                           <Button
                             size="sm"
-                            className="flex items-center gap-2 bg-blue-500 hover:bg-blue-600 text-white transition-all duration-200 group-hover:gap-3"
+                            disabled={loadingRequest === request.formType}
+                            className="flex items-center gap-2 bg-blue-500 hover:bg-blue-600 text-white transition-all duration-200 group-hover:gap-3 disabled:opacity-50"
                           >
-                            <span className="text-sm font-medium hidden sm:inline">
-                              Completează
-                            </span>
-                            <ArrowRight className="h-4 w-4" />
+                            {loadingRequest === request.formType ? (
+                              <>
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                                <span className="text-sm font-medium hidden sm:inline">
+                                  Se încarcă...
+                                </span>
+                              </>
+                            ) : (
+                              <>
+                                <span className="text-sm font-medium hidden sm:inline">
+                                  Completează
+                                </span>
+                                <ArrowRight className="h-4 w-4" />
+                              </>
+                            )}
                           </Button>
                         </div>
                       </div>
