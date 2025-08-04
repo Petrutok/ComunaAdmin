@@ -4,6 +4,13 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Bell } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 
 interface NotificationContextType {
   isSubscribed: boolean;
@@ -24,14 +31,14 @@ export const useNotifications = () => useContext(NotificationContext);
 export function NotificationProvider({ children }: { children: React.ReactNode }) {
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [isSupported, setIsSupported] = useState(false);
-  const [hasInitialized, setHasInitialized] = useState(false);
+  const [showPermissionDialog, setShowPermissionDialog] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
     // Așteaptă puțin pentru ca aplicația să se încarce complet
     const timer = setTimeout(() => {
       initializeNotifications();
-    }, 1000);
+    }, 1500);
 
     return () => clearTimeout(timer);
   }, []);
@@ -53,90 +60,70 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
 
     try {
       // Înregistrează service worker-ul
-      let registration;
       if ('serviceWorker' in navigator) {
-        registration = await navigator.serviceWorker.register('/sw.js');
+        const registration = await navigator.serviceWorker.register('/sw.js');
         console.log('[NotificationProvider] Service Worker registered');
-        
-        // Așteaptă să fie ready
         await navigator.serviceWorker.ready;
-        console.log('[NotificationProvider] Service Worker ready');
       }
 
-      // Verifică statusul permisiunii ÎNAINTE de orice altceva
+      // Verifică statusul permisiunii
       const currentPermission = Notification.permission;
       console.log('[NotificationProvider] Current permission:', currentPermission);
 
       // Verifică dacă există deja o subscripție
-      registration = await navigator.serviceWorker.ready;
+      const registration = await navigator.serviceWorker.ready;
       const existingSubscription = await registration.pushManager.getSubscription();
       
       if (existingSubscription) {
         console.log('[NotificationProvider] Found existing subscription');
         setIsSubscribed(true);
-        setHasInitialized(true);
         return;
       }
 
-      // Verifică dacă trebuie să cerem permisiunea
+      // Verifică dacă e iOS
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
       const hasAskedBefore = localStorage.getItem('notification_permission_asked');
-      const permissionDenied = localStorage.getItem('notification_permission_denied');
       
       // Pentru iOS PWA, resetează flag-urile la reinstalare
-      const isIOSPWA = /iPad|iPhone|iPod/.test(navigator.userAgent) && 
-                       (window.matchMedia('(display-mode: standalone)').matches || 
-                        (window.navigator as any).standalone === true);
-      
-      if (isIOSPWA && currentPermission === 'default' && hasAskedBefore) {
+      if (isIOS && currentPermission === 'default' && hasAskedBefore) {
         console.log('[NotificationProvider] iOS PWA reinstalled, resetting flags...');
         localStorage.removeItem('notification_permission_asked');
         localStorage.removeItem('notification_permission_denied');
       }
 
-      // Dacă permisiunea este 'default' și nu am întrebat niciodată (sau am resetat)
+      // Dacă permisiunea este 'default' și nu am întrebat niciodată
       if (currentPermission === 'default' && !localStorage.getItem('notification_permission_asked')) {
-        console.log('[NotificationProvider] First time - will request permission');
+        console.log('[NotificationProvider] First time - will show dialog');
         
-        // Marchează că vom întreba
-        localStorage.setItem('notification_permission_asked', 'true');
-        
-        // Așteaptă 2 secunde
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        
-        // Afișează toast informativ
-        toast({
-          title: "Fii la curent cu noutățile! 🔔",
-          description: "Activează notificările pentru evenimente importante",
-          duration: 3000,
-        });
-        
-        // Așteaptă să citească utilizatorul
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        // AICI este partea critică - solicită permisiunea
-        console.log('[NotificationProvider] Requesting permission NOW...');
-        try {
+        // Pentru iOS, afișează dialog-ul care necesită interacțiune
+        if (isIOS) {
+          // Așteaptă 2 secunde înainte de a afișa dialogul
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          setShowPermissionDialog(true);
+        } else {
+          // Pentru Android/Desktop, putem cere direct
+          localStorage.setItem('notification_permission_asked', 'true');
+          
+          // Afișează toast
+          toast({
+            title: "Fii la curent cu noutățile! 🔔",
+            description: "Activează notificările pentru evenimente importante",
+            duration: 3000,
+          });
+          
+          await new Promise(resolve => setTimeout(resolve, 1500));
+          
+          // Solicită permisiunea direct
           const permission = await Notification.requestPermission();
           console.log('[NotificationProvider] Permission result:', permission);
           
           if (permission === 'granted') {
-            // Subscrie automat
             await subscribeToNotifications();
-            
             toast({
               title: "Perfect! ✅",
               description: "Notificările sunt acum active",
               duration: 3000,
             });
-          } else if (permission === 'denied') {
-            localStorage.setItem('notification_permission_denied', 'true');
-            console.log('[NotificationProvider] Permission denied by user');
-          }
-        } catch (error) {
-          console.error('[NotificationProvider] Error requesting permission:', error);
-          // Pe iOS, dacă requestPermission eșuează, încearcă din nou mai târziu
-          if (isIOSPWA) {
-            localStorage.removeItem('notification_permission_asked');
           }
         }
       } else if (currentPermission === 'granted' && !existingSubscription) {
@@ -144,11 +131,42 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         console.log('[NotificationProvider] Has permission but no subscription');
         await subscribeToNotifications();
       }
-      
-      setHasInitialized(true);
     } catch (error) {
       console.error('[NotificationProvider] Initialization error:', error);
-      setHasInitialized(true);
+    }
+  };
+
+  const handlePermissionRequest = async () => {
+    console.log('[NotificationProvider] User clicked to enable notifications');
+    
+    // Marchează că am întrebat
+    localStorage.setItem('notification_permission_asked', 'true');
+    
+    try {
+      // Solicită permisiunea (acum e ca rezultat al click-ului)
+      const permission = await Notification.requestPermission();
+      console.log('[NotificationProvider] Permission result:', permission);
+      
+      setShowPermissionDialog(false);
+      
+      if (permission === 'granted') {
+        await subscribeToNotifications();
+        toast({
+          title: "Perfect! ✅",
+          description: "Notificările sunt acum active",
+          duration: 3000,
+        });
+      } else if (permission === 'denied') {
+        localStorage.setItem('notification_permission_denied', 'true');
+        toast({
+          title: "Notificări dezactivate",
+          description: "Poți activa notificările mai târziu din setări",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('[NotificationProvider] Error requesting permission:', error);
+      setShowPermissionDialog(false);
     }
   };
 
@@ -319,6 +337,57 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   return (
     <NotificationContext.Provider value={{ isSubscribed, isSupported, subscribe, unsubscribe }}>
       {children}
+      
+      {/* Dialog pentru iOS */}
+      <Dialog open={showPermissionDialog} onOpenChange={setShowPermissionDialog}>
+        <DialogContent className="bg-slate-800 border-slate-700 max-w-md">
+          <DialogHeader>
+            <div className="mx-auto mb-4 h-16 w-16 rounded-full bg-blue-500/20 flex items-center justify-center">
+              <Bell className="h-8 w-8 text-blue-400" />
+            </div>
+            <DialogTitle className="text-xl font-bold text-white text-center">
+              Activează notificările 🔔
+            </DialogTitle>
+            <DialogDescription className="text-center text-gray-300 space-y-3">
+              <p>
+                Primește notificări instant despre:
+              </p>
+              <ul className="text-sm space-y-2 text-left max-w-xs mx-auto">
+                <li className="flex items-center gap-2">
+                  <span className="text-green-400">✓</span>
+                  Evenimente importante din comună
+                </li>
+                <li className="flex items-center gap-2">
+                  <span className="text-green-400">✓</span>
+                  Anunțuri și oportunități noi
+                </li>
+                <li className="flex items-center gap-2">
+                  <span className="text-green-400">✓</span>
+                  Alerte și situații urgente
+                </li>
+              </ul>
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex gap-3 mt-4">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowPermissionDialog(false);
+                localStorage.setItem('notification_permission_asked', 'true');
+              }}
+              className="flex-1"
+            >
+              Mai târziu
+            </Button>
+            <Button
+              onClick={handlePermissionRequest}
+              className="flex-1 bg-blue-500 hover:bg-blue-600"
+            >
+              Activează
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </NotificationContext.Provider>
   );
 }
