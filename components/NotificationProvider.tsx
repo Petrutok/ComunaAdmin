@@ -43,6 +43,20 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     return () => clearTimeout(timer);
   }, []);
 
+  const detectPlatform = (): 'web' | 'ios' | 'android' => {
+    const userAgent = navigator.userAgent || navigator.vendor;
+    
+    if (/android/i.test(userAgent)) {
+      return 'android';
+    }
+    
+    if (/iPad|iPhone|iPod/.test(userAgent) && !(window as any).MSStream) {
+      return 'ios';
+    }
+    
+    return 'web';
+  };
+
   const initializeNotifications = async () => {
     console.log('[NotificationProvider] Starting initialization...');
     
@@ -104,11 +118,12 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
           // Pentru Android/Desktop, putem cere direct
           localStorage.setItem('notification_permission_asked', 'true');
           
-          // Afișează toast
+          // Afișează toast informativ modern
           toast({
-            title: "Fii la curent cu noutățile! 🔔",
-            description: "Activează notificările pentru evenimente importante",
-            duration: 3000,
+            title: "🔔 Permite notificările?",
+            description: "Fii primul care află despre evenimente și informații importante din comună",
+            duration: 4000,
+            className: "bg-gradient-to-r from-blue-500 to-purple-500 text-white border-0",
           });
           
           await new Promise(resolve => setTimeout(resolve, 1500));
@@ -119,10 +134,35 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
           
           if (permission === 'granted') {
             await subscribeToNotifications();
+            
+            // Toast succes modern
             toast({
-              title: "Perfect! ✅",
-              description: "Notificările sunt acum active",
-              duration: 3000,
+              title: "🎉 Excelent!",
+              description: (
+                <div className="space-y-2">
+                  <p className="font-medium">Notificările sunt acum active!</p>
+                  <p className="text-xs text-gray-400">Vei primi prima notificare în curând...</p>
+                </div>
+              ),
+              duration: 5000,
+              className: "bg-gradient-to-r from-green-500 to-emerald-500 text-white border-0",
+            });
+          } else if (permission === 'denied') {
+            localStorage.setItem('notification_permission_denied', 'true');
+            
+            // Toast refuz modern
+            toast({
+              title: "😔 Notificări dezactivate",
+              description: (
+                <div className="space-y-2">
+                  <p>Nu vei primi notificări despre evenimente importante.</p>
+                  <p className="text-xs opacity-80">
+                    Pentru a le activa mai târziu, accesează setările browserului.
+                  </p>
+                </div>
+              ),
+              variant: "destructive",
+              duration: 8000,
             });
           }
         }
@@ -151,22 +191,49 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       
       if (permission === 'granted') {
         await subscribeToNotifications();
+        
+        // Toast succes modern
         toast({
-          title: "Perfect! ✅",
-          description: "Notificările sunt acum active",
-          duration: 3000,
+          title: "🎉 Excelent!",
+          description: (
+            <div className="space-y-2">
+              <p className="font-medium">Notificările sunt acum active!</p>
+              <p className="text-xs text-gray-400">Vei primi prima notificare în curând...</p>
+            </div>
+          ),
+          duration: 5000,
+          className: "bg-gradient-to-r from-green-500 to-emerald-500 text-white border-0",
         });
       } else if (permission === 'denied') {
         localStorage.setItem('notification_permission_denied', 'true');
+        
+        // Toast refuz modern
         toast({
-          title: "Notificări dezactivate",
-          description: "Poți activa notificările mai târziu din setări",
+          title: "😔 Notificări dezactivate",
+          description: (
+            <div className="space-y-2">
+              <p>Nu vei primi notificări despre evenimente importante.</p>
+              <p className="text-xs opacity-80">
+                Pentru a le activa mai târziu: 
+                <span className="block mt-1 font-mono text-xs">
+                  Setări → Notificări → Comuna
+                </span>
+              </p>
+            </div>
+          ),
           variant: "destructive",
+          duration: 8000,
         });
       }
     } catch (error) {
       console.error('[NotificationProvider] Error requesting permission:', error);
       setShowPermissionDialog(false);
+      
+      toast({
+        title: "⚠️ Eroare",
+        description: "Nu am putut activa notificările. Te rugăm să încerci din nou.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -226,16 +293,32 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         // Salvează în localStorage
         localStorage.setItem('push_subscription', JSON.stringify(subscription.toJSON()));
         
-        // Notificare de bun venit
+        // Notificare de bun venit spectaculoasă
         try {
           if ('showNotification' in registration) {
-            await registration.showNotification('Notificări activate! 🎉', {
-              body: 'Vei primi notificări despre evenimente importante.',
+            // Prima notificare - de bun venit
+            await registration.showNotification('🎉 Bine ai venit în Comuna digitală!', {
+              body: 'Notificările sunt acum active. Vei fi primul care află despre evenimente importante!',
               icon: '/icon-192x192.png',
               badge: '/icon-192x192.png',
               tag: 'welcome',
-              requireInteraction: false
+              requireInteraction: false,
+              data: {
+                url: '/',
+                type: 'welcome'
+              }
             });
+            
+            // A doua notificare după 3 secunde - exemplu
+            setTimeout(() => {
+              registration.showNotification('📱 Exemplu de notificare', {
+                body: 'Așa vei primi informații despre evenimente, anunțuri noi și alerte importante.',
+                icon: '/icon-192x192.png',
+                badge: '/icon-192x192.png',
+                tag: 'example',
+                requireInteraction: false
+              });
+            }, 3000);
           }
         } catch (notifError) {
           console.log('[NotificationProvider] Could not show welcome notification:', notifError);
@@ -338,72 +421,86 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     <NotificationContext.Provider value={{ isSubscribed, isSupported, subscribe, unsubscribe }}>
       {children}
       
-      {/* Dialog pentru iOS */}
+      {/* Dialog pentru iOS - Modern Design */}
       <Dialog open={showPermissionDialog} onOpenChange={setShowPermissionDialog}>
-        <DialogContent className="bg-slate-800 border-slate-700 max-w-md">
-          <DialogHeader>
-            <div className="mx-auto mb-4 h-16 w-16 rounded-full bg-blue-500/20 flex items-center justify-center">
-              <Bell className="h-8 w-8 text-blue-400" />
+        <DialogContent className="bg-gradient-to-b from-slate-800 to-slate-900 border-slate-700/50 max-w-md overflow-hidden p-0">
+          {/* Header cu gradient */}
+          <div className="bg-gradient-to-r from-blue-600 to-purple-600 p-1">
+            <div className="bg-slate-800 rounded-t-lg p-6 pb-4">
+              <div className="relative">
+                {/* Animated bell icon */}
+                <div className="mx-auto mb-4 h-20 w-20 rounded-2xl bg-gradient-to-br from-blue-500/20 to-purple-500/20 flex items-center justify-center relative overflow-hidden">
+                  <div className="absolute inset-0 bg-gradient-to-tr from-blue-400/20 to-purple-400/20 animate-pulse"></div>
+                  <Bell className="h-10 w-10 text-white relative z-10 animate-bounce" />
+                  <div className="absolute -top-1 -right-1 h-3 w-3 bg-red-500 rounded-full animate-ping"></div>
+                  <div className="absolute -top-1 -right-1 h-3 w-3 bg-red-500 rounded-full"></div>
+                </div>
+                
+                <DialogTitle className="text-2xl font-bold text-white text-center mb-2">
+                  Nu rata nicio informație importantă!
+                </DialogTitle>
+                <DialogDescription className="text-center text-gray-300">
+                  Activează notificările pentru a fi mereu la curent
+                </DialogDescription>
+              </div>
             </div>
-            <DialogTitle className="text-xl font-bold text-white text-center">
-              Activează notificările 🔔
-            </DialogTitle>
-            <DialogDescription className="text-center text-gray-300 space-y-3">
-              <p>
-                Primește notificări instant despre:
-              </p>
-              <ul className="text-sm space-y-2 text-left max-w-xs mx-auto">
-                <li className="flex items-center gap-2">
-                  <span className="text-green-400">✓</span>
-                  Evenimente importante din comună
-                </li>
-                <li className="flex items-center gap-2">
-                  <span className="text-green-400">✓</span>
-                  Anunțuri și oportunități noi
-                </li>
-                <li className="flex items-center gap-2">
-                  <span className="text-green-400">✓</span>
-                  Alerte și situații urgente
-                </li>
-              </ul>
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex gap-3 mt-4">
+          </div>
+
+          {/* Content */}
+          <div className="p-6 space-y-4">
+            <div className="space-y-3">
+              {[
+                { icon: '📢', title: 'Evenimente și anunțuri', desc: 'Află primul despre activitățile din comună' },
+                { icon: '💼', title: 'Locuri de muncă', desc: 'Oportunități noi de angajare în zona ta' },
+                { icon: '🚨', title: 'Urgențe și alerte', desc: 'Informații critice în timp real' },
+                { icon: '♻️', title: 'Colectare deșeuri', desc: 'Reminder-uri pentru zilele de colectare' }
+              ].map((item, index) => (
+                <div 
+                  key={index} 
+                  className="flex items-start gap-3 p-3 rounded-lg bg-slate-700/50 backdrop-blur-sm hover:bg-slate-700/70 transition-all duration-200"
+                >
+                  <span className="text-2xl">{item.icon}</span>
+                  <div className="flex-1">
+                    <p className="font-medium text-white text-sm">{item.title}</p>
+                    <p className="text-xs text-gray-400">{item.desc}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Trust badge */}
+            <div className="flex items-center justify-center gap-2 text-xs text-gray-400 pt-2">
+              <div className="h-4 w-4 rounded-full bg-green-500/20 flex items-center justify-center">
+                <div className="h-2 w-2 rounded-full bg-green-500"></div>
+              </div>
+              <span>Notificări importante, fără spam</span>
+            </div>
+          </div>
+
+          {/* Actions */}
+          <div className="p-6 pt-0 space-y-3">
             <Button
-              variant="outline"
+              onClick={handlePermissionRequest}
+              className="w-full bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white font-semibold py-6 text-base shadow-lg hover:shadow-xl transition-all duration-200"
+            >
+              <Bell className="mr-2 h-5 w-5" />
+              Activează notificările
+            </Button>
+            <Button
+              variant="ghost"
               onClick={() => {
                 setShowPermissionDialog(false);
                 localStorage.setItem('notification_permission_asked', 'true');
               }}
-              className="flex-1"
+              className="w-full text-gray-400 hover:text-white hover:bg-slate-700/50"
             >
               Mai târziu
-            </Button>
-            <Button
-              onClick={handlePermissionRequest}
-              className="flex-1 bg-blue-500 hover:bg-blue-600"
-            >
-              Activează
             </Button>
           </div>
         </DialogContent>
       </Dialog>
     </NotificationContext.Provider>
   );
-}
-
-function detectPlatform(): 'web' | 'ios' | 'android' {
-  const userAgent = navigator.userAgent || navigator.vendor;
-  
-  if (/android/i.test(userAgent)) {
-    return 'android';
-  }
-  
-  if (/iPad|iPhone|iPod/.test(userAgent) && !(window as any).MSStream) {
-    return 'ios';
-  }
-  
-  return 'web';
 }
 
 export function NotificationButton() {
