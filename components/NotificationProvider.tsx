@@ -38,7 +38,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     // Așteaptă puțin pentru ca aplicația să se încarce complet
     const timer = setTimeout(() => {
       initializeNotifications();
-    }, 1500);
+    }, 500); // Redus de la 1500ms la 500ms
 
     return () => clearTimeout(timer);
   }, []);
@@ -111,8 +111,8 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         
         // Pentru iOS, afișează dialog-ul care necesită interacțiune
         if (isIOS) {
-          // Așteaptă 2 secunde înainte de a afișa dialogul
-          await new Promise(resolve => setTimeout(resolve, 2000));
+          // Așteaptă doar 500ms înainte de a afișa dialogul
+          await new Promise(resolve => setTimeout(resolve, 500));
           setShowPermissionDialog(true);
         } else {
           // Pentru Android/Desktop, putem cere direct
@@ -126,7 +126,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
             className: "bg-gradient-to-r from-blue-500 to-purple-500 text-white border-0",
           });
           
-          await new Promise(resolve => setTimeout(resolve, 1500));
+          await new Promise(resolve => setTimeout(resolve, 500)); // Redus de la 1500ms
           
           // Solicită permisiunea direct
           const permission = await Notification.requestPermission();
@@ -141,11 +141,11 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
               description: (
                 <div className="space-y-2">
                   <p className="font-medium">Notificările sunt acum active!</p>
-                  <p className="text-xs text-gray-400">Vei primi prima notificare în curând...</p>
+                  <p className="text-xs opacity-90">Vei primi prima notificare în curând...</p>
                 </div>
               ),
               duration: 5000,
-              className: "bg-gradient-to-r from-green-500 to-emerald-500 text-white border-0",
+              className: "bg-gradient-to-r from-blue-600 to-blue-700 text-white border-0",
             });
           } else if (permission === 'denied') {
             localStorage.setItem('notification_permission_denied', 'true');
@@ -198,11 +198,11 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
           description: (
             <div className="space-y-2">
               <p className="font-medium">Notificările sunt acum active!</p>
-              <p className="text-xs text-gray-400">Vei primi prima notificare în curând...</p>
+              <p className="text-xs opacity-90">Vei primi prima notificare în curând...</p>
             </div>
           ),
           duration: 5000,
-          className: "bg-gradient-to-r from-green-500 to-emerald-500 text-white border-0",
+          className: "bg-gradient-to-r from-blue-600 to-blue-700 text-white border-0",
         });
       } else if (permission === 'denied') {
         localStorage.setItem('notification_permission_denied', 'true');
@@ -434,30 +434,11 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
             </div>
           </div>
 
-          {/* Content */}
-          <div className="px-4 py-3 space-y-2">
-            <div className="space-y-2">
-              {[
-                { icon: '📢', title: 'Evenimente și anunțuri' },
-                { icon: '💼', title: 'Locuri de muncă noi' },
-                { icon: '🚨', title: 'Alerte importante' },
-              ].map((item, index) => (
-                <div 
-                  key={index} 
-                  className="flex items-center gap-2.5 p-2 rounded-lg bg-slate-700/50"
-                >
-                  <span className="text-lg">{item.icon}</span>
-                  <p className="text-sm text-white">{item.title}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-
           {/* Actions */}
-          <div className="p-4 pt-2 space-y-2">
+          <div className="p-4 space-y-2">
             <Button
               onClick={handlePermissionRequest}
-              className="w-full bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white font-semibold py-2.5 text-sm shadow-lg hover:shadow-xl transition-all duration-200"
+              className="w-full bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2.5 text-sm shadow-lg hover:shadow-xl transition-all duration-200"
             >
               <Bell className="mr-2 h-4 w-4" />
               Activează notificările
