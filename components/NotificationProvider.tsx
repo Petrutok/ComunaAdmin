@@ -293,12 +293,11 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         // Salvează în localStorage
         localStorage.setItem('push_subscription', JSON.stringify(subscription.toJSON()));
         
-        // Notificare de bun venit spectaculoasă
+        // Notificare de bun venit
         try {
           if ('showNotification' in registration) {
-            // Prima notificare - de bun venit
-            await registration.showNotification('🎉 Bine ai venit în Comuna digitală!', {
-              body: 'Notificările sunt acum active. Vei fi primul care află despre evenimente importante!',
+            await registration.showNotification('Notificări activate! 🎉', {
+              body: 'Bine ai venit! Vei primi notificări despre evenimente importante din comună.',
               icon: '/icon-192x192.png',
               badge: '/icon-192x192.png',
               tag: 'welcome',
@@ -308,17 +307,6 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
                 type: 'welcome'
               }
             });
-            
-            // A doua notificare după 3 secunde - exemplu
-            setTimeout(() => {
-              registration.showNotification('📱 Exemplu de notificare', {
-                body: 'Așa vei primi informații despre evenimente, anunțuri noi și alerte importante.',
-                icon: '/icon-192x192.png',
-                badge: '/icon-192x192.png',
-                tag: 'example',
-                requireInteraction: false
-              });
-            }, 3000);
           }
         } catch (notifError) {
           console.log('[NotificationProvider] Could not show welcome notification:', notifError);
@@ -423,67 +411,55 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       
       {/* Dialog pentru iOS - Modern Design */}
       <Dialog open={showPermissionDialog} onOpenChange={setShowPermissionDialog}>
-        <DialogContent className="bg-gradient-to-b from-slate-800 to-slate-900 border-slate-700/50 max-w-md overflow-hidden p-0">
+        <DialogContent className="bg-gradient-to-b from-slate-800 to-slate-900 border-slate-700/50 max-w-sm overflow-hidden p-0">
           {/* Header cu gradient */}
-          <div className="bg-gradient-to-r from-blue-600 to-purple-600 p-1">
-            <div className="bg-slate-800 rounded-t-lg p-6 pb-4">
+          <div className="bg-gradient-to-r from-blue-600 to-purple-600 p-0.5">
+            <div className="bg-slate-800 rounded-t-lg p-4">
               <div className="relative">
                 {/* Animated bell icon */}
-                <div className="mx-auto mb-4 h-20 w-20 rounded-2xl bg-gradient-to-br from-blue-500/20 to-purple-500/20 flex items-center justify-center relative overflow-hidden">
+                <div className="mx-auto mb-3 h-14 w-14 rounded-xl bg-gradient-to-br from-blue-500/20 to-purple-500/20 flex items-center justify-center relative overflow-hidden">
                   <div className="absolute inset-0 bg-gradient-to-tr from-blue-400/20 to-purple-400/20 animate-pulse"></div>
-                  <Bell className="h-10 w-10 text-white relative z-10 animate-bounce" />
-                  <div className="absolute -top-1 -right-1 h-3 w-3 bg-red-500 rounded-full animate-ping"></div>
-                  <div className="absolute -top-1 -right-1 h-3 w-3 bg-red-500 rounded-full"></div>
+                  <Bell className="h-7 w-7 text-white relative z-10" />
+                  <div className="absolute -top-1 -right-1 h-2.5 w-2.5 bg-red-500 rounded-full animate-ping"></div>
+                  <div className="absolute -top-1 -right-1 h-2.5 w-2.5 bg-red-500 rounded-full"></div>
                 </div>
                 
-                <DialogTitle className="text-2xl font-bold text-white text-center mb-2">
-                  Nu rata nicio informație importantă!
+                <DialogTitle className="text-lg font-bold text-white text-center mb-1">
+                  Activează notificările 🔔
                 </DialogTitle>
-                <DialogDescription className="text-center text-gray-300">
-                  Activează notificările pentru a fi mereu la curent
+                <DialogDescription className="text-center text-gray-300 text-sm">
+                  Fii mereu la curent cu noutățile din comună
                 </DialogDescription>
               </div>
             </div>
           </div>
 
           {/* Content */}
-          <div className="p-6 space-y-4">
-            <div className="space-y-3">
+          <div className="px-4 py-3 space-y-2">
+            <div className="space-y-2">
               {[
-                { icon: '📢', title: 'Evenimente și anunțuri', desc: 'Află primul despre activitățile din comună' },
-                { icon: '💼', title: 'Locuri de muncă', desc: 'Oportunități noi de angajare în zona ta' },
-                { icon: '🚨', title: 'Urgențe și alerte', desc: 'Informații critice în timp real' },
-                { icon: '♻️', title: 'Colectare deșeuri', desc: 'Reminder-uri pentru zilele de colectare' }
+                { icon: '📢', title: 'Evenimente și anunțuri' },
+                { icon: '💼', title: 'Locuri de muncă noi' },
+                { icon: '🚨', title: 'Alerte importante' },
               ].map((item, index) => (
                 <div 
                   key={index} 
-                  className="flex items-start gap-3 p-3 rounded-lg bg-slate-700/50 backdrop-blur-sm hover:bg-slate-700/70 transition-all duration-200"
+                  className="flex items-center gap-2.5 p-2 rounded-lg bg-slate-700/50"
                 >
-                  <span className="text-2xl">{item.icon}</span>
-                  <div className="flex-1">
-                    <p className="font-medium text-white text-sm">{item.title}</p>
-                    <p className="text-xs text-gray-400">{item.desc}</p>
-                  </div>
+                  <span className="text-lg">{item.icon}</span>
+                  <p className="text-sm text-white">{item.title}</p>
                 </div>
               ))}
-            </div>
-
-            {/* Trust badge */}
-            <div className="flex items-center justify-center gap-2 text-xs text-gray-400 pt-2">
-              <div className="h-4 w-4 rounded-full bg-green-500/20 flex items-center justify-center">
-                <div className="h-2 w-2 rounded-full bg-green-500"></div>
-              </div>
-              <span>Notificări importante, fără spam</span>
             </div>
           </div>
 
           {/* Actions */}
-          <div className="p-6 pt-0 space-y-3">
+          <div className="p-4 pt-2 space-y-2">
             <Button
               onClick={handlePermissionRequest}
-              className="w-full bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white font-semibold py-6 text-base shadow-lg hover:shadow-xl transition-all duration-200"
+              className="w-full bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white font-semibold py-2.5 text-sm shadow-lg hover:shadow-xl transition-all duration-200"
             >
-              <Bell className="mr-2 h-5 w-5" />
+              <Bell className="mr-2 h-4 w-4" />
               Activează notificările
             </Button>
             <Button
@@ -492,7 +468,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
                 setShowPermissionDialog(false);
                 localStorage.setItem('notification_permission_asked', 'true');
               }}
-              className="w-full text-gray-400 hover:text-white hover:bg-slate-700/50"
+              className="w-full text-gray-400 hover:text-white hover:bg-slate-700/50 text-sm py-2"
             >
               Mai târziu
             </Button>
