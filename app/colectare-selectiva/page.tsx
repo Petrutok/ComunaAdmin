@@ -205,7 +205,7 @@ export default function ColectareSelectivaPage() {
                 Consultați programul complet cu zilele de colectare pentru fiecare tip de deșeu, organizat pe zone și tipuri de locuințe.
               </p>
               <a 
-                href="https://www.primariamiroslava.ro/wp-content/uploads/2025/02/calendar-2025-s1-colectare-d2d-MIROSLAVA.pdf"
+                href="https://somabacau.ro/wp-content/uploads/2025/01/Filipesti2025-modificat.png"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-2 bg-white text-slate-900 hover:bg-gray-100 font-semibold shadow-md hover:shadow-xl transition-all duration-200 px-5 py-2.5 rounded-lg"

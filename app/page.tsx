@@ -33,7 +33,7 @@ export default function HomePage() {
       link: "/report-issue",
       buttonText: "Raportează",
       color: "text-red-400",
-      bgColor: "bg-red-500/20"
+      iconBg: "bg-red-500/10"
     },
     {
       title: "Anunțuri Locale",
@@ -42,7 +42,7 @@ export default function HomePage() {
       link: "/anunturi",
       buttonText: "Vezi Anunțuri",
       color: "text-blue-400",
-      bgColor: "bg-blue-500/20"
+      iconBg: "bg-blue-500/10"
     },
     {
       title: "Locuri de Muncă",
@@ -51,7 +51,7 @@ export default function HomePage() {
       link: "/joburi",
       buttonText: "Vezi Joburi",
       color: "text-green-400",
-      bgColor: "bg-green-500/20"
+      iconBg: "bg-green-500/10"
     },
     {
       title: "Colectare Selectivă",
@@ -60,7 +60,7 @@ export default function HomePage() {
       link: "/colectare-selectiva",
       buttonText: "Vezi Calendar",
       color: "text-emerald-400",
-      bgColor: "bg-emerald-500/20"
+      iconBg: "bg-emerald-500/10"
     },
     {
       title: "Plată Impozite",
@@ -69,7 +69,7 @@ export default function HomePage() {
       link: "/taxes",
       buttonText: "Plătește Online",
       color: "text-purple-400",
-      bgColor: "bg-purple-500/20"
+      iconBg: "bg-purple-500/10"
     },
     {
       title: "Evenimente",
@@ -78,7 +78,7 @@ export default function HomePage() {
       link: "/events",
       buttonText: "Vezi Evenimente",
       color: "text-orange-400",
-      bgColor: "bg-orange-500/20"
+      iconBg: "bg-orange-500/10"
     },
     {
       title: "Consilieri Locali",
@@ -87,7 +87,7 @@ export default function HomePage() {
       link: "/representatives",
       buttonText: "Vezi Lista",
       color: "text-sky-400",
-      bgColor: "bg-sky-500/20"
+      iconBg: "bg-sky-500/10"
     },
     {
       title: "Lucrări în Desfășurare",
@@ -96,16 +96,16 @@ export default function HomePage() {
       link: "/ongoing-works",
       buttonText: "Vezi Lucrări",
       color: "text-yellow-400",
-      bgColor: "bg-yellow-500/20"
+      iconBg: "bg-yellow-500/10"
     },
    {
      title: "Cereri Online",
      description: "Completează și trimite cereri direct din aplicație",
      icon: FileText,
      link: "/cereri-online",
-     buttonText: "Completează cerere",
-     color: "text-purple-400",
-     bgColor: "bg-purple-500/20"
+     buttonText: "Completează Cerere",
+     color: "text-indigo-400",
+     iconBg: "bg-indigo-500/10"
 },
     {
       title: "Ședințe Consiliu",
@@ -114,12 +114,12 @@ export default function HomePage() {
       link: "/meeting-summaries",
       buttonText: "Vezi Ședințe",
       color: "text-gray-400",
-      bgColor: "bg-gray-500/20"
+      iconBg: "bg-gray-500/10"
     }
   ];
     
   return (
-    <div className="min-h-screen bg-slate-900">
+    <div className="min-h-screen bg-slate-950">
       {/* Modern Redesigned Header */}
       <header className="relative bg-gradient-to-br from-slate-950 via-slate-900 to-blue-950 overflow-hidden">
         {/* Animated Background Elements */}
@@ -176,7 +176,7 @@ export default function HomePage() {
       </header>
 
       {/* Info Bar */}
-      <div className="bg-gradient-to-r from-slate-800 via-slate-800/95 to-slate-800 border-b border-slate-700/50">
+      <div className="bg-slate-900 border-b border-slate-800">
         <div className="max-w-7xl mx-auto px-4 py-3">
           <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm">
             <div className="flex items-center gap-2">
@@ -198,67 +198,41 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* Cards Grid */}
+      {/* Cards Grid - Stil similar cu imaginea */}
       <div className="max-w-7xl mx-auto px-4 py-12">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
           {cards.map((card, index) => {
             const Icon = card.icon;
-            const colorClasses: Record<string, string> = {
-              red: 'from-red-500/20 to-red-600/20 border-red-500/30 hover:border-red-400/50',
-              blue: 'from-blue-500/20 to-blue-600/20 border-blue-500/30 hover:border-blue-400/50',
-              green: 'from-green-500/20 to-green-600/20 border-green-500/30 hover:border-green-400/50',
-              emerald: 'from-emerald-500/20 to-emerald-600/20 border-emerald-500/30 hover:border-emerald-400/50',
-              purple: 'from-purple-500/20 to-purple-600/20 border-purple-500/30 hover:border-purple-400/50',
-              orange: 'from-orange-500/20 to-orange-600/20 border-orange-500/30 hover:border-orange-400/50',
-              sky: 'from-sky-500/20 to-sky-600/20 border-sky-500/30 hover:border-sky-400/50',
-              yellow: 'from-yellow-500/20 to-yellow-600/20 border-yellow-500/30 hover:border-yellow-400/50',
-              indigo: 'from-indigo-500/20 to-indigo-600/20 border-indigo-500/30 hover:border-indigo-400/50',
-              gray: 'from-gray-500/20 to-gray-600/20 border-gray-500/30 hover:border-gray-400/50'
-            };
-            const colorKey = card.color.split('-')[1];
-            const cardColorClass = colorClasses[colorKey] || colorClasses.gray;
-            
             return (
-              <div key={index} className="transform transition-all duration-300 hover:scale-105">
-                <Card className={`h-full bg-gradient-to-br ${cardColorClass} backdrop-blur-sm border-2 transition-all duration-300 shadow-lg hover:shadow-2xl overflow-hidden group rounded-2xl relative flex flex-col`}>
-                  {/* Animated gradient overlay on hover */}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+              <Link href={card.link} key={index} className="block group">
+                <Card className="h-full bg-slate-800 border border-slate-700 hover:border-slate-600 hover:bg-slate-800/80 transition-all duration-300 overflow-hidden rounded-2xl p-6 sm:p-8 flex flex-col">
                   
-                  <CardHeader className="pb-4 relative z-10">
-                    <div className="flex flex-col items-center text-center">
-                      {/* Icon with glow effect */}
-                      <div className="relative mb-4">
-                        <div className={`absolute inset-0 ${card.bgColor} blur-xl opacity-50 group-hover:opacity-75 transition-opacity`}></div>
-                        <div className={`relative p-4 rounded-2xl ${card.bgColor} border border-white/20 shadow-lg group-hover:shadow-xl transition-all`}>
-                          <Icon className={`h-8 w-8 md:h-10 md:w-10 ${card.color} drop-shadow-md`} strokeWidth={2.5} />
-                        </div>
-                      </div>
-                      
-                      {/* Title with enhanced visibility */}
-                      <CardTitle className="text-xl md:text-2xl font-bold text-white mb-3 drop-shadow-lg">
-                        {card.title}
-                      </CardTitle>
-                      
-                      {/* Description with better contrast */}
-                      <CardDescription className="text-sm md:text-base text-gray-200 leading-relaxed font-medium">
-                        {card.description}
-                      </CardDescription>
+                  {/* Icon centered */}
+                  <div className="flex justify-center mb-6">
+                    <div className={`p-4 rounded-2xl ${card.iconBg} border border-slate-700`}>
+                      <Icon className={`h-8 w-8 sm:h-10 sm:w-10 ${card.color}`} strokeWidth={1.5} />
                     </div>
-                  </CardHeader>
+                  </div>
+                  
+                  {/* Title centered */}
+                  <h3 className="text-lg sm:text-xl font-bold text-white text-center mb-4">
+                    {card.title}
+                  </h3>
+                  
+                  {/* Description centered */}
+                  <p className="text-sm text-gray-300 text-center mb-6 flex-1 line-clamp-3">
+                    {card.description}
+                  </p>
 
-                  <CardContent className="pt-0 mt-auto relative z-10">
-                    <Link href={card.link} className="block">
-                      <Button 
-                        className={`w-full bg-white/90 hover:bg-white text-slate-900 font-bold shadow-lg hover:shadow-xl transition-all duration-200 py-3 md:py-4 rounded-xl flex items-center justify-center gap-2 group/btn text-base md:text-lg border-2 border-white/20`}
-                        size="lg"
-                      >
-                        <span>{card.buttonText}</span>
-                        <span className="group-hover/btn:translate-x-1 transition-transform text-xl">→</span>
-                      </Button>
-                    </Link>
-                  </CardContent>
+                  {/* Button */}
+                  <Button 
+                    className="w-full bg-slate-100 hover:bg-white text-slate-900 font-semibold py-3 rounded-full transition-all group-hover:scale-105 border border-slate-600"
+                  >
+                    <span className="text-sm sm:text-base">{card.buttonText}</span>
+                    <span className="ml-2">→</span>
+                  </Button>
                 </Card>
-              </div>
+              </Link>
             );
           })}
         </div>
@@ -273,7 +247,7 @@ export default function HomePage() {
       </div>
 
       {/* Footer */}
-      <footer className="bg-slate-800 border-t border-slate-700 mt-12">
+      <footer className="bg-slate-900 border-t border-slate-800 mt-12">
         <div className="max-w-7xl mx-auto px-4 py-6">
           <div className="text-center text-gray-300">
             <p className="mb-2">
