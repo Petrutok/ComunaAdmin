@@ -203,34 +203,49 @@ export default function HomePage() {
         <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
           {cards.map((card, index) => {
             const Icon = card.icon;
+            // Define border colors for each card
+            const borderColors = [
+              'border-t-red-500',      // Raportează o Problemă
+              'border-t-blue-500',     // Anunțuri Locale
+              'border-t-green-500',    // Locuri de Muncă
+              'border-t-emerald-500',  // Colectare Selectivă
+              'border-t-purple-500',   // Plată Impozite
+              'border-t-orange-500',   // Evenimente
+              'border-t-sky-500',      // Consilieri Locali
+              'border-t-yellow-500',   // Lucrări în Desfășurare
+              'border-t-indigo-500',   // Cereri Online
+              'border-t-gray-500'      // Ședințe Consiliu
+            ];
+            
             return (
               <Link href={card.link} key={index} className="block group">
-                <Card className="h-full bg-slate-800 border border-slate-700 hover:border-slate-600 hover:bg-slate-800/80 transition-all duration-300 overflow-hidden rounded-2xl p-6 sm:p-8 flex flex-col">
-                  
-                  {/* Icon centered */}
-                  <div className="flex justify-center mb-6">
-                    <div className={`p-4 rounded-2xl ${card.iconBg} border border-slate-700`}>
-                      <Icon className={`h-8 w-8 sm:h-10 sm:w-10 ${card.color}`} strokeWidth={1.5} />
+                <Card className={`h-full bg-slate-800 border border-slate-700 hover:border-slate-600 hover:bg-slate-800/80 transition-all duration-300 overflow-hidden rounded-2xl flex flex-col border-t-4 ${borderColors[index]}`}>
+                  <div className="p-6 sm:p-8 flex flex-col h-full">
+                    {/* Icon centered */}
+                    <div className="flex justify-center mb-6">
+                      <div className={`p-4 rounded-2xl ${card.iconBg} border border-slate-700`}>
+                        <Icon className={`h-8 w-8 sm:h-10 sm:w-10 ${card.color}`} strokeWidth={1.5} />
+                      </div>
                     </div>
-                  </div>
-                  
-                  {/* Title centered */}
-                  <h3 className="text-lg sm:text-xl font-bold text-white text-center mb-4">
-                    {card.title}
-                  </h3>
-                  
-                  {/* Description centered */}
-                  <p className="text-sm text-gray-300 text-center mb-6 flex-1 line-clamp-3">
-                    {card.description}
-                  </p>
+                    
+                    {/* Title centered */}
+                    <h3 className="text-lg sm:text-xl font-bold text-white text-center mb-4">
+                      {card.title}
+                    </h3>
+                    
+                    {/* Description centered */}
+                    <p className="text-sm text-gray-300 text-center mb-6 flex-1 line-clamp-3">
+                      {card.description}
+                    </p>
 
-                  {/* Button */}
-                  <Button 
-                    className="w-full bg-slate-100 hover:bg-white text-slate-900 font-semibold py-3 rounded-full transition-all group-hover:scale-105 border border-slate-600"
-                  >
-                    <span className="text-sm sm:text-base">{card.buttonText}</span>
-                    <span className="ml-2">→</span>
-                  </Button>
+                    {/* Button */}
+                    <Button 
+                      className="w-full bg-slate-100 hover:bg-white text-slate-900 font-semibold py-3 rounded-full transition-all group-hover:scale-105 border border-slate-600"
+                    >
+                      <span className="text-sm sm:text-base">{card.buttonText}</span>
+                      <span className="ml-2">→</span>
+                    </Button>
+                  </div>
                 </Card>
               </Link>
             );

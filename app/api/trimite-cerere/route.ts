@@ -1,73 +1,83 @@
-// Locație: /app/api/trimite-cerere/route.ts
-// Versiune care funcționează cu Resend în modul test
-
 import { NextRequest, NextResponse } from 'next/server';
-import { initializeApp } from 'firebase/app';
-import { getFirestore, collection, addDoc } from 'firebase/firestore';
+import { initializeApp, getApps, cert } from 'firebase-admin/app';
+import { getFirestore } from 'firebase-admin/firestore';
 import { Resend } from 'resend';
 import { generatePDF, RequestData } from '@/lib/simple-pdf-generator';
 
-// 1. Inițializare Firebase (înainte de orice)
-const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY!,
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN!,
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID!,
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET!,
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID!,
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID!,
-};
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
+// Inițializare Firebase Admin
+if (!getApps().length) {
+  try {
+    const serviceAccount = {
+      projectId: process.env.FIREBASE_PROJECT_ID,
+      clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+      privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+    };
 
+    initializeApp({
+      credential: cert(serviceAccount as any)
+    });
+    console.log('✅ Firebase Admin initialized successfully');
+  } catch (error) {
+    console.error('❌ Firebase admin initialization error:', error);
+    initializeApp();
+  }
+}
+
+const db = getFirestore();
 const resend = new Resend(process.env.RESEND_API_KEY);
 
+// Verifică dacă Resend API key există
+console.log('🔑 Resend API Key exists:', !!process.env.RESEND_API_KEY);
+console.log('📧 Primarie email:', process.env.PRIMARIE_EMAIL || 'contact@primariafilipesti.ro');
+
 export async function POST(request: NextRequest) {
+  console.log('📨 Processing new request...');
+  
   try {
-    // 2. Citim JSON-ul direct
+    // Parse JSON body
     const data = await request.json();
-    console.log('Received data:', data);
-
-    // 3. Validări
-    if (!data.numeComplet || !data.cnp || !data.localitate || !data.tipCerere || !data.scopulCererii) {
-      return NextResponse.json({ success: false, error: 'Date incomplete' }, { status: 400 });
+    console.log('📝 Request data received for:', data.tipCerere, 'from:', data.email);
+    
+    // Procesează fișierele din Base64
+    const attachments: Array<{ filename: string; content: string }> = [];
+    const attachmentNames: string[] = [];
+    
+    if (data.fisiere && data.fisiere.length > 0) {
+      for (const file of data.fisiere) {
+        attachments.push({
+          filename: file.name,
+          content: file.content // Deja este Base64
+        });
+        attachmentNames.push(file.name);
+      }
+      console.log(`📎 Processing ${attachmentNames.length} attachments`);
     }
-    if (!/^\d{13}$/.test(data.cnp)) {
-      return NextResponse.json({ success: false, error: 'CNP invalid' }, { status: 400 });
-    }
-
-    // 4. Pregătim datele pentru PDF în formatul nou
-    const pdfData: RequestData = {
-      // Date personale
-      nume: data.nume || data.numeComplet.split(' ')[0] || '',
-      prenume: data.prenume || data.numeComplet.split(' ').slice(1).join(' ') || '',
+    
+    // Generează PDF
+    console.log('🔨 Generating PDF...');
+    const requestData: RequestData = {
       numeComplet: data.numeComplet,
+      nume: data.nume,
+      prenume: data.prenume,
       cnp: data.cnp,
-      
-      // Contact
       email: data.email,
+      telefon: data.telefon,
       telefonMobil: data.telefonMobil || '',
       telefonFix: data.telefonFix || '',
-      telefon: data.telefon || data.telefonMobil || data.telefonFix || '',
-      
-      // Domiciliu
-      judet: data.judet || 'Bacău',
+      judet: data.judet,
       localitate: data.localitate,
-      strada: data.strada || 'Principală',
+      strada: data.strada || '',
       numar: data.numar || '',
       bloc: data.bloc || '',
       scara: data.scara || '',
       etaj: data.etaj || '',
       apartament: data.apartament || '',
-      adresa: data.adresa || `Str. ${data.strada || 'Principală'}`,
-      
-      // Date cerere
+      adresa: data.adresa,
       tipCerere: data.tipCerere,
       scopulCererii: data.scopulCererii,
-      documente: data.documente || [],
-      fisiere: data.fisiere || [],
-      fileUrls: data.fileUrls || [],
-      
-      // Câmpuri adiționale (dacă există)
+      // Adaugă informații despre fișierele atașate pentru PDF
+      fisiere: attachmentNames.map(name => ({ name } as File)),
+      // Câmpuri adiționale
       ...(data.numeFirma && { numeFirma: data.numeFirma }),
       ...(data.cui && { cui: data.cui }),
       ...(data.nrRegistruComert && { nrRegistruComert: data.nrRegistruComert }),
@@ -84,115 +94,119 @@ export async function POST(request: NextRequest) {
       ...(data.masaMaxima && { masaMaxima: data.masaMaxima }),
       ...(data.nrInmatriculare && { nrInmatriculare: data.nrInmatriculare }),
     };
-
-    // 5. Generăm PDF-ul
-    console.log('Generating PDF...');
-    const pdfBlob = await generatePDF(pdfData);
-    console.log('PDF generated successfully');
-
-    // 6. Email - MODIFICAT PENTRU TEST MODE
-    const tipCerereText = data.tipCerere.replace(/-/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase());
-    const subject = `Cerere nouă – ${tipCerereText} – ${data.numeComplet}`;
     
-    // HTML mai detaliat pentru email
-    const html = `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <div style="background-color: #003087; color: white; padding: 20px; text-align: center;">
-          <h1 style="margin: 0;">Cerere nouă – Comuna Filipești</h1>
-        </div>
-        
-        <div style="padding: 20px; background-color: #f5f5f5;">
-          <h2 style="color: #333;">Date solicitant:</h2>
-          <table style="width: 100%; border-collapse: collapse;">
-            <tr>
-              <td style="padding: 8px; border-bottom: 1px solid #ddd;"><strong>Nume:</strong></td>
-              <td style="padding: 8px; border-bottom: 1px solid #ddd;">${data.numeComplet}</td>
-            </tr>
-            <tr>
-              <td style="padding: 8px; border-bottom: 1px solid #ddd;"><strong>CNP:</strong></td>
-              <td style="padding: 8px; border-bottom: 1px solid #ddd;">${data.cnp}</td>
-            </tr>
-            <tr>
-              <td style="padding: 8px; border-bottom: 1px solid #ddd;"><strong>Email:</strong></td>
-              <td style="padding: 8px; border-bottom: 1px solid #ddd;">${data.email}</td>
-            </tr>
-            <tr>
-              <td style="padding: 8px; border-bottom: 1px solid #ddd;"><strong>Telefon:</strong></td>
-              <td style="padding: 8px; border-bottom: 1px solid #ddd;">${data.telefon || data.telefonMobil || data.telefonFix || 'Nespecificat'}</td>
-            </tr>
-            <tr>
-              <td style="padding: 8px; border-bottom: 1px solid #ddd;"><strong>Adresa:</strong></td>
-              <td style="padding: 8px; border-bottom: 1px solid #ddd;">${data.localitate}, ${data.adresa}</td>
-            </tr>
-          </table>
-          
-          <h2 style="color: #333; margin-top: 20px;">Detalii cerere:</h2>
-          <div style="background-color: white; padding: 15px; border-radius: 5px; margin-bottom: 20px;">
-            <p><strong>Tip cerere:</strong> ${tipCerereText}</p>
-            <p><strong>Motivul cererii:</strong></p>
-            <p style="padding: 10px; background-color: #f0f0f0; border-left: 4px solid #003087;">
-              ${data.scopulCererii}
-            </p>
-          </div>
-          
-          <div style="text-align: center; color: #666; font-size: 12px;">
-            <p>Cerere trimisă la: ${new Date().toLocaleString('ro-RO')}</p>
-            <p>Acest email a fost generat automat de platforma online a Primăriei Filipești</p>
-          </div>
-        </div>
-      </div>
-    `;
-
-    // Pentru test mode, trimitem doar către email-ul verificat
-    let emailId = null;
+    const pdfBlob = await generatePDF(requestData);
+    const pdfBuffer = Buffer.from(await pdfBlob.arrayBuffer());
+    console.log('✅ PDF generated successfully');
+    
+    // Salvează în Firestore
+    console.log('💾 Saving to Firestore...');
+    const docRef = await db.collection('cereri').add({
+      numeComplet: data.numeComplet,
+      cnp: data.cnp,
+      email: data.email,
+      telefon: data.telefon,
+      localitate: data.localitate,
+      adresa: data.adresa,
+      tipCerere: data.tipCerere,
+      scopulCererii: data.scopulCererii,
+      attachmentNames: attachmentNames,
+      status: 'în așteptare',
+      dataInregistrare: new Date().toISOString(),
+      timestamp: new Date()
+    });
+    console.log('✅ Saved to Firestore with ID:', docRef.id);
+    
+    // Pregătește lista de atașamente pentru email
+    const emailAttachments = [
+      {
+        filename: `cerere_${data.tipCerere}.pdf`,
+        content: pdfBuffer.toString('base64')
+      },
+      ...attachments
+    ];
+    
+    // Trimite email către solicitant
+    console.log('📧 Sending email to applicant:', data.email);
     try {
-      const { data: emailData, error: emailError } = await resend.emails.send({
-        from: 'Comuna Filipești <onboarding@resend.dev>',
-        to: ['petrutasd@gmail.com'], // În modul test, trimitem doar către tine
-        subject,
-        html,
-        attachments: [
-          {
-            filename: `Cerere_${data.tipCerere}_${data.numeComplet.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`,
-            content: Buffer.from(await pdfBlob.arrayBuffer()).toString('base64'),
-          },
-        ],
+      const emailToApplicant = await resend.emails.send({
+        from: 'Primăria Filipești <onboarding@resend.dev>',
+        to: data.email,
+        subject: `Confirmare cerere - ${data.tipCerere}`,
+        html: `
+          <h2>Cererea dvs. a fost înregistrată cu succes!</h2>
+          <p>Număr înregistrare: <strong>${docRef.id}</strong></p>
+          <p>Tip cerere: ${data.tipCerere}</p>
+          <p>Data: ${new Date().toLocaleDateString('ro-RO')}</p>
+          <br>
+          <p>Cererea dvs. va fi procesată în maxim 30 de zile lucrătoare.</p>
+          ${attachmentNames.length > 0 ? `
+            <p><strong>Documente atașate:</strong></p>
+            <ul>
+              ${attachmentNames.map(name => `<li>${name}</li>`).join('')}
+            </ul>
+          ` : ''}
+          <br>
+          <p>Cu stimă,<br>Primăria Comunei Filipești</p>
+        `,
+        attachments: emailAttachments
       });
-
-      if (emailError) {
-        console.error('Email error:', emailError);
-        throw emailError;
-      }
-
-      emailId = emailData?.id || null;
-      console.log('Email sent successfully:', emailData);
+      console.log('✅ Email sent to applicant. Response:', emailToApplicant);
     } catch (emailError) {
-      console.error('Failed to send email:', emailError);
-      // Continuăm chiar dacă email-ul eșuează
+      console.error('❌ Error sending email to applicant:', emailError);
+      // Continuă execuția chiar dacă email-ul eșuează
     }
-
-    // 7. Salvare în Firestore
-    console.log('Saving to Firestore...');
-    const docRef = await addDoc(collection(db, 'cereri_online'), {
-      // Salvăm toate datele
-      ...data,
-      ...pdfData,
-      status: 'trimisa',
-      createdAt: new Date(),
-      emailId: emailId,
+    
+    // Trimite notificare către primărie
+    const primarieEmail = process.env.PRIMARIE_EMAIL || 'contact@primariafilipesti.ro';
+    console.log('📧 Sending notification to primarie:', primarieEmail);
+    try {
+      const emailToPrimarie = await resend.emails.send({
+        from: 'Sistem Cereri <onboarding@resend.dev>',
+        to: primarieEmail,
+        subject: `Cerere nouă - ${data.tipCerere} - ${data.numeComplet}`,
+        html: `
+          <h2>Cerere nouă înregistrată</h2>
+          <p><strong>Număr:</strong> ${docRef.id}</p>
+          <p><strong>Tip:</strong> ${data.tipCerere}</p>
+          <p><strong>Solicitant:</strong> ${data.numeComplet}</p>
+          <p><strong>CNP:</strong> ${data.cnp}</p>
+          <p><strong>Email:</strong> ${data.email}</p>
+          <p><strong>Telefon:</strong> ${data.telefon}</p>
+          <p><strong>Data:</strong> ${new Date().toLocaleDateString('ro-RO')}</p>
+          <br>
+          <h3>Conținut cerere:</h3>
+          <p>${data.scopulCererii}</p>
+          ${attachmentNames.length > 0 ? `
+            <br>
+            <p><strong>Documente atașate:</strong></p>
+            <ul>
+              ${attachmentNames.map(name => `<li>${name}</li>`).join('')}
+            </ul>
+          ` : ''}
+        `,
+        attachments: emailAttachments
+      });
+      console.log('✅ Email sent to primarie. Response:', emailToPrimarie);
+    } catch (emailError) {
+      console.error('❌ Error sending email to primarie:', emailError);
+      // Continuă execuția chiar dacă email-ul eșuează
+    }
+    
+    console.log('🎉 Request processed successfully!');
+    return NextResponse.json({ 
+      success: true, 
+      id: docRef.id,
+      message: 'Cererea a fost trimisă cu succes!'
     });
-    console.log('Saved to Firestore with ID:', docRef.id);
-
-    return NextResponse.json({
-      success: true,
-      message: 'Cererea a fost trimisă cu succes!',
-      documentId: docRef.id,
-      note: 'În modul test, email-ul a fost trimis doar către adresa verificată.'
-    });
-  } catch (error: any) {
-    console.error('Error in /api/trimite-cerere:', error);
+    
+  } catch (error) {
+    console.error('❌ Error processing request:', error);
     return NextResponse.json(
-      { success: false, error: error.message || 'Eroare internă' },
+      { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Eroare la procesarea cererii' 
+      },
       { status: 500 }
     );
   }

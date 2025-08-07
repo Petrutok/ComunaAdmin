@@ -119,134 +119,163 @@ export default function CerereFormularPage() {
     setFormData({ ...formData, fisiere: files });
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+// Alternativă pentru handleSubmit - trimite fișierele ca Base64 în JSON
+// Înlocuiește funcția handleSubmit din page.tsx cu aceasta:
+
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  
+  // Validări
+  if (!formData.nume || !formData.prenume) {
+    toast({
+      title: "Eroare",
+      description: "Numele și prenumele sunt obligatorii",
+      variant: "destructive"
+    });
+    return;
+  }
+
+  if (formData.cnp.length !== 13 || !/^\d+$/.test(formData.cnp)) {
+    toast({
+      title: "Eroare",
+      description: "CNP-ul trebuie să conțină exact 13 cifre",
+      variant: "destructive"
+    });
+    return;
+  }
+
+  setIsSubmitting(true);
+  
+  try {
+    // Construim numele complet și adresa completă
+    const numeComplet = `${formData.nume} ${formData.prenume}`;
+    const adresaCompleta = `Str. ${formData.strada}${formData.numar ? `, Nr. ${formData.numar}` : ''}${formData.bloc ? `, Bl. ${formData.bloc}` : ''}${formData.scara ? `, Sc. ${formData.scara}` : ''}${formData.etaj ? `, Et. ${formData.etaj}` : ''}${formData.apartament ? `, Ap. ${formData.apartament}` : ''}`;
     
-    // Validări
-    if (!formData.nume || !formData.prenume) {
-      toast({
-        title: "Eroare",
-        description: "Numele și prenumele sunt obligatorii",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    if (formData.cnp.length !== 13 || !/^\d+$/.test(formData.cnp)) {
-      toast({
-        title: "Eroare",
-        description: "CNP-ul trebuie să conțină exact 13 cifre",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    setIsSubmitting(true);
-    
-    try {
-      // Construim numele complet și adresa completă pentru compatibilitate cu backend-ul
-      const numeComplet = `${formData.nume} ${formData.prenume}`;
-      const adresaCompleta = `Str. ${formData.strada}${formData.numar ? `, Nr. ${formData.numar}` : ''}${formData.bloc ? `, Bl. ${formData.bloc}` : ''}${formData.scara ? `, Sc. ${formData.scara}` : ''}${formData.etaj ? `, Et. ${formData.etaj}` : ''}${formData.apartament ? `, Ap. ${formData.apartament}` : ''}`;
-      
-      const dataToSend = {
-        numeComplet,
-        cnp: formData.cnp,
-        localitate: formData.localitate,
-        adresa: adresaCompleta,
-        telefon: formData.telefonMobil || formData.telefonFix,
-        email: formData.email,
-        tipCerere: formType,
-        scopulCererii: formData.scopulCererii,
-        
-        // Date adiționale pentru PDF
-        nume: formData.nume,
-        prenume: formData.prenume,
-        judet: formData.judet,
-        telefonMobil: formData.telefonMobil,
-        telefonFix: formData.telefonFix,
-        
-        // Câmpuri adiționale specifice
-        ...(formData.numeFirma && { numeFirma: formData.numeFirma }),
-        ...(formData.cui && { cui: formData.cui }),
-        ...(formData.nrRegistruComert && { nrRegistruComert: formData.nrRegistruComert }),
-        ...(formData.reprezentantLegal && { reprezentantLegal: formData.reprezentantLegal }),
-        ...(formData.suprafataTeren && { suprafataTeren: formData.suprafataTeren }),
-        ...(formData.nrCadastral && { nrCadastral: formData.nrCadastral }),
-        ...(formData.tipConstructie && { tipConstructie: formData.tipConstructie }),
-        ...(formData.suprafataConstructie && { suprafataConstructie: formData.suprafataConstructie }),
-        ...(formData.anConstructie && { anConstructie: formData.anConstructie }),
-        ...(formData.marcaAuto && { marcaAuto: formData.marcaAuto }),
-        ...(formData.serieSasiu && { serieSasiu: formData.serieSasiu }),
-        ...(formData.anFabricatie && { anFabricatie: formData.anFabricatie }),
-        ...(formData.capacitateCilindrica && { capacitateCilindrica: formData.capacitateCilindrica }),
-        ...(formData.masaMaxima && { masaMaxima: formData.masaMaxima }),
-        ...(formData.nrInmatriculare && { nrInmatriculare: formData.nrInmatriculare }),
-      };
-
-      const response = await fetch('/api/trimite-cerere', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(dataToSend),
-      });
-
-      const result = await response.json();
-
-      if (result.success) {
-        setShowSuccess(true);
-        // Reset form
-        setFormData({
-          nume: '',
-          prenume: '',
-          cnp: '',
-          email: '',
-          telefonMobil: '',
-          telefonFix: '',
-          judet: 'Bacău',
-          localitate: '',
-          strada: '',
-          numar: '',
-          bloc: '',
-          scara: '',
-          etaj: '',
-          apartament: '',
-          scopulCererii: '',
-          fisiere: [],
-          numeFirma: '',
-          cui: '',
-          nrRegistruComert: '',
-          reprezentantLegal: '',
-          suprafataTeren: '',
-          nrCadastral: '',
-          tipConstructie: '',
-          suprafataConstructie: '',
-          anConstructie: '',
-          marcaAuto: '',
-          serieSasiu: '',
-          anFabricatie: '',
-          capacitateCilindrica: '',
-          masaMaxima: '',
-          nrInmatriculare: '',
+    // Convertim fișierele în Base64
+    const filesBase64 = [];
+    if (formData.fisiere && formData.fisiere.length > 0) {
+      for (const file of formData.fisiere) {
+        const base64 = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            const result = reader.result as string;
+            // Extragem doar partea base64 (după "data:type;base64,")
+            const base64String = result.split(',')[1];
+            resolve(base64String);
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
         });
-      } else {
-        toast({
-          title: "Eroare",
-          description: result.error || "Nu s-a putut trimite cererea",
-          variant: "destructive"
+        
+        filesBase64.push({
+          name: file.name,
+          type: file.type,
+          size: file.size,
+          content: base64
         });
       }
-    } catch (error) {
-      console.error('Error:', error);
+    }
+    
+    // Pregătim datele pentru trimitere
+    const dataToSend = {
+      numeComplet,
+      cnp: formData.cnp,
+      localitate: formData.localitate,
+      adresa: adresaCompleta,
+      telefon: formData.telefonMobil || formData.telefonFix,
+      email: formData.email,
+      tipCerere: formType,
+      scopulCererii: formData.scopulCererii,
+      nume: formData.nume,
+      prenume: formData.prenume,
+      judet: formData.judet,
+      telefonMobil: formData.telefonMobil,
+      telefonFix: formData.telefonFix,
+      // Fișierele ca Base64
+      fisiere: filesBase64,
+      // Câmpuri adiționale specifice
+      ...(formData.numeFirma && { numeFirma: formData.numeFirma }),
+      ...(formData.cui && { cui: formData.cui }),
+      ...(formData.nrRegistruComert && { nrRegistruComert: formData.nrRegistruComert }),
+      ...(formData.reprezentantLegal && { reprezentantLegal: formData.reprezentantLegal }),
+      ...(formData.suprafataTeren && { suprafataTeren: formData.suprafataTeren }),
+      ...(formData.nrCadastral && { nrCadastral: formData.nrCadastral }),
+      ...(formData.tipConstructie && { tipConstructie: formData.tipConstructie }),
+      ...(formData.suprafataConstructie && { suprafataConstructie: formData.suprafataConstructie }),
+      ...(formData.anConstructie && { anConstructie: formData.anConstructie }),
+      ...(formData.marcaAuto && { marcaAuto: formData.marcaAuto }),
+      ...(formData.serieSasiu && { serieSasiu: formData.serieSasiu }),
+      ...(formData.anFabricatie && { anFabricatie: formData.anFabricatie }),
+      ...(formData.capacitateCilindrica && { capacitateCilindrica: formData.capacitateCilindrica }),
+      ...(formData.masaMaxima && { masaMaxima: formData.masaMaxima }),
+      ...(formData.nrInmatriculare && { nrInmatriculare: formData.nrInmatriculare }),
+    };
+
+    // Trimitem ca JSON normal
+    const response = await fetch('/api/trimite-cerere', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(dataToSend),
+    });
+
+    const result = await response.json();
+
+    if (result.success) {
+      setShowSuccess(true);
+      // Reset form
+      setFormData({
+        nume: '',
+        prenume: '',
+        cnp: '',
+        email: '',
+        telefonMobil: '',
+        telefonFix: '',
+        judet: 'Bacău',
+        localitate: '',
+        strada: '',
+        numar: '',
+        bloc: '',
+        scara: '',
+        etaj: '',
+        apartament: '',
+        scopulCererii: '',
+        fisiere: [],
+        numeFirma: '',
+        cui: '',
+        nrRegistruComert: '',
+        reprezentantLegal: '',
+        suprafataTeren: '',
+        nrCadastral: '',
+        tipConstructie: '',
+        suprafataConstructie: '',
+        anConstructie: '',
+        marcaAuto: '',
+        serieSasiu: '',
+        anFabricatie: '',
+        capacitateCilindrica: '',
+        masaMaxima: '',
+        nrInmatriculare: '',
+      });
+    } else {
       toast({
         title: "Eroare",
-        description: "Eroare de conexiune. Încearcă din nou.",
+        description: result.error || "Nu s-a putut trimite cererea",
         variant: "destructive"
       });
-    } finally {
-      setIsSubmitting(false);
     }
-  };
+  } catch (error) {
+    console.error('Error:', error);
+    toast({
+      title: "Eroare",
+      description: "Eroare de conexiune. Încearcă din nou.",
+      variant: "destructive"
+    });
+  } finally {
+    setIsSubmitting(false);
+  }
+};
 
   // Verifică dacă sunt necesare câmpuri adiționale
   const needsAdditionalFields = config.additionalFields && config.additionalFields.length > 0;
@@ -757,28 +786,24 @@ export default function CerereFormularPage() {
           </CardContent>
         </Card>
 
-        {/* Success Dialog */}
-        <Dialog open={showSuccess} onOpenChange={setShowSuccess}>
-          <DialogContent className="bg-slate-800 border-slate-700">
-            <div className="text-center space-y-4">
-              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-green-900/20">
-                <CheckCircle className="h-8 w-8 text-green-400" />
-              </div>
-              
-              <DialogHeader>
-                <DialogTitle className="text-2xl font-bold text-white">
-                  Cerere trimisă cu succes!
-                </DialogTitle>
-                <DialogDescription className="text-gray-300 space-y-3">
-                  <p>
-                    Cererea ta pentru <strong>{config.title}</strong> a fost înregistrată și trimisă către primărie.
-                  </p>
-                  <p className="text-sm">
-                    Vei primi o copie a cererii pe email-ul {formData.email || 'specificat'}.
-                    Răspunsul va fi comunicat în maxim 30 de zile.
-                  </p>
-                </DialogDescription>
-              </DialogHeader>
+    {/* Success Dialog */}
+<Dialog open={showSuccess} onOpenChange={setShowSuccess}>
+  <DialogContent className="bg-slate-800 border-slate-700">
+    <DialogHeader>
+      <DialogTitle className="text-2xl font-bold text-white text-center">
+        Cerere trimisă cu succes!
+      </DialogTitle>
+      <DialogDescription className="text-gray-300 text-center mt-2">
+        Cererea ta pentru {config.title} a fost înregistrată și trimisă către primărie.
+        Vei primi o copie a cererii pe email-ul {formData.email || 'specificat'}.
+        Răspunsul va fi comunicat în maxim 30 de zile.
+      </DialogDescription>
+    </DialogHeader>
+    
+    <div className="text-center space-y-4">
+      <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-green-900/20">
+        <CheckCircle className="h-8 w-8 text-green-400" />
+      </div>
               
               <div className="flex gap-3">
                 <Button

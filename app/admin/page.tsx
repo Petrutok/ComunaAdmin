@@ -16,7 +16,8 @@ import {
   XCircle,
   Eye,
   ArrowRight,
-  Activity
+  Activity,
+  FileText
 } from 'lucide-react';
 import Link from 'next/link';
 import { collection, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
@@ -25,8 +26,10 @@ import { db, COLLECTIONS } from '@/lib/firebase';
 interface Stats {
   pendingAnnouncements: number;
   pendingJobs: number;
+  pendingCereri: number;
   totalAnnouncements: number;
   totalJobs: number;
+  totalCereri: number;
   totalIssues: number;
   activeSubscriptions: number;
 }
@@ -34,7 +37,7 @@ interface Stats {
 interface RecentItem {
   id: string;
   title: string;
-  type: 'announcement' | 'job' | 'issue';
+  type: 'announcement' | 'job' | 'issue' | 'cerere';
   status: string;
   createdAt: Date;
 }
@@ -43,8 +46,10 @@ export default function AdminDashboard() {
   const [stats, setStats] = useState<Stats>({
     pendingAnnouncements: 0,
     pendingJobs: 0,
+    pendingCereri: 0,
     totalAnnouncements: 0,
     totalJobs: 0,
+    totalCereri: 0,
     totalIssues: 0,
     activeSubscriptions: 0
   });
@@ -89,6 +94,23 @@ export default function AdminDashboard() {
       const pendingJobs = jobs.filter(j => j.status === 'pending').length;
       const totalJobs = jobs.length;
 
+      // Load cereri
+      const cereriSnapshot = await getDocs(collection(db, 'cereri'));
+      const cereri = cereriSnapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          status: data.status || 'în așteptare',
+          dataInregistrare: data.dataInregistrare,
+          tipCerere: data.tipCerere,
+          numeComplet: data.numeComplet,
+          ...data
+        };
+      });
+      
+      const pendingCereri = cereri.filter(c => c.status === 'în așteptare').length;
+      const totalCereri = cereri.length;
+
       // Get recent items for activity feed
       const recent: RecentItem[] = [];
       
@@ -130,16 +152,37 @@ export default function AdminDashboard() {
           });
         });
 
+      // Add recent cereri
+      cereri
+        .filter(c => c.dataInregistrare)
+        .sort((a, b) => {
+          const dateA = new Date(a.dataInregistrare);
+          const dateB = new Date(b.dataInregistrare);
+          return dateB.getTime() - dateA.getTime();
+        })
+        .slice(0, 3)
+        .forEach(item => {
+          recent.push({
+            id: item.id,
+            title: `Cerere ${item.tipCerere} - ${item.numeComplet}`,
+            type: 'cerere',
+            status: item.status || 'în așteptare',
+            createdAt: new Date(item.dataInregistrare)
+          });
+        });
+
       // Sort all recent items by date
       recent.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 
       setStats({
         pendingAnnouncements,
         pendingJobs,
+        pendingCereri,
         totalAnnouncements,
         totalJobs,
-        totalIssues: 0, // Placeholder
-        activeSubscriptions: 0 // Placeholder
+        totalCereri,
+        totalIssues: 0,
+        activeSubscriptions: 0
       });
       
       setRecentItems(recent.slice(0, 5));
@@ -169,6 +212,8 @@ export default function AdminDashboard() {
         return <Newspaper className="h-4 w-4" />;
       case 'job':
         return <Briefcase className="h-4 w-4" />;
+      case 'cerere':
+        return <FileText className="h-4 w-4" />;
       case 'issue':
         return <AlertTriangle className="h-4 w-4" />;
       default:
@@ -192,21 +237,30 @@ export default function AdminDashboard() {
       </div>
 
       {/* Quick Actions */}
-      {(stats.pendingAnnouncements > 0 || stats.pendingJobs > 0) && (
+      {(stats.pendingAnnouncements > 0 || stats.pendingJobs > 0 || stats.pendingCereri > 0) && (
         <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4">
           <div className="flex items-center gap-3">
             <Clock className="h-5 w-5 text-yellow-400" />
             <div className="flex-1">
               <p className="text-white font-medium">
-                Ai {stats.pendingAnnouncements + stats.pendingJobs} elemente în așteptare
+                Ai {stats.pendingAnnouncements + stats.pendingJobs + stats.pendingCereri} elemente în așteptare
               </p>
               <p className="text-sm text-gray-300">
                 {stats.pendingAnnouncements > 0 && `${stats.pendingAnnouncements} anunțuri`}
-                {stats.pendingAnnouncements > 0 && stats.pendingJobs > 0 && ' și '}
+                {stats.pendingAnnouncements > 0 && (stats.pendingJobs > 0 || stats.pendingCereri > 0) && ', '}
                 {stats.pendingJobs > 0 && `${stats.pendingJobs} joburi`}
+                {(stats.pendingJobs > 0 || stats.pendingAnnouncements > 0) && stats.pendingCereri > 0 && ', '}
+                {stats.pendingCereri > 0 && `${stats.pendingCereri} cereri`}
               </p>
             </div>
             <div className="flex gap-2">
+              {stats.pendingCereri > 0 && (
+                <Link href="/admin/cereri">
+                  <Button size="sm" className="bg-yellow-500 hover:bg-yellow-600 text-black">
+                    Vezi cereri
+                  </Button>
+                </Link>
+              )}
               {stats.pendingAnnouncements > 0 && (
                 <Link href="/admin/announcements">
                   <Button size="sm" className="bg-yellow-500 hover:bg-yellow-600 text-black">
@@ -227,7 +281,7 @@ export default function AdminDashboard() {
       )}
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         <Card className="bg-slate-800 border-slate-700">
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
@@ -257,6 +311,23 @@ export default function AdminDashboard() {
             {stats.pendingJobs > 0 && (
               <p className="text-xs text-yellow-400 mt-1">
                 {stats.pendingJobs} în așteptare
+              </p>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="bg-slate-800 border-slate-700">
+          <CardHeader className="pb-2">
+            <div className="flex items-center justify-between">
+              <CardDescription className="text-gray-400">Cereri Online</CardDescription>
+              <FileText className="h-4 w-4 text-gray-400" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-white">{stats.totalCereri}</div>
+            {stats.pendingCereri > 0 && (
+              <p className="text-xs text-yellow-400 mt-1">
+                {stats.pendingCereri} în așteptare
               </p>
             )}
           </CardContent>
@@ -316,7 +387,9 @@ export default function AdminDashboard() {
                     <p className="text-white font-medium text-sm">{item.title}</p>
                     <div className="flex items-center gap-2 mt-1">
                       <p className="text-xs text-gray-400">
-                        {item.type === 'announcement' ? 'Anunț' : 'Job'}
+                        {item.type === 'announcement' ? 'Anunț' : 
+                         item.type === 'job' ? 'Job' : 
+                         item.type === 'cerere' ? 'Cerere' : 'Problemă'}
                       </p>
                       <span className="text-gray-600">•</span>
                       <p className="text-xs text-gray-400">
