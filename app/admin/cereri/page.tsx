@@ -211,16 +211,24 @@ export default function AdminCereriPage() {
 
     setFilteredCereri(filtered);
   };
+        const handleStatusChange = async () => {
+        if (!selectedCerere || !newStatus) return;
 
-  const handleStatusChange = async () => {
-    if (!selectedCerere || !newStatus) return;
+         try {
+      // Construiește obiectul de actualizare dinamic
+      
+    const updateData: any = {
+     status: newStatus,
+    dataActualizare: new Date().toISOString(),
+      };
 
-    try {
-      await updateDoc(doc(db, 'cereri', selectedCerere.id), {
-        status: newStatus,
-        observatii: observatii || selectedCerere.observatii,
-        dataActualizare: new Date().toISOString(),
-      });
+      // Adaugă observații doar dacă există text
+      const finalObservatii = observatii.trim() || selectedCerere.observatii || '';
+      if (finalObservatii) {
+        updateData.observatii = finalObservatii;
+      }
+
+      await updateDoc(doc(db, 'cereri', selectedCerere.id), updateData);
 
       toast({
         title: "Status actualizat",
@@ -525,20 +533,25 @@ export default function AdminCereriPage() {
         </TabsContent>
       </Tabs>
 
-      {/* Dialog pentru detalii cerere */}
+ {/* Dialog pentru detalii cerere */}
       <Dialog open={showDetailsDialog} onOpenChange={setShowDetailsDialog}>
         <DialogContent className="bg-slate-800 border-slate-700 max-w-3xl max-h-[80vh] overflow-y-auto">
           {selectedCerere && (
             <>
               <DialogHeader>
                 <DialogTitle className="text-white text-xl">
-                  Detalii Cerere #{selectedCerere.id}
+                  Detalii Cerere
                 </DialogTitle>
                 <DialogDescription className="text-gray-400">
-                  {getTipCerereBadge(selectedCerere.tipCerere)}
-                  <span className="ml-2">{getStatusBadge(selectedCerere.status)}</span>
+                  ID: {selectedCerere.id} • {formatDate(selectedCerere.dataInregistrare)}
                 </DialogDescription>
               </DialogHeader>
+              
+              {/* Badges pentru tip și status */}
+              <div className="flex items-center gap-2 pb-4 border-b border-slate-700">
+                {getTipCerereBadge(selectedCerere.tipCerere)}
+                {getStatusBadge(selectedCerere.status)}
+              </div>
               
               <div className="space-y-6 mt-4">
                 {/* Date personale */}

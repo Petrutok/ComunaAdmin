@@ -10,7 +10,27 @@ export function useSubmitRequest() {
       
       formData.append('requestData', JSON.stringify(data));
       
-      (data.fisiere || []).forEach(file => formData.append('files', file));
+      // Handle files based on their structure
+      // If files are Base64 encoded objects, convert them to Blobs
+      if (data.fisiere && Array.isArray(data.fisiere)) {
+        data.fisiere.forEach((file: any) => {
+          if (file.content) {
+            // It's a Base64 encoded file object
+            const byteCharacters = atob(file.content);
+            const byteNumbers = new Array(byteCharacters.length);
+            for (let i = 0; i < byteCharacters.length; i++) {
+              byteNumbers[i] = byteCharacters.charCodeAt(i);
+            }
+            const byteArray = new Uint8Array(byteNumbers);
+            const blob = new Blob([byteArray], { type: file.type || 'application/octet-stream' });
+            formData.append('files', blob, file.name);
+          } else if (file instanceof File) {
+            // It's already a File object
+            formData.append('files', file);
+          }
+        });
+      }
+      
       formData.append('pdf', pdfBlob, `cerere_${data.tipCerere}_${Date.now()}.pdf`);
 
       const res = await fetch('/api/submit-request', {

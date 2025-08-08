@@ -286,12 +286,12 @@ export default function CereriOnlinePage() {
     try {
       setLoadingRequest(formType);
       // Folosim Next.js router pentru navigare
-      await router.push(`/cereri-online/formular/${formType}`);
+    await router.push(`/cereri-online/${formType}`);
     } catch (error) {
       console.error('Eroare la navigare:', error);
       setLoadingRequest(null);
       // Fallback la window.location dacă router-ul eșuează
-      window.location.href = `/cereri-online/formular/${formType}`;
+    window.location.href = `/cereri-online/${formType}`;
     }
   };
 

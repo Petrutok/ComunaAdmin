@@ -1,50 +1,28 @@
 import jsPDF from 'jspdf';
 
-// Font Times New Roman embedded (pentru diacritice)
-// Trebuie să adaugi fontul în proiect sau să folosești un font cu suport UTF-8
-// Pentru demo, vom folosi Helvetica care vine cu jsPDF
-
-// Tipuri actualizate pentru toate categoriile de cereri
-export type RequestCategory = 
-  | 'general'
-  | 'urbanism'
-  | 'asistenta-sociala'
-  | 'registru-agricol'
-  | 'taxe-impozite'
-  | 'spclep';
-
 export interface RequestData {
-  // Date personale separate
+  numeComplet: string;
   nume: string;
   prenume: string;
-  numeComplet: string; // Generat automat: nume + prenume
   cnp: string;
-  
-  // Contact
   email: string;
+  telefon: string;
   telefonMobil?: string;
   telefonFix?: string;
-  telefon: string; // Pentru compatibilitate - telefonMobil || telefonFix
-  
-  // Domiciliu detaliat
   judet: string;
   localitate: string;
-  strada: string;
+  strada?: string;
   numar?: string;
   bloc?: string;
   scara?: string;
   etaj?: string;
   apartament?: string;
-  adresa: string; // Adresa completă generată
-  
-  // Date cerere
+  adresa: string;
   tipCerere: string;
   scopulCererii: string;
-  documente?: string[];
-  fisiere?: File[];
-  fileUrls?: string[];
-  
-  // Câmpuri adiționale pentru anumite tipuri de cereri
+  fisiere?: Array<{ name: string; buffer?: Buffer; type?: string }>;
+  attachmentUrls?: string[];
+  // Câmpuri adiționale opționale
   numeFirma?: string;
   cui?: string;
   nrRegistruComert?: string;
@@ -62,537 +40,497 @@ export interface RequestData {
   nrInmatriculare?: string;
 }
 
-export interface RequestConfig {
-  title: string;
-  category: RequestCategory;
-  scopPlaceholder?: string;
-  requiresAttachments?: boolean;
-  additionalFields?: string[];
-  template?: 'standard' | 'fiscal' | 'urbanism' | 'social' | 'agricol';
-}
-
-// Configurație pentru fiecare tip de cerere
-export const REQUEST_CONFIGS: Record<string, RequestConfig> = {
+// Map pentru tipurile de cereri
+export const REQUEST_CONFIGS: { [key: string]: any } = {
   // Solicitări Generale
   'cerere-generala': {
-    title: 'CERERE',
+    title: 'Cerere Generală',
     category: 'general',
-    template: 'standard',
-    scopPlaceholder: 'Descrie detaliat solicitarea ta către primărie',
-    requiresAttachments: true
+    scopPlaceholder: 'Descrie detaliat cererea ta către primărie...'
   },
   'permis-foc': {
-    title: 'CERERE PERMIS DE LUCRU CU FOC',
+    title: 'Cerere Permis de Lucru cu Foc',
     category: 'general',
-    template: 'standard',
-    scopPlaceholder: 'Descrie tipul lucrărilor, locația și perioada necesară',
+    scopPlaceholder: 'Descrie lucrările care necesită permis de foc, locația și perioada...',
     requiresAttachments: true
   },
 
   // Urbanism
   'autorizatie-construire': {
-    title: 'CERERE PENTRU EMITEREA AUTORIZAȚIEI DE CONSTRUIRE/DESFIINȚARE',
+    title: 'Cerere Autorizație de Construire',
     category: 'urbanism',
-    template: 'urbanism',
-    scopPlaceholder: 'Descrie lucrările propuse și scopul acestora',
-    requiresAttachments: true,
-    additionalFields: ['suprafataTeren', 'nrCadastral', 'tipConstructie', 'suprafataConstructie']
+    additionalFields: ['suprafataTeren', 'tipConstructie', 'suprafataConstructie'],
+    requiresAttachments: true
   },
   'certificat-urbanism': {
-    title: 'CERERE PENTRU EMITEREA CERTIFICATULUI DE URBANISM',
+    title: 'Cerere Certificat de Urbanism',
     category: 'urbanism',
-    template: 'urbanism',
-    scopPlaceholder: 'Scopul obținerii certificatului și intenția de utilizare',
-    requiresAttachments: true,
-    additionalFields: ['suprafataTeren', 'nrCadastral']
+    additionalFields: ['suprafataTeren', 'nrCadastral'],
+    requiresAttachments: true
   },
   'prelungire-autorizatie': {
-    title: 'CERERE PRELUNGIRE AUTORIZAȚIE DE CONSTRUIRE',
+    title: 'Cerere Prelungire Autorizație de Construire',
     category: 'urbanism',
-    template: 'urbanism',
-    scopPlaceholder: 'Motivul prelungirii și stadiul actual al lucrărilor',
+    scopPlaceholder: 'Menționează numărul autorizației existente și motivul prelungirii...',
     requiresAttachments: true
   },
   'prelungire-certificat': {
-    title: 'CERERE PRELUNGIRE CERTIFICAT DE URBANISM',
+    title: 'Cerere Prelungire Certificat de Urbanism',
     category: 'urbanism',
-    template: 'urbanism',
-    scopPlaceholder: 'Motivul prelungirii',
-    requiresAttachments: false
+    scopPlaceholder: 'Menționează numărul certificatului existent și motivul prelungirii...',
+    requiresAttachments: true
   },
   'incepere-lucrari': {
-    title: 'COMUNICARE PRIVIND ÎNCEPEREA EXECUȚIEI LUCRĂRILOR',
+    title: 'Comunicare Începere Lucrări',
     category: 'urbanism',
-    template: 'urbanism',
-    scopPlaceholder: 'Data începerii și detaliile lucrărilor autorizate',
-    requiresAttachments: false
+    scopPlaceholder: 'Menționează numărul autorizației de construire și data estimată de începere...'
   },
   'incheiere-lucrari': {
-    title: 'COMUNICARE PRIVIND ÎNCHEIEREA EXECUȚIEI LUCRĂRILOR',
+    title: 'Comunicare Încheiere Lucrări',
     category: 'urbanism',
-    template: 'urbanism',
-    scopPlaceholder: 'Data finalizării și stadiul final al lucrărilor',
-    requiresAttachments: true
+    scopPlaceholder: 'Menționează numărul autorizației de construire și data finalizării...'
   },
 
   // Asistență Socială
   'lemne-foc': {
-    title: 'CERERE PENTRU ACORDAREA AJUTORULUI PENTRU ÎNCĂLZIREA LOCUINȚEI CU LEMNE',
+    title: 'Cerere Lemne de Foc',
     category: 'asistenta-sociala',
-    template: 'social',
-    scopPlaceholder: 'Situația socială, veniturile familiei și necesarul de lemne',
-    requiresAttachments: true
+    scopPlaceholder: 'Menționează situația ta socială și necesitatea ajutorului pentru încălzire...'
   },
   'indemnizatie-copil': {
-    title: 'CERERE ADEVERINȚĂ INDEMNIZAȚIE CREȘTERE COPIL',
+    title: 'Adeverință Indemnizație Creștere Copil',
     category: 'asistenta-sociala',
-    template: 'social',
-    scopPlaceholder: 'Perioada pentru care soliciți adeverința și scopul acesteia',
-    requiresAttachments: true
+    scopPlaceholder: 'Menționează datele copilului și perioada pentru care soliciți adeverința...'
   },
   'indemnizatie-somaj': {
-    title: 'CERERE ADEVERINȚĂ INDEMNIZAȚIE DE ȘOMAJ',
+    title: 'Adeverință Indemnizație de Șomaj',
     category: 'asistenta-sociala',
-    template: 'social',
-    scopPlaceholder: 'Perioada și ultimul loc de muncă',
-    requiresAttachments: true
+    scopPlaceholder: 'Menționează perioada și scopul pentru care soliciți adeverința...'
   },
   'consiliere': {
-    title: 'CERERE PENTRU INFORMARE ȘI CONSILIERE',
+    title: 'Cerere Informare și Consiliere',
     category: 'asistenta-sociala',
-    template: 'social',
-    scopPlaceholder: 'Descrie situația și tipul de asistență necesară',
-    requiresAttachments: false
+    scopPlaceholder: 'Descrie situația ta și tipul de consiliere de care ai nevoie...'
   },
   'modificare-beneficii': {
-    title: 'CERERE MODIFICARE BENEFICII SOCIALE',
+    title: 'Cerere Modificare Beneficii Sociale',
     category: 'asistenta-sociala',
-    template: 'social',
-    scopPlaceholder: 'Beneficiile actuale și modificările solicitate',
+    scopPlaceholder: 'Menționează beneficiile actuale și modificările solicitate...',
     requiresAttachments: true
   },
   'alocatie-copii': {
-    title: 'CERERE PENTRU ACORDAREA ALOCAȚIEI DE STAT PENTRU COPII',
+    title: 'Cerere Alocație de Stat pentru Copii',
     category: 'asistenta-sociala',
-    template: 'social',
-    scopPlaceholder: 'Date despre copii și situația familială',
+    scopPlaceholder: 'Menționează datele copilului/copiilor pentru care soliciți alocația...',
     requiresAttachments: true
   },
   'indemnizatie-crestere': {
-    title: 'CERERE PENTRU ACORDAREA INDEMNIZAȚIEI DE CREȘTERE A COPILULUI',
+    title: 'Cerere Indemnizație/Stimulent de Inserție',
     category: 'asistenta-sociala',
-    template: 'social',
-    scopPlaceholder: 'Date despre copil și perioada solicitată',
+    scopPlaceholder: 'Menționează datele copilului și tipul de indemnizație solicitat...',
     requiresAttachments: true
   },
 
   // Registru Agricol
   'adeverinta-rol': {
-    title: 'CERERE ELIBERARE ADEVERINȚĂ DE ROL',
+    title: 'Cerere Adeverință de Rol',
     category: 'registru-agricol',
-    template: 'agricol',
-    scopPlaceholder: 'Scopul pentru care soliciți adeverința',
-    requiresAttachments: false
+    scopPlaceholder: 'Menționează scopul pentru care soliciți adeverința de rol...'
   },
   'apia-pf': {
-    title: 'CERERE ADEVERINȚĂ APIA - PERSOANĂ FIZICĂ',
+    title: 'Cerere Adeverință APIA - Persoană Fizică',
     category: 'registru-agricol',
-    template: 'agricol',
-    scopPlaceholder: 'Suprafețele și culturile pentru care aplici la APIA',
-    requiresAttachments: true,
-    additionalFields: ['suprafataTeren']
+    additionalFields: ['suprafataTeren', 'nrCadastral'],
+    scopPlaceholder: 'Menționează terenurile pentru care soliciți adeverința APIA...'
   },
   'apia-pj': {
-    title: 'CERERE ADEVERINȚĂ APIA - PERSOANĂ JURIDICĂ',
+    title: 'Cerere Adeverință APIA - Persoană Juridică',
     category: 'registru-agricol',
-    template: 'agricol',
-    scopPlaceholder: 'Suprafețele și culturile pentru care aplică firma',
-    requiresAttachments: true,
-    additionalFields: ['numeFirma', 'cui', 'reprezentantLegal', 'suprafataTeren']
+    additionalFields: ['numeFirma', 'cui', 'reprezentantLegal', 'suprafataTeren'],
+    scopPlaceholder: 'Menționează terenurile pentru care soliciți adeverința APIA...'
   },
   'declaratie-registru': {
-    title: 'DECLARAȚIE PENTRU COMPLETAREA REGISTRULUI AGRICOL',
+    title: 'Declarație pentru Registrul Agricol',
     category: 'registru-agricol',
-    template: 'agricol',
-    scopPlaceholder: 'Modificările ce trebuie operate în registrul agricol',
-    requiresAttachments: true,
-    additionalFields: ['suprafataTeren']
+    scopPlaceholder: 'Declară modificările pentru actualizarea registrului agricol...',
+    requiresAttachments: true
   },
   'nomenclatura-stradala': {
-    title: 'CERERE CERTIFICAT DE NOMENCLATURĂ STRADALĂ',
+    title: 'Cerere Certificat Nomenclatură Stradală',
     category: 'registru-agricol',
-    template: 'standard',
-    scopPlaceholder: 'Adresa pentru care soliciți certificatul',
-    requiresAttachments: false
+    scopPlaceholder: 'Menționează adresa pentru care soliciți certificatul...'
   },
 
   // Taxe și Impozite
   'certificat-fiscal-pf': {
-    title: 'CERERE CERTIFICAT FISCAL - PERSOANĂ FIZICĂ',
+    title: 'Cerere Certificat Fiscal - Persoană Fizică',
     category: 'taxe-impozite',
-    template: 'fiscal',
-    scopPlaceholder: 'Scopul pentru care soliciți certificatul fiscal',
-    requiresAttachments: false
+    scopPlaceholder: 'Menționează scopul pentru care soliciți certificatul fiscal...'
   },
   'certificat-fiscal-pj': {
-    title: 'CERERE CERTIFICAT FISCAL - PERSOANĂ JURIDICĂ',
+    title: 'Cerere Certificat Fiscal - Persoană Juridică',
     category: 'taxe-impozite',
-    template: 'fiscal',
-    scopPlaceholder: 'Scopul pentru care solicită firma certificatul',
-    requiresAttachments: false,
-    additionalFields: ['numeFirma', 'cui', 'nrRegistruComert', 'reprezentantLegal']
+    additionalFields: ['numeFirma', 'cui', 'nrRegistruComert', 'reprezentantLegal'],
+    scopPlaceholder: 'Menționează scopul pentru care soliciți certificatul fiscal...'
   },
   'radiere-imobile': {
-    title: 'CERERE PENTRU SCOATEREA DIN EVIDENȚĂ A CLĂDIRILOR/TERENURILOR',
+    title: 'Cerere Radiere Clădiri/Terenuri',
     category: 'taxe-impozite',
-    template: 'fiscal',
-    scopPlaceholder: 'Imobilele ce urmează a fi radiate și motivul radierii',
-    requiresAttachments: true,
-    additionalFields: ['suprafataTeren', 'nrCadastral']
+    scopPlaceholder: 'Menționează imobilele pe care dorești să le radiezi și motivul...',
+    requiresAttachments: true
   },
   'radiere-auto': {
-    title: 'CERERE PENTRU SCOATEREA DIN EVIDENȚĂ A MIJLOACELOR DE TRANSPORT',
+    title: 'Cerere Radiere Mijloc de Transport',
     category: 'taxe-impozite',
-    template: 'fiscal',
-    scopPlaceholder: 'Vehiculul ce urmează a fi radiat și motivul (vânzare, casare, furt)',
-    requiresAttachments: true,
-    additionalFields: ['marcaAuto', 'nrInmatriculare', 'serieSasiu']
+    additionalFields: ['marcaAuto', 'nrInmatriculare', 'serieSasiu', 'anFabricatie'],
+    scopPlaceholder: 'Menționează motivul radierii (vânzare, casare, etc.)...',
+    requiresAttachments: true
   },
   'declaratie-auto': {
-    title: 'DECLARAȚIE FISCALĂ PENTRU STABILIREA IMPOZITULUI PE MIJLOACE DE TRANSPORT',
+    title: 'Declarație Fiscală Mijloace de Transport',
     category: 'taxe-impozite',
-    template: 'fiscal',
-    scopPlaceholder: 'Date despre vehiculul achiziționat',
-    requiresAttachments: true,
-    additionalFields: ['marcaAuto', 'serieSasiu', 'anFabricatie', 'capacitateCilindrica', 'nrInmatriculare']
+    additionalFields: ['marcaAuto', 'nrInmatriculare', 'serieSasiu', 'anFabricatie', 'capacitateCilindrica'],
+    scopPlaceholder: 'Declară mijlocul de transport pentru stabilirea impozitului...',
+    requiresAttachments: true
   },
   'declaratie-marfa': {
-    title: 'DECLARAȚIE FISCALĂ MIJLOACE TRANSPORT MARFĂ PESTE 12 TONE',
+    title: 'Declarație Fiscală Transport Marfă',
     category: 'taxe-impozite',
-    template: 'fiscal',
-    scopPlaceholder: 'Date despre vehiculul de mare tonaj',
-    requiresAttachments: true,
-    additionalFields: ['marcaAuto', 'serieSasiu', 'anFabricatie', 'masaMaxima', 'nrInmatriculare']
+    additionalFields: ['marcaAuto', 'nrInmatriculare', 'masaMaxima'],
+    scopPlaceholder: 'Declară vehiculul de marfă peste 12 tone...',
+    requiresAttachments: true
   },
   'declaratie-teren-pf': {
-    title: 'DECLARAȚIE FISCALĂ PENTRU STABILIREA IMPOZITULUI PE TEREN - PF',
+    title: 'Declarație Fiscală Teren - Persoană Fizică',
     category: 'taxe-impozite',
-    template: 'fiscal',
-    scopPlaceholder: 'Terenurile deținute și modificările survenite',
-    requiresAttachments: true,
-    additionalFields: ['suprafataTeren', 'nrCadastral']
+    additionalFields: ['suprafataTeren', 'nrCadastral'],
+    scopPlaceholder: 'Declară terenul pentru stabilirea impozitului...',
+    requiresAttachments: true
   },
   'declaratie-cladire-pf': {
-    title: 'DECLARAȚIE FISCALĂ PENTRU STABILIREA IMPOZITULUI PE CLĂDIRE - PF',
+    title: 'Declarație Fiscală Clădire - Persoană Fizică',
     category: 'taxe-impozite',
-    template: 'fiscal',
-    scopPlaceholder: 'Clădirile deținute și modificările survenite',
-    requiresAttachments: true,
-    additionalFields: ['tipConstructie', 'suprafataConstructie', 'anConstructie']
+    additionalFields: ['tipConstructie', 'suprafataConstructie', 'anConstructie'],
+    scopPlaceholder: 'Declară clădirea pentru stabilirea impozitului...',
+    requiresAttachments: true
   },
 
-  // SPCLEP
+  // SPCLEP (Stare Civilă)
   'act-identitate': {
-    title: 'CERERE PENTRU ELIBERAREA ACTULUI DE IDENTITATE',
+    title: 'Cerere Eliberare Act de Identitate',
     category: 'spclep',
-    template: 'standard',
-    scopPlaceholder: 'Motivul eliberării (expirare, pierdere, furt, deteriorare)',
+    scopPlaceholder: 'Menționează tipul actului (CI/buletin) și motivul (prima eliberare, expirare, pierdere)...',
     requiresAttachments: true
   },
   'stabilire-resedinta': {
-    title: 'CERERE PENTRU STABILIREA REȘEDINȚEI',
+    title: 'Cerere Stabilire Reședință',
     category: 'spclep',
-    template: 'standard',
-    scopPlaceholder: 'Adresa nouă și motivul schimbării reședinței',
+    scopPlaceholder: 'Menționează noua adresă de reședință și perioada...',
     requiresAttachments: true
   },
   'transcriere-nastere': {
-    title: 'CERERE TRANSCRIERE CERTIFICAT DE NAȘTERE',
+    title: 'Cerere Transcriere Certificat de Naștere',
     category: 'spclep',
-    template: 'standard',
-    scopPlaceholder: 'Țara emitentă și detalii despre certificatul original',
+    scopPlaceholder: 'Menționează țara unde a fost emis certificatul și datele persoanei...',
     requiresAttachments: true
   },
   'certificat-nastere': {
-    title: 'CERERE ELIBERARE CERTIFICAT DE NAȘTERE',
+    title: 'Cerere Certificat de Naștere',
     category: 'spclep',
-    template: 'standard',
-    scopPlaceholder: 'Original sau duplicat și motivul solicitării',
-    requiresAttachments: false
+    scopPlaceholder: 'Menționează dacă este original sau duplicat și motivul solicitării...',
+    requiresAttachments: true
   }
 };
 
-// Funcție pentru formatarea textului cu diacritice
-function formatText(text: string): string {
-  // Înlocuiește caracterele problematice pentru PDF
-  return text
-    .replace(/ă/g, 'a')
-    .replace(/Ă/g, 'A')
-    .replace(/â/g, 'a')
-    .replace(/Â/g, 'A')
-    .replace(/î/g, 'i')
-    .replace(/Î/g, 'I')
-    .replace(/ș/g, 's')
-    .replace(/Ș/g, 'S')
-    .replace(/ț/g, 't')
-    .replace(/Ț/g, 'T');
+function removeDiacritics(str: string): string {
+  return str
+    .replace(/ă/g, 'a').replace(/Ă/g, 'A')
+    .replace(/â/g, 'a').replace(/Â/g, 'A')
+    .replace(/î/g, 'i').replace(/Î/g, 'I')
+    .replace(/ș/g, 's').replace(/Ș/g, 'S')
+    .replace(/ț/g, 't').replace(/Ț/g, 'T')
+    .replace(/ă/g, 'a').replace(/ă/g, 'a')
+    .replace(/ă/g, 'a').replace(/ă/g, 'a');
 }
 
-// Funcție principală pentru generarea PDF
 export async function generatePDF(data: RequestData): Promise<Blob> {
-  const doc = new jsPDF({
-    orientation: 'portrait',
-    unit: 'mm',
-    format: 'a4'
-  });
-  
-  const config = REQUEST_CONFIGS[data.tipCerere] || { title: 'CERERE', category: 'general', template: 'standard' };
-  
-  // Variabile pentru layout
-  const pageWidth = doc.internal.pageSize.getWidth();
-  const pageHeight = doc.internal.pageSize.getHeight();
-  const marginLeft = 25;
-  const marginRight = 25;
-  const marginTop = 20;
-  const contentWidth = pageWidth - marginLeft - marginRight;
-  let currentY = marginTop;
-  
-  // Culori - folosim tuple types pentru TypeScript
-  const primaryColor: [number, number, number] = [0, 0, 0]; // Negru
-  const grayColor: [number, number, number] = [100, 100, 100]; // Gri
-  
-  // ========== ANTET ==========
-  // Logo sau emblemă (poți adăuga o imagine aici)
-  doc.setFillColor(0, 48, 135); // Albastru închis
-  doc.rect(marginLeft, currentY, contentWidth, 25, 'F');
-  
-  // Text antet pe fundal albastru
-  doc.setTextColor(255, 255, 255); // Alb
-  doc.setFontSize(16);
-  doc.setFont(undefined, 'bold');
-  doc.text(formatText('PRIMĂRIA COMUNEI FILIPEȘTI'), pageWidth / 2, currentY + 10, { align: 'center' });
-  
-  doc.setFontSize(12);
-  doc.setFont(undefined, 'normal');
-  doc.text(formatText('Județul Bacău'), pageWidth / 2, currentY + 16, { align: 'center' });
-  
-  doc.setFontSize(10);
-  doc.text('Tel: 0234/256.789 | Fax: 0234/256.790 | Email: contact@primariafilipesti.ro', pageWidth / 2, currentY + 22, { align: 'center' });
-  
-  // Reset culoare text
-  doc.setTextColor(...primaryColor);
-  currentY += 35;
-  
-  // ========== NUMĂR ÎNREGISTRARE ==========
-  doc.setFontSize(10);
-  doc.setFont(undefined, 'normal');
-  const nrInregistrare = `Nr. ________ din data de ${new Date().toLocaleDateString('ro-RO')}`;
-  doc.text(formatText(nrInregistrare), pageWidth - marginRight, currentY, { align: 'right' });
-  currentY += 15;
-  
-  // ========== TITLU CERERE ==========
-  doc.setFontSize(18);
-  doc.setFont(undefined, 'bold');
-  const title = config.title || 'CERERE';
-  doc.text(formatText(title), pageWidth / 2, currentY, { align: 'center' });
-  
-  // Linie decorativă sub titlu
-  currentY += 8;
-  doc.setLineWidth(0.5);
-  doc.line(pageWidth / 2 - 30, currentY, pageWidth / 2 + 30, currentY);
-  currentY += 15;
-  
-  // ========== CĂTRE ==========
-  doc.setFontSize(11);
-  doc.setFont(undefined, 'normal');
-  doc.text(formatText('Către: PRIMĂRIA COMUNEI FILIPEȘTI'), marginLeft, currentY);
-  currentY += 6;
-  doc.text(formatText('În atenția: ________________________'), marginLeft, currentY);
-  currentY += 15;
-  
-  // ========== FORMULAR DATE SOLICITANT ==========
-  doc.setFontSize(11);
-  doc.setFont(undefined, 'bold');
-  doc.text(formatText('SOLICITANT:'), marginLeft, currentY);
-  currentY += 8;
-  
-  // Tabel cu date personale
-  doc.setFont(undefined, 'normal');
-  doc.setFontSize(10);
-  
-  // Nume și prenume pe același rând
-  doc.text(formatText('Nume și prenume:'), marginLeft + 5, currentY);
-  doc.setFont(undefined, 'bold');
-  doc.text(formatText(`${data.nume.toUpperCase()} ${data.prenume}`), marginLeft + 40, currentY);
-  doc.setFont(undefined, 'normal');
-  currentY += 6;
-  
-  // CNP
-  doc.text('CNP:', marginLeft + 5, currentY);
-  doc.text(data.cnp, marginLeft + 40, currentY);
-  currentY += 6;
-  
-  // Domiciliu complet
-  doc.text('Domiciliul:', marginLeft + 5, currentY);
-  const domiciliuText = formatText(`Jud. ${data.judet}, Loc. ${data.localitate}, Str. ${data.strada}${data.numar ? ', Nr. ' + data.numar : ''}${data.bloc ? ', Bl. ' + data.bloc : ''}${data.scara ? ', Sc. ' + data.scara : ''}${data.etaj ? ', Et. ' + data.etaj : ''}${data.apartament ? ', Ap. ' + data.apartament : ''}`);
-  
-  // Verifică dacă textul domiciliului necesită mai multe linii
-  const domiciliuLines = doc.splitTextToSize(domiciliuText, contentWidth - 45);
-  let lineY = currentY;
-  domiciliuLines.forEach((line: string) => {
-    doc.text(line, marginLeft + 40, lineY);
-    lineY += 5;
-  });
-  currentY = lineY + 1;
-  
-  // Contact
-  doc.text('Telefon:', marginLeft + 5, currentY);
-  const telefoane = [];
-  if (data.telefonMobil) telefoane.push(data.telefonMobil);
-  if (data.telefonFix) telefoane.push(`Fix: ${data.telefonFix}`);
-  doc.text(telefoane.join(', ') || '-', marginLeft + 40, currentY);
-  currentY += 6;
-  
-  doc.text('Email:', marginLeft + 5, currentY);
-  doc.text(data.email, marginLeft + 40, currentY);
-  currentY += 12;
-  
-  // ========== CONȚINUT CERERE ==========
-  doc.setFontSize(11);
-  const introText = formatText('Prin prezenta, vă rog să binevoiți a-mi aproba următoarea solicitare:');
-  doc.text(introText, marginLeft, currentY);
-  currentY += 10;
-  
-  // Chenar pentru conținutul cererii
-  const contentBoxHeight = 60;
-  doc.setDrawColor(200, 200, 200);
-  doc.setLineWidth(0.3);
-  doc.rect(marginLeft, currentY, contentWidth, contentBoxHeight);
-  
-  // Conținut cerere
-  doc.setFontSize(10);
-  const contentLines = doc.splitTextToSize(formatText(data.scopulCererii), contentWidth - 10);
-  let contentY = currentY + 5;
-  contentLines.forEach((line: string, index: number) => {
-    if (contentY < currentY + contentBoxHeight - 5) {
-      doc.text(line, marginLeft + 5, contentY);
-      contentY += 5;
-    }
-  });
-  currentY += contentBoxHeight + 10;
-  
-  // ========== MOTIVE / JUSTIFICARE ==========
-  if (data.scopulCererii.length > 200) {
-    doc.setFont(undefined, 'bold');
-    doc.text(formatText('Motivare/Justificare:'), marginLeft, currentY);
-    currentY += 6;
-    doc.setFont(undefined, 'normal');
-    
-    const motivareText = formatText('Cererea este justificată de următoarele considerente expuse mai sus.');
-    doc.text(motivareText, marginLeft, currentY);
-    currentY += 10;
-  }
-  
-  // ========== DOCUMENTE ANEXATE ==========
-  if (data.fisiere && data.fisiere.length > 0) {
-    doc.setFont(undefined, 'bold');
-    doc.text(formatText('Documente anexate:'), marginLeft, currentY);
-    currentY += 6;
-    doc.setFont(undefined, 'normal');
-    
-    data.fisiere.forEach((file, index) => {
-      doc.text(formatText(`${index + 1}. ${file.name}`), marginLeft + 5, currentY);
-      currentY += 5;
+  const pdf = new jsPDF('p', 'mm', 'a4');
+  const pageWidth = pdf.internal.pageSize.getWidth();
+  const pageHeight = pdf.internal.pageSize.getHeight();
+  const margin = 25;
+  const lineHeight = 7;
+  let yPosition = margin;
+
+  const config = REQUEST_CONFIGS[data.tipCerere] || { 
+    title: 'Cerere', 
+    category: 'general',
+    scopPlaceholder: 'Descrieți detaliat solicitarea...'
+  };
+
+  // Helper function pentru text wrap
+  const addWrappedText = (text: string, x: number, y: number, maxWidth: number): number => {
+    if (!text) return y;
+    const lines = pdf.splitTextToSize(text, maxWidth);
+    lines.forEach((line: string) => {
+      if (y > pageHeight - margin) {
+        pdf.addPage();
+        y = margin;
+      }
+      pdf.text(line, x, y);
+      y += lineHeight;
     });
-    currentY += 5;
-  }
+    return y;
+  };
+
+  // ANTET INSTITUȚIE
+  pdf.setFontSize(14);
+  pdf.setFont('helvetica', 'bold');
+  pdf.text(removeDiacritics('PRIMARIA COMUNEI FILIPESTI'), pageWidth / 2, yPosition, { align: 'center' });
+  yPosition += 6;
   
-  // ========== DECLARAȚIE ==========
-  // Asigură-te că avem suficient spațiu pentru declarație și semnături
-  if (currentY > pageHeight - 80) {
-    doc.addPage();
-    currentY = marginTop;
-  }
-  
-  doc.setFontSize(10);
-  const declaratieText = formatText('Declar pe propria răspundere, cunoscând prevederile art. 326 din Codul Penal privind falsul în declarații, că datele furnizate sunt corecte și complete.');
-  const declaratieLines = doc.splitTextToSize(declaratieText, contentWidth);
-  declaratieLines.forEach((line: string) => {
-    doc.text(line, marginLeft, currentY);
-    currentY += 5;
+  pdf.setFontSize(10);
+  pdf.setFont('helvetica', 'normal');
+  pdf.text(removeDiacritics('Judetul Bacau'), pageWidth / 2, yPosition, { align: 'center' });
+  yPosition += 5;
+  pdf.text(removeDiacritics('Tel: 0234/256.789 | Fax: 0234/256.790 | Email: contact@primariafilipesti.ro'), pageWidth / 2, yPosition, { align: 'center' });
+  yPosition += 10;
+
+  // Număr înregistrare și dată
+  pdf.setFontSize(10);
+  const currentDate = new Date().toLocaleDateString('ro-RO', { 
+    day: '2-digit', 
+    month: '2-digit', 
+    year: 'numeric' 
   });
-  currentY += 10;
-  
-  // ========== FINAL - DATA ȘI SEMNĂTURI ==========
-  // Poziționare în partea de jos a paginii
-  currentY = Math.max(currentY, pageHeight - 60);
-  
-  // Data și semnătura pe același rând
-  doc.setFontSize(11);
-  doc.text(`Data: ${new Date().toLocaleDateString('ro-RO')}`, marginLeft, currentY);
-  doc.text(formatText('Semnătura'), pageWidth - marginRight - 30, currentY, { align: 'center' });
-  
-  // Linie pentru semnătură
-  doc.line(pageWidth - marginRight - 50, currentY + 2, pageWidth - marginRight - 10, currentY + 2);
-  
-  // ========== FOOTER ==========
-  doc.setFontSize(8);
-  doc.setTextColor(...grayColor);
-  doc.text(formatText('Notă: Cererea dumneavoastră va fi procesată în conformitate cu prevederile legale în vigoare.'), pageWidth / 2, pageHeight - 15, { align: 'center' });
-  doc.text(formatText('Termenul legal de soluționare este de 30 de zile de la data înregistrării.'), pageWidth / 2, pageHeight - 11, { align: 'center' });
-  
-  // Linie footer
-  doc.setDrawColor(200, 200, 200);
-  doc.line(marginLeft, pageHeight - 20, pageWidth - marginRight, pageHeight - 20);
-  
-  return doc.output('blob');
-}
+  pdf.text(`Nr. ________ din data de ${currentDate}`, pageWidth / 2, yPosition, { align: 'center' });
+  yPosition += 12;
 
-// Funcție helper pentru salvarea PDF-ului
-export function downloadPDF(blob: Blob, filename: string) {
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = filename;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(url);
-}
+  // TITLU CERERE
+  pdf.setFontSize(12);
+  pdf.setFont('helvetica', 'bold');
+  pdf.text(removeDiacritics(config.title.toUpperCase()), pageWidth / 2, yPosition, { align: 'center' });
+  yPosition += 12;
 
-// Funcție pentru generarea numelui fișierului PDF
-export function generatePDFFilename(data: RequestData): string {
-  const tipCerere = data.tipCerere.replace(/-/g, '_');
-  const numeSolicitant = `${data.nume}_${data.prenume}`.replace(/\s+/g, '_');
-  const data_curenta = new Date().toISOString().split('T')[0];
-  return `Cerere_${tipCerere}_${numeSolicitant}_${data_curenta}.pdf`;
-}
+  // Către
+  pdf.setFontSize(11);
+  pdf.setFont('helvetica', 'normal');
+  pdf.text(removeDiacritics('Catre: PRIMARIA COMUNEI FILIPESTI'), margin, yPosition);
+  yPosition += 6;
+  pdf.text(removeDiacritics('In atentia: ________________________'), margin, yPosition);
+  yPosition += 10;
 
-// Helper function pentru generarea PDF-ului simplificat (pentru compatibilitate)
-export function generatePDFContent(formData: any, tipCerere: string): string {
-  const config = REQUEST_CONFIGS[tipCerere];
-  if (!config) {
-    throw new Error(`Configurație inexistentă pentru tipul de cerere: ${tipCerere}`);
+  // SOLICITANT
+  pdf.setFont('helvetica', 'bold');
+  pdf.text(removeDiacritics('SOLICITANT:'), margin, yPosition);
+  yPosition += 7;
+  
+  pdf.setFont('helvetica', 'normal');
+  pdf.text(removeDiacritics(`Nume si prenume: ${data.numeComplet || ''}`), margin, yPosition);
+  yPosition += 6;
+  pdf.text(`CNP: ${data.cnp || ''}`, margin, yPosition);
+  yPosition += 6;
+  
+  // Domiciliu pe o singură linie mai compactă
+  let domiciliuText = `Domiciliul: Jud. ${data.judet || ''}, Loc. ${data.localitate || ''}`;
+  if (data.strada) domiciliuText += `, Str. ${data.strada}`;
+  if (data.numar) domiciliuText += ` nr. ${data.numar}`;
+  if (data.bloc) domiciliuText += `, Bl. ${data.bloc}`;
+  if (data.scara) domiciliuText += `, Sc. ${data.scara}`;
+  if (data.apartament) domiciliuText += `, Ap. ${data.apartament}`;
+  
+  yPosition = addWrappedText(removeDiacritics(domiciliuText), margin, yPosition, pageWidth - 2 * margin);
+  yPosition += 1;
+  
+  if (data.telefon || data.telefonMobil) {
+    pdf.text(`Telefon: ${data.telefonMobil || data.telefon || ''}`, margin, yPosition);
+    yPosition += 6;
+  }
+  pdf.text(`Email: ${data.email || ''}`, margin, yPosition);
+  yPosition += 12;
+
+  // CONȚINUT CERERE - dezvoltat în fraze
+  let continutCerere = '';
+  
+  // Adaptează textul în funcție de tipul cererii
+  switch(config.category) {
+    case 'urbanism':
+      continutCerere = `Subsemnatul/a, ${data.numeComplet || ''}, va rog sa aprobati eliberarea documentatiei necesare pentru ${config.title.toLowerCase()}.`;
+      break;
+    case 'asistenta-sociala':
+      continutCerere = `Subsemnatul/a, ${data.numeComplet || ''}, solicit acordarea drepturilor prevazute de lege.`;
+      break;
+    case 'registru-agricol':
+      continutCerere = `Subsemnatul/a, ${data.numeComplet || ''}, va rog sa-mi eliberati documentele solicitate din registrul agricol.`;
+      break;
+    case 'taxe-impozite':
+      continutCerere = `Subsemnatul/a, ${data.numeComplet || ''}, solicit solutionarea favorabila a cererii privind situatia fiscala.`;
+      break;
+    case 'spclep':
+      continutCerere = `Subsemnatul/a, ${data.numeComplet || ''}, solicit eliberarea actelor de stare civila.`;
+      break;
+    default:
+      continutCerere = `Subsemnatul/a, ${data.numeComplet || ''}, va rog sa binevoiti a-mi aproba urmatoarea solicitare.`;
+  }
+  
+  // Adaugă scopul specific dacă există
+  if (data.scopulCererii && data.scopulCererii.trim()) {
+    continutCerere += ' ' + data.scopulCererii;
+  }
+  
+  // Adaugă date specifice în text continuu
+  if (data.numeFirma) {
+    continutCerere += ` Mentionez ca reprezint societatea ${data.numeFirma || ''}${data.cui ? ', CUI ' + data.cui : ''}${data.reprezentantLegal ? ', in calitate de ' + data.reprezentantLegal : ''}.`;
+  }
+  if (data.suprafataTeren) {
+    continutCerere += ` Terenul in cauza are suprafata de ${data.suprafataTeren || ''}${data.nrCadastral ? ', numar cadastral ' + data.nrCadastral : ''}.`;
+  }
+  if (data.marcaAuto) {
+    continutCerere += ` Vehiculul vizat este marca ${data.marcaAuto || ''}${data.nrInmatriculare ? ', numar inmatriculare ' + data.nrInmatriculare : 'neinmatriculat'}${data.anFabricatie ? ', an fabricatie ' + data.anFabricatie : ''}.`;
   }
 
-  // Aceasta este o versiune simplificată pentru text
-  return `
-    CERERE
-    
-    ${config.title}
-    
-    Subsemnatul/a ${formData.nume} ${formData.prenume},
-    CNP: ${formData.cnp},
-    Domiciliat în ${formData.judet}, ${formData.localitate}, ${formData.adresa || ''},
-    Telefon: ${formData.telefon || formData.telefonMobil || formData.telefonFix || ''},
-    Email: ${formData.email || ''},
-    
-    Solicit prin prezenta:
-    ${formData.scopulCererii || ''}
-    
-    Data: ${new Date().toLocaleDateString('ro-RO')}
-    
-    Semnătura,
-    ${formData.nume} ${formData.prenume}
-  `;
+  yPosition = addWrappedText(removeDiacritics(continutCerere), margin, yPosition, pageWidth - 2 * margin);
+  yPosition += 10;
+
+  // Documente anexate - NU afișa numele fișierelor, doar numărul
+  if (data.fisiere && data.fisiere.length > 0) {
+    pdf.setFont('helvetica', 'italic');
+    pdf.setFontSize(10);
+    pdf.text(removeDiacritics(`Anexez ${data.fisiere.length} document${data.fisiere.length > 1 ? 'e' : ''} la prezenta cerere.`), margin, yPosition);
+    yPosition += 10;
+  }
+
+  // Declarație pe proprie răspundere
+  pdf.setFontSize(10);
+  pdf.setFont('helvetica', 'normal');
+  const declaratieText = 'Declar pe propria raspundere, cunoscand prevederile art. 326 din Codul Penal privind falsul in declaratii, ca datele furnizate sunt corecte si complete.';
+  yPosition = addWrappedText(removeDiacritics(declaratieText), margin, yPosition, pageWidth - 2 * margin);
+  yPosition += 12;
+
+  // Semnătură și data - aliniate
+  pdf.setFontSize(10);
+  pdf.text(`Data: ${currentDate}`, margin, yPosition);
+  pdf.text(removeDiacritics('Semnatura'), pageWidth - margin - 30, yPosition);
+  yPosition += 8;
+  pdf.text('_________________', margin, yPosition);
+  pdf.text('_________________', pageWidth - margin - 30, yPosition);
+  yPosition += 12;
+
+  // Notă finală
+  pdf.setFontSize(9);
+  pdf.setFont('helvetica', 'italic');
+  const notaText = 'Nota: Cererea dumneavoastra va fi procesata in conformitate cu prevederile legale in vigoare. Termenul legal de solutionare este de 30 de zile de la data inregistrarii.';
+  yPosition = addWrappedText(removeDiacritics(notaText), margin, yPosition, pageWidth - 2 * margin);
+
+  // Adaugă paginile cu imagini atașate (dacă există)
+  if (data.fisiere && data.fisiere.length > 0) {
+    console.log(`📎 Processing ${data.fisiere.length} attachments for PDF`);
+
+    for (let i = 0; i < data.fisiere.length; i++) {
+      const file = data.fisiere[i];
+      console.log(`Processing file: ${file.name || 'unnamed'}, type: ${file.type || 'unknown'}, has buffer: ${!!file.buffer}`);
+
+      if (file.buffer && file.type) {
+        if (file.type.startsWith('image/')) {
+          try {
+            pdf.addPage();
+
+            // Titlu pentru pagina cu atașament
+            pdf.setFontSize(12);
+            pdf.setFont('helvetica', 'bold');
+            pdf.text(removeDiacritics(`Anexă: ${file.name || 'Document'}`), pageWidth / 2, margin, { align: 'center' });
+
+            // Convertește buffer-ul în base64 pentru jsPDF
+            const base64Image = `data:${file.type};base64,${file.buffer.toString('base64')}`;
+
+            // Calculează dimensiunile pentru a încadra imaginea în pagină
+            const maxWidth = pageWidth - 2 * margin;
+            const maxHeight = pageHeight - 2 * margin - 20;
+
+            // Detectează formatul imaginii
+            let imageFormat: 'JPEG' | 'PNG' = 'JPEG';
+            if (file.type.includes('png')) {
+              imageFormat = 'PNG';
+            }
+
+            console.log(`Adding image to PDF: ${file.name || 'unnamed'}, format: ${imageFormat}`);
+
+            // Adaugă imaginea
+            pdf.addImage(
+              base64Image,
+              imageFormat,
+              margin,
+              margin + 20,
+              maxWidth,
+              maxHeight,
+              undefined,
+              'FAST'
+            );
+
+            console.log(`✅ Successfully added image: ${file.name || 'unnamed'}`);
+          } catch (error) {
+            console.error(`❌ Error adding image ${file.name || 'unnamed'} to PDF:`, error);
+            pdf.addPage();
+            pdf.setFontSize(12);
+            pdf.text(removeDiacritics(`Anexă: ${file.name || 'Document'}`), pageWidth / 2, margin, { align: 'center' });
+            pdf.setFontSize(10);
+            pdf.text(removeDiacritics('(Imaginea nu a putut fi inclusă în PDF)'), pageWidth / 2, margin + 20, { align: 'center' });
+          }
+        } else if (file.type === 'application/pdf') {
+          // Pentru PDF-uri atașate, doar menționează că sunt incluse
+          pdf.addPage();
+          pdf.setFontSize(12);
+          pdf.setFont('helvetica', 'bold');
+          pdf.text(removeDiacritics(`Anexă: ${file.name || 'Document PDF'}`), pageWidth / 2, margin, { align: 'center' });
+          pdf.setFontSize(10);
+          pdf.setFont('helvetica', 'normal');
+          pdf.text(removeDiacritics('(Document PDF atașat cererii)'), pageWidth / 2, margin + 20, { align: 'center' });
+          pdf.text(removeDiacritics('Acest document va fi trimis separat împreună cu cererea'), pageWidth / 2, margin + 30, { align: 'center' });
+        } else {
+          // Pentru alte tipuri de fișiere
+          pdf.addPage();
+          pdf.setFontSize(12);
+          pdf.setFont('helvetica', 'bold');
+          pdf.text(removeDiacritics(`Anexă: ${file.name || 'Document'}`), pageWidth / 2, margin, { align: 'center' });
+          pdf.setFontSize(10);
+          pdf.setFont('helvetica', 'normal');
+          pdf.text(removeDiacritics(`(Document ${file.type || 'fără tip'} atașat cererii)`), pageWidth / 2, margin + 20, { align: 'center' });
+        }
+      } else {
+        // Fișier fără buffer sau tip
+        console.warn(`⚠️ File ${file.name || 'unnamed'} missing buffer or type`);
+        pdf.addPage();
+        pdf.setFontSize(12);
+        pdf.setFont('helvetica', 'bold');
+        pdf.text(removeDiacritics(`Anexă: ${file.name || 'Document'}`), pageWidth / 2, margin, { align: 'center' });
+        pdf.setFontSize(10);
+        pdf.setFont('helvetica', 'normal');
+        pdf.text(removeDiacritics('(Document atașat cererii)'), pageWidth / 2, margin + 20, { align: 'center' });
+      }
+
+      // Adaugă URL-ul dacă există
+      if (data.attachmentUrls && data.attachmentUrls.length > i && data.attachmentUrls[i]) {
+        pdf.text(removeDiacritics('Disponibil online la:'), margin, margin + 40);
+        const url = data.attachmentUrls[i];
+        pdf.setTextColor(0, 0, 255);
+        pdf.textWithLink(url || '', margin, margin + 50, { url: url || '' });
+        pdf.setTextColor(0, 0, 0);
+      }
+    }
+  }
+
+  // Footer pe ultima pagină
+  const totalPages = pdf.getNumberOfPages();
+  for (let i = 1; i <= totalPages; i++) {
+    pdf.setPage(i);
+    pdf.setFontSize(8);
+    pdf.setTextColor(128, 128, 128);
+    pdf.text(
+      `Pagina ${i} din ${totalPages}`,
+      pageWidth / 2,
+      pageHeight - 10,
+      { align: 'center' }
+    );
+  }
+
+  return pdf.output('blob');
 }
