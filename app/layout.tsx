@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
+import { NotificationProvider } from "@/components/NotificationProvider";
+import { Toaster } from "@/components/ui/toaster";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -31,12 +33,12 @@ export default function RootLayout({
   return (
     <html lang="ro">
       <head>
-        {/* Apple PWA Meta Tags - CRITICE pentru iOS */}
+        {/* Apple PWA Meta Tags */}
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         <meta name="apple-mobile-web-app-title" content="Comuna" />
         
-        {/* Apple Touch Icons - FOARTE IMPORTANTE */}
+        {/* Apple Touch Icons */}
         <link rel="apple-touch-icon" href="/icon-192x192.png" />
         <link rel="apple-touch-icon" sizes="152x152" href="/icon-192x192.png" />
         <link rel="apple-touch-icon" sizes="180x180" href="/icon-192x192.png" />
@@ -68,7 +70,12 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className={inter.className}>{children}</body>
+      <body className={inter.className}>
+        <NotificationProvider>
+          {children}
+        </NotificationProvider>
+        <Toaster />
+      </body>
     </html>
   );
 }
