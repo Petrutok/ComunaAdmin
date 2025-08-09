@@ -1,85 +1,128 @@
-// app/api/push/subscribe/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/firebase';
-import { doc, setDoc } from 'firebase/firestore';
+import { collection, doc, setDoc } from 'firebase/firestore';
 import crypto from 'crypto';
 
-export const dynamic   = 'force-dynamic';
-export const runtime   = 'nodejs';
+// Prevent pre-rendering during build
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
 
-/* ---------- POST /api/push/subscribe ---------- */
-export async function POST(req: NextRequest) {
+
+export async function POST(request: NextRequest) {
   try {
-    const body = await req.json();
-
-    /* 1. Validate payload */
-    if (!body?.subscription?.endpoint || !body.subscription.keys) {
+    const body = await request.json();
+    console.log('[Subscribe] Raw body received:', JSON.stringify(body, null, 2));
+    
+    const { subscription, deviceInfo } = body;
+    
+    if (!subscription) {
+      console.error('[Subscribe] No subscription in body');
       return NextResponse.json(
-        { error: 'Missing subscription.endpoint or subscription.keys' },
+        { error: 'No subscription provided' },
         { status: 400 }
       );
     }
-
-    const { subscription, deviceInfo = {} } = body;
-
-    /* 2. Create unique ID from endpoint */
+    
+    console.log('[Subscribe] Received subscription:', {
+      endpoint: subscription.endpoint?.substring(0, 50) + '...',
+      hasKeys: !!subscription.keys,
+      platform: deviceInfo?.platform,
+      expirationTime: subscription.expirationTime
+    });
+    
+    // Create a unique ID from the endpoint
     const endpointHash = crypto
       .createHash('sha256')
       .update(subscription.endpoint)
       .digest('hex')
-      .slice(0, 16);
-
-    /* 3. Build Firestore document */
-    const docData = {
+      .substring(0, 16);
+    
+    console.log('[Subscribe] Generated hash:', endpointHash);
+    
+    // Save subscription to Firestore - Handle undefined values
+    const subscriptionData: any = {
       endpoint: subscription.endpoint,
       keys: subscription.keys,
       active: true,
-      platform: deviceInfo.platform ?? 'web',
-      userAgent: deviceInfo.userAgent ?? '',
+      platform: deviceInfo?.platform || 'web',
+      userAgent: deviceInfo?.userAgent || '',
       createdAt: new Date(),
       updatedAt: new Date(),
       lastUsedAt: null,
       failureCount: 0,
+      subscription: subscription
     };
-
-    /* 4. Upsert */
-    await setDoc(doc(db, 'push_subscriptions', endpointHash), docData, { merge: true });
-
-    return NextResponse.json({ success: true, id: endpointHash });
-  } catch (err: any) {
-    console.error('[Subscribe] Error:', err.message);
+    
+    // Only add expirationTime if it exists (iOS doesn't have it)
+    if (subscription.expirationTime !== undefined && subscription.expirationTime !== null) {
+      subscriptionData.expirationTime = subscription.expirationTime;
+    }
+    
+    console.log('[Subscribe] Saving to Firestore...');
+    
+    try {
+      await setDoc(
+        doc(db, 'push_subscriptions', endpointHash), 
+        subscriptionData,
+        { merge: true }
+      );
+      
+      console.log('[Subscribe] Saved successfully to Firestore');
+    } catch (firestoreError: any) {
+      console.error('[Subscribe] Firestore error:', firestoreError);
+      throw firestoreError;
+    }
+    
+    return NextResponse.json({ 
+      success: true,
+      message: 'Subscription saved successfully',
+      id: endpointHash
+    });
+    
+  } catch (error: any) {
+    console.error('[Subscribe] Error:', error);
     return NextResponse.json(
-      { error: err.message || 'Internal server error' },
+      { 
+        error: error.message || 'Failed to save subscription',
+        details: error.toString()
+      },
       { status: 500 }
     );
   }
 }
 
-/* ---------- DELETE /api/push/subscribe ---------- */
-export async function DELETE(req: NextRequest) {
+export async function DELETE(request: NextRequest) {
   try {
-    const { endpoint } = await req.json();
+    const { endpoint } = await request.json();
+    
     if (!endpoint) {
-      return NextResponse.json({ error: 'Missing endpoint' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Endpoint required' },
+        { status: 400 }
+      );
     }
-
+    
     const endpointHash = crypto
       .createHash('sha256')
       .update(endpoint)
       .digest('hex')
-      .slice(0, 16);
-
+      .substring(0, 16);
+    
     await setDoc(
       doc(db, 'push_subscriptions', endpointHash),
       { active: false, updatedAt: new Date() },
       { merge: true }
     );
-
-    return NextResponse.json({ success: true });
-  } catch (err: any) {
-    console.error('[Unsubscribe] Error:', err.message);
+    
+    return NextResponse.json({ 
+      success: true,
+      message: 'Subscription removed'
+    });
+    
+  } catch (error) {
+    console.error('Unsubscribe error:', error);
     return NextResponse.json(
-      { error: err.message || 'Internal server error' },
+      { error: 'Failed to remove subscription' },
       { status: 500 }
     );
   }

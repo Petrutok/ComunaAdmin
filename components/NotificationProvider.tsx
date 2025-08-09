@@ -252,118 +252,126 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     return outputArray;
   };
 
-  const subscribeToNotifications = async () => {
-    try {
-      console.log('[NotificationProvider] Starting subscription...');
+ const subscribeToNotifications = async () => {
+  try {
+    console.log('[NotificationProvider] Starting subscription...');
+    
+    const registration = await navigator.serviceWorker.ready;
+    
+    // Subscribe to push notifications
+    const subscription = await registration.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(
+        process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!
+      )
+    });
+
+    console.log('[NotificationProvider] Push subscription created:', subscription);
+
+    // Get device info
+    const deviceInfo = {
+      userAgent: navigator.userAgent,
+      platform: detectPlatform(),
+    };
+
+    // IMPORTANT: Convert subscription to JSON before sending
+    const subscriptionJSON = subscription.toJSON();
+    console.log('[NotificationProvider] Subscription JSON:', subscriptionJSON);
+
+    // Send subscription to server
+    const response = await fetch('/api/push/subscribe', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        subscription: subscriptionJSON,  // <-- Send the JSON version
+        deviceInfo: deviceInfo
+      }),
+    });
+
+    const result = await response.json();
+    console.log('[NotificationProvider] Server response:', result);
+
+    if (response.ok) {
+      setIsSubscribed(true);
+      console.log('[NotificationProvider] Successfully subscribed');
       
-      const registration = await navigator.serviceWorker.ready;
+      // Salvează în localStorage
+      localStorage.setItem('push_subscription', JSON.stringify(subscriptionJSON));
       
-      // Subscribe to push notifications
-      const subscription = await registration.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(
-          process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!
-        )
-      });
-
-      console.log('[NotificationProvider] Push subscription created');
-
-      // Get device info
-      const deviceInfo = {
-        userAgent: navigator.userAgent,
-        platform: detectPlatform(),
-      };
-
-      // Send subscription to server
-      const response = await fetch('/api/push/subscribe', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          subscription,
-          deviceInfo
-        }),
-      });
-
-      if (response.ok) {
-        setIsSubscribed(true);
-        console.log('[NotificationProvider] Successfully subscribed');
-        
-        // Salvează în localStorage
-        localStorage.setItem('push_subscription', JSON.stringify(subscription.toJSON()));
-        
-        // Notificare de bun venit
-        try {
-          if ('showNotification' in registration) {
-            await registration.showNotification('Notificări activate! 🎉', {
-              body: 'Bine ai venit! Vei primi notificări despre evenimente importante din comună.',
-              icon: '/icon-192x192.png',
-              badge: '/icon-192x192.png',
-              tag: 'welcome',
-              requireInteraction: false,
-              data: {
-                url: '/',
-                type: 'welcome'
-              }
-            });
-          }
-        } catch (notifError) {
-          console.log('[NotificationProvider] Could not show welcome notification:', notifError);
+      // Notificare de bun venit
+      try {
+        if ('showNotification' in registration) {
+          await registration.showNotification('Notificări activate! 🎉', {
+            body: 'Bine ai venit! Vei primi notificări despre evenimente importante din comună.',
+            icon: '/icon-192x192.png',
+            badge: '/icon-192x192.png',
+            tag: 'welcome',
+            requireInteraction: false,
+            data: {
+              url: '/',
+              type: 'welcome'
+            }
+          });
         }
-      } else {
-        throw new Error('Failed to save subscription');
+      } catch (notifError) {
+        console.log('[NotificationProvider] Could not show welcome notification:', notifError);
       }
-    } catch (error) {
-      console.error('[NotificationProvider] Subscribe error:', error);
-      throw error;
+    } else {
+      console.error('[NotificationProvider] Server error:', result);
+      throw new Error(result.error || 'Failed to save subscription');
     }
-  };
+  } catch (error) {
+    console.error('[NotificationProvider] Subscribe error:', error);
+    throw error;
+  }
+};
 
-  const subscribe = async () => {
-    try {
-      // Check iOS specific requirements
-      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-      const isStandalone = window.matchMedia('(display-mode: standalone)').matches || 
-                          (window.navigator as any).standalone === true;
-      
-      if (isIOS && !isStandalone) {
-        toast({
-          title: "Instalează aplicația mai întâi",
-          description: "Pe iOS, notificările funcționează doar în aplicația instalată. Apasă Share → Add to Home Screen",
-          variant: "destructive",
-          duration: 6000
-        });
-        return;
-      }
-
-      // Request notification permission
-      const permission = await Notification.requestPermission();
-      
-      if (permission !== 'granted') {
-        toast({
-          title: "Permisiune refuzată",
-          description: "Nu s-au putut activa notificările",
-          variant: "destructive"
-        });
-        return;
-      }
-
-      await subscribeToNotifications();
-      
+ const subscribe = async () => {
+  try {
+    // Check iOS specific requirements
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || 
+                        (window.navigator as any).standalone === true;
+    
+    if (isIOS && !isStandalone) {
       toast({
-        title: "Succes!",
-        description: "Notificările au fost activate",
+        title: "Instalează aplicația mai întâi",
+        description: "Pe iOS, notificările funcționează doar în aplicația instalată. Apasă Share → Add to Home Screen",
+        variant: "destructive",
+        duration: 6000
       });
-    } catch (error) {
-      console.error('[NotificationProvider] Error subscribing:', error);
+      return;
+    }
+
+    // Request notification permission
+    const permission = await Notification.requestPermission();
+    
+    if (permission !== 'granted') {
       toast({
-        title: "Eroare",
+        title: "Permisiune refuzată",
         description: "Nu s-au putut activa notificările",
         variant: "destructive"
       });
+      return;
     }
-  };
+
+    await subscribeToNotifications();
+    
+    toast({
+      title: "Succes!",
+      description: "Notificările au fost activate",
+    });
+  } catch (error) {
+    console.error('[NotificationProvider] Error subscribing:', error);
+    toast({
+      title: "Eroare",
+      description: "Nu s-au putut activa notificările",
+      variant: "destructive"
+    });
+  }
+};
 
   const unsubscribe = async () => {
     try {
