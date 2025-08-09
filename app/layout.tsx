@@ -3,6 +3,8 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { NotificationProvider } from "@/components/NotificationProvider";
 import { Toaster } from "@/components/ui/toaster";
+import { PWAInstallPrompt } from '@/components/PWAInstallPrompt';
+import { Providers } from '@/app/providers'; 
 
 const inter = Inter({ subsets: ["latin"] });
 
