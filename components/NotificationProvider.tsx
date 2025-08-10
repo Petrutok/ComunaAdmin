@@ -12,6 +12,8 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 
+console.log('🔴 NotificationProvider FILE LOADED');
+
 interface NotificationContextType {
   isSubscribed: boolean;
   isSupported: boolean;
