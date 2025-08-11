@@ -37,12 +37,15 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   const { toast } = useToast();
 
   useEffect(() => {
-    // Așteaptă puțin pentru ca aplicația să se încarce complet
-    const timer = setTimeout(() => {
-      initializeNotifications();
-    }, 500); // Redus de la 1500ms la 500ms
-
-    return () => clearTimeout(timer);
+    // IMPORTANT: Așteaptă mai mult pentru iOS și verifică dacă documentul e ready
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', () => {
+        setTimeout(initializeNotifications, 2500); // Mărit la 2.5 secunde pentru iOS
+      });
+    } else {
+      // Document deja încărcat
+      setTimeout(initializeNotifications, 2500); // Mărit la 2.5 secunde pentru iOS
+    }
   }, []);
 
   const detectPlatform = (): 'web' | 'ios' | 'android' => {
@@ -59,152 +62,227 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     return 'web';
   };
 
-  const initializeNotifications = async () => {
-  console.log('[NotificationProvider] Starting initialization...');
-  console.log('[NotificationProvider] User Agent:', navigator.userAgent);
-  console.log('[NotificationProvider] Is iOS:', /iPad|iPhone|iPod/.test(navigator.userAgent));
-  console.log('[NotificationProvider] PWA mode:', window.matchMedia('(display-mode: standalone)').matches);
-  
-  // Verifică suportul pentru notificări
-  const supported = 'Notification' in window && 
-                   'serviceWorker' in navigator && 
-                   'PushManager' in window;
-  
-  setIsSupported(supported);
-  
-  if (!supported) {
-    console.log('[NotificationProvider] Not supported on this device');
-    return;
-  }
-
-  try {
-    // IMPORTANT: Verifică și înregistrează Service Worker
-    let registration = await navigator.serviceWorker.getRegistration();
-    console.log('[NotificationProvider] Existing SW registration:', !!registration);
+  // Funcție nouă pentru a aștepta Service Worker să devină activ
+  const waitForServiceWorker = async (timeout = 10000): Promise<ServiceWorkerRegistration | null> => {
+    console.log('[NotificationProvider] Waiting for Service Worker...');
+    const startTime = Date.now();
     
-    if (!registration) {
-      console.log('[NotificationProvider] No SW found, registering now...');
-      registration = await navigator.serviceWorker.register('/sw.js');
-      console.log('[NotificationProvider] SW registered successfully');
-      
-      // Așteaptă să devină activ
-      await navigator.serviceWorker.ready;
-      console.log('[NotificationProvider] SW is ready');
-    } else {
-      console.log('[NotificationProvider] Using existing SW registration');
-      await navigator.serviceWorker.ready;
+    while (Date.now() - startTime < timeout) {
+      try {
+        // Verifică dacă există deja
+        let registration = await navigator.serviceWorker.getRegistration();
+        
+        if (!registration) {
+          console.log('[NotificationProvider] Registering new SW...');
+          registration = await navigator.serviceWorker.register('/sw.js', {
+            scope: '/',
+            updateViaCache: 'none'
+          });
+          console.log('[NotificationProvider] SW registered');
+        }
+        
+        // Pentru iOS - forțează skip waiting
+        if (registration?.waiting) {
+          console.log('[NotificationProvider] SW is waiting, sending skipWaiting...');
+          registration.waiting.postMessage('skipWaiting');
+        }
+        
+        if (registration?.installing) {
+          console.log('[NotificationProvider] SW is installing, waiting...');
+          await new Promise(resolve => {
+            const installer = registration?.installing;
+            if (installer) {
+              installer.addEventListener('statechange', function() {
+                if (this.state === 'activated') {
+                  console.log('[NotificationProvider] SW activated via statechange');
+                  resolve(true);
+                }
+              });
+            }
+            // Timeout după 3 secunde pentru event listener
+            setTimeout(() => resolve(false), 3000);
+          });
+        }
+        
+        // Verifică din nou după wait
+        registration = await navigator.serviceWorker.getRegistration();
+        if (registration?.active) {
+          console.log('[NotificationProvider] SW is active!');
+          await navigator.serviceWorker.ready;
+          return registration;
+        }
+        
+        // Așteaptă puțin înainte de următoarea încercare
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+      } catch (error) {
+        console.error('[NotificationProvider] SW registration error:', error);
+        return null;
+      }
     }
-
-    // Verifică statusul permisiunii
-    const currentPermission = Notification.permission;
-    console.log('[NotificationProvider] Current permission:', currentPermission);
-
-    // Verifică dacă există deja o subscripție
-    const existingSubscription = await registration.pushManager.getSubscription();
-    console.log('[NotificationProvider] Existing subscription:', !!existingSubscription);
     
-    if (existingSubscription) {
-      console.log('[NotificationProvider] Found existing subscription');
-      setIsSubscribed(true);
+    console.error('[NotificationProvider] SW registration timeout');
+    return null;
+  };
+
+  const initializeNotifications = async () => {
+    console.log('[NotificationProvider] Starting initialization...');
+    console.log('[NotificationProvider] User Agent:', navigator.userAgent);
+    console.log('[NotificationProvider] Is iOS:', /iPad|iPhone|iPod/.test(navigator.userAgent));
+    console.log('[NotificationProvider] PWA mode:', window.matchMedia('(display-mode: standalone)').matches);
+    
+    // Verifică suportul pentru notificări
+    const supported = 'Notification' in window && 
+                     'serviceWorker' in navigator && 
+                     'PushManager' in window;
+    
+    setIsSupported(supported);
+    
+    if (!supported) {
+      console.log('[NotificationProvider] Not supported on this device');
       return;
     }
 
-    // Verifică dacă e iOS
-    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-    const isPWA = window.matchMedia('(display-mode: standalone)').matches;
-    let hasAskedBefore = localStorage.getItem('notification_permission_asked');
-    
-    console.log('[NotificationProvider] Decision tree:', {
-      isIOS,
-      isPWA,
-      currentPermission,
-      hasAskedBefore,
-      shouldShowDialog: currentPermission === 'default' && !hasAskedBefore
-    });
-
-    // Pentru iOS PWA, resetează flag-urile dacă e reinstalat
-    if (isIOS && isPWA && currentPermission === 'default' && hasAskedBefore) {
-      console.log('[NotificationProvider] iOS PWA reinstalled, resetting flags...');
-      localStorage.removeItem('notification_permission_asked');
-      localStorage.removeItem('notification_permission_denied');
-      // Resetează variabila locală
-      hasAskedBefore = null;
-    }
-
-    // Logică pentru afișare dialog/request
-    if (currentPermission === 'default' && !hasAskedBefore) {
-      console.log('[NotificationProvider] First time - will show dialog');
+    try {
+      // IMPORTANT: Folosește funcția de wait pentru SW
+      const registration = await waitForServiceWorker();
       
-      if (isIOS && isPWA) {
-        // iOS în PWA mode - arată dialog custom
-        console.log('[NotificationProvider] iOS PWA - showing custom dialog');
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        setShowPermissionDialog(true);
-      } else if (isIOS && !isPWA) {
-        // iOS în Safari - nu poate folosi notificări
-        console.log('[NotificationProvider] iOS Safari - notifications not supported');
+      if (!registration) {
+        console.error('[NotificationProvider] Failed to register SW');
         toast({
-          title: "📱 Instalează aplicația",
-          description: "Pentru notificări, adaugă aplicația pe ecranul principal: Share → Add to Home Screen",
-          duration: 8000,
+          title: "⚠️ Eroare tehnică",
+          description: "Nu s-a putut inițializa sistemul de notificări. Reîncarcă pagina.",
+          variant: "destructive",
+          duration: 6000,
         });
-      } else {
-        // Android/Desktop - request direct
-        console.log('[NotificationProvider] Non-iOS - requesting permission directly');
-        localStorage.setItem('notification_permission_asked', 'true');
+        return;
+      }
+
+      // Verifică statusul permisiunii
+      const currentPermission = Notification.permission;
+      console.log('[NotificationProvider] Current permission:', currentPermission);
+
+      // Verifică dacă există deja o subscripție
+      const existingSubscription = registration ? await registration.pushManager.getSubscription() : null;
+      console.log('[NotificationProvider] Existing subscription:', !!existingSubscription);
+      
+      if (existingSubscription) {
+        console.log('[NotificationProvider] Found existing subscription');
+        setIsSubscribed(true);
+        return;
+      }
+
+      // Verifică dacă e iOS
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+      const isPWA = window.matchMedia('(display-mode: standalone)').matches;
+      let hasAskedBefore = localStorage.getItem('notification_permission_asked');
+      
+      console.log('[NotificationProvider] Decision tree:', {
+        isIOS,
+        isPWA,
+        currentPermission,
+        hasAskedBefore,
+        shouldShowDialog: currentPermission === 'default' && !hasAskedBefore
+      });
+
+      // Pentru iOS PWA, resetează flag-urile dacă e reinstalat
+      if (isIOS && isPWA && currentPermission === 'default' && hasAskedBefore) {
+        console.log('[NotificationProvider] iOS PWA reinstalled, resetting flags...');
+        localStorage.removeItem('notification_permission_asked');
+        localStorage.removeItem('notification_permission_denied');
+        hasAskedBefore = null;
+      }
+
+      // Logică pentru afișare dialog/request
+      if (currentPermission === 'default' && !hasAskedBefore) {
+        console.log('[NotificationProvider] First time - will show dialog');
         
-        // Toast informativ
-        toast({
-          title: "🔔 Permite notificările?",
-          description: "Fii primul care află despre evenimente importante",
-          duration: 4000,
-          className: "bg-gradient-to-r from-blue-500 to-purple-500 text-white border-0",
-        });
-        
-        await new Promise(resolve => setTimeout(resolve, 500));
-        
-        // Solicită permisiunea
-        const permission = await Notification.requestPermission();
-        console.log('[NotificationProvider] Permission result:', permission);
-        
-        if (permission === 'granted') {
-          await subscribeToNotifications();
+        if (isIOS && isPWA) {
+          // iOS în PWA mode - arată dialog custom
+          console.log('[NotificationProvider] iOS PWA - showing custom dialog');
+          await new Promise(resolve => setTimeout(resolve, 1000));
           
+          // IMPORTANT: Arată și toast-ul pentru iOS
           toast({
-            title: "🎉 Excelent!",
-            description: "Notificările sunt acum active!",
-            duration: 5000,
-            className: "bg-gradient-to-r from-blue-600 to-blue-700 text-white border-0",
+            title: "🔔 Activează notificările",
+            description: "Permite notificările pentru a fi la curent cu evenimentele importante",
+            duration: 6000,
+            className: "bg-gradient-to-r from-blue-500 to-purple-500 text-white border-0",
           });
-        } else if (permission === 'denied') {
-          localStorage.setItem('notification_permission_denied', 'true');
           
+          setShowPermissionDialog(true);
+          
+        } else if (isIOS && !isPWA) {
+          // iOS în Safari - nu poate folosi notificări
+          console.log('[NotificationProvider] iOS Safari - notifications not supported');
           toast({
-            title: "😔 Notificări dezactivate",
-            description: "Poți activa notificările mai târziu din setări",
-            variant: "destructive",
+            title: "📱 Instalează aplicația",
+            description: "Pentru notificări, adaugă aplicația pe ecranul principal: Share → Add to Home Screen",
             duration: 8000,
           });
+        } else {
+          // Android/Desktop - request direct
+          console.log('[NotificationProvider] Non-iOS - requesting permission directly');
+          localStorage.setItem('notification_permission_asked', 'true');
+          
+          // Toast informativ
+          toast({
+            title: "🔔 Permite notificările?",
+            description: "Fii primul care află despre evenimente importante",
+            duration: 4000,
+            className: "bg-gradient-to-r from-blue-500 to-purple-500 text-white border-0",
+          });
+          
+          await new Promise(resolve => setTimeout(resolve, 500));
+          
+          // Solicită permisiunea
+          const permission = await Notification.requestPermission();
+          console.log('[NotificationProvider] Permission result:', permission);
+          
+          if (permission === 'granted') {
+            await subscribeToNotifications();
+            
+            toast({
+              title: "🎉 Excelent!",
+              description: "Notificările sunt acum active!",
+              duration: 5000,
+              className: "bg-gradient-to-r from-blue-600 to-blue-700 text-white border-0",
+            });
+          } else if (permission === 'denied') {
+            localStorage.setItem('notification_permission_denied', 'true');
+            
+            toast({
+              title: "😔 Notificări dezactivate",
+              description: "Poți activa notificările mai târziu din setări",
+              variant: "destructive",
+              duration: 8000,
+            });
+          }
         }
+      } else if (currentPermission === 'granted' && !existingSubscription) {
+        // Are permisiune dar nu subscripție
+        console.log('[NotificationProvider] Has permission but no subscription - creating one');
+        await subscribeToNotifications();
+        
+        toast({
+          title: "🔔 Notificări reactivate",
+          description: "Subscripția ta a fost restaurată",
+          duration: 4000,
+        });
+      } else {
+        console.log('[NotificationProvider] No action needed');
       }
-    } else if (currentPermission === 'granted' && !existingSubscription) {
-      // Are permisiune dar nu subscripție
-      console.log('[NotificationProvider] Has permission but no subscription - creating one');
-      await subscribeToNotifications();
       
+    } catch (error) {
+      console.error('[NotificationProvider] Initialization error:', error);
       toast({
-        title: "🔔 Notificări reactivate",
-        description: "Subscripția ta a fost restaurată",
-        duration: 4000,
+        title: "⚠️ Eroare",
+        description: "Nu s-au putut inițializa notificările. Încearcă din nou mai târziu.",
+        variant: "destructive",
+        duration: 5000,
       });
-    } else {
-      console.log('[NotificationProvider] No action needed');
     }
-    
-  } catch (error) {
-    console.error('[NotificationProvider] Initialization error:', error);
-  }
-};
+  };
 
   const handlePermissionRequest = async () => {
     console.log('[NotificationProvider] User clicked to enable notifications');
@@ -282,126 +360,126 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     return outputArray;
   };
 
- const subscribeToNotifications = async () => {
-  try {
-    console.log('[NotificationProvider] Starting subscription...');
-    
-    const registration = await navigator.serviceWorker.ready;
-    
-    // Subscribe to push notifications
-    const subscription = await registration.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array(
-        process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!
-      )
-    });
-
-    console.log('[NotificationProvider] Push subscription created:', subscription);
-
-    // Get device info
-    const deviceInfo = {
-      userAgent: navigator.userAgent,
-      platform: detectPlatform(),
-    };
-
-    // IMPORTANT: Convert subscription to JSON before sending
-    const subscriptionJSON = subscription.toJSON();
-    console.log('[NotificationProvider] Subscription JSON:', subscriptionJSON);
-
-    // Send subscription to server
-    const response = await fetch('/api/push/subscribe', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        subscription: subscriptionJSON,  // <-- Send the JSON version
-        deviceInfo: deviceInfo
-      }),
-    });
-
-    const result = await response.json();
-    console.log('[NotificationProvider] Server response:', result);
-
-    if (response.ok) {
-      setIsSubscribed(true);
-      console.log('[NotificationProvider] Successfully subscribed');
+  const subscribeToNotifications = async () => {
+    try {
+      console.log('[NotificationProvider] Starting subscription...');
       
-      // Salvează în localStorage
-      localStorage.setItem('push_subscription', JSON.stringify(subscriptionJSON));
+      const registration = await navigator.serviceWorker.ready;
       
-      // Notificare de bun venit
-      try {
-        if ('showNotification' in registration) {
-          await registration.showNotification('Notificări activate! 🎉', {
-            body: 'Bine ai venit! Vei primi notificări despre evenimente importante din comună.',
-            icon: '/icon-192x192.png',
-            badge: '/icon-192x192.png',
-            tag: 'welcome',
-            requireInteraction: false,
-            data: {
-              url: '/',
-              type: 'welcome'
-            }
-          });
-        }
-      } catch (notifError) {
-        console.log('[NotificationProvider] Could not show welcome notification:', notifError);
-      }
-    } else {
-      console.error('[NotificationProvider] Server error:', result);
-      throw new Error(result.error || 'Failed to save subscription');
-    }
-  } catch (error) {
-    console.error('[NotificationProvider] Subscribe error:', error);
-    throw error;
-  }
-};
-
- const subscribe = async () => {
-  try {
-    // Check iOS specific requirements
-    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || 
-                        (window.navigator as any).standalone === true;
-    
-    if (isIOS && !isStandalone) {
-      toast({
-        title: "Instalează aplicația mai întâi",
-        description: "Pe iOS, notificările funcționează doar în aplicația instalată. Apasă Share → Add to Home Screen",
-        variant: "destructive",
-        duration: 6000
+      // Subscribe to push notifications
+      const subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(
+          process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!
+        )
       });
-      return;
-    }
 
-    // Request notification permission
-    const permission = await Notification.requestPermission();
-    
-    if (permission !== 'granted') {
+      console.log('[NotificationProvider] Push subscription created:', subscription);
+
+      // Get device info
+      const deviceInfo = {
+        userAgent: navigator.userAgent,
+        platform: detectPlatform(),
+      };
+
+      // IMPORTANT: Convert subscription to JSON before sending
+      const subscriptionJSON = subscription.toJSON();
+      console.log('[NotificationProvider] Subscription JSON:', subscriptionJSON);
+
+      // Send subscription to server
+      const response = await fetch('/api/push/subscribe', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          subscription: subscriptionJSON,  // <-- Send the JSON version
+          deviceInfo: deviceInfo
+        }),
+      });
+
+      const result = await response.json();
+      console.log('[NotificationProvider] Server response:', result);
+
+      if (response.ok) {
+        setIsSubscribed(true);
+        console.log('[NotificationProvider] Successfully subscribed');
+        
+        // Salvează în localStorage
+        localStorage.setItem('push_subscription', JSON.stringify(subscriptionJSON));
+        
+        // Notificare de bun venit
+        try {
+          if ('showNotification' in registration) {
+            await registration.showNotification('Notificări activate! 🎉', {
+              body: 'Bine ai venit! Vei primi notificări despre evenimente importante din comună.',
+              icon: '/icon-192x192.png',
+              badge: '/icon-192x192.png',
+              tag: 'welcome',
+              requireInteraction: false,
+              data: {
+                url: '/',
+                type: 'welcome'
+              }
+            });
+          }
+        } catch (notifError) {
+          console.log('[NotificationProvider] Could not show welcome notification:', notifError);
+        }
+      } else {
+        console.error('[NotificationProvider] Server error:', result);
+        throw new Error(result.error || 'Failed to save subscription');
+      }
+    } catch (error) {
+      console.error('[NotificationProvider] Subscribe error:', error);
+      throw error;
+    }
+  };
+
+  const subscribe = async () => {
+    try {
+      // Check iOS specific requirements
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+      const isStandalone = window.matchMedia('(display-mode: standalone)').matches || 
+                          (window.navigator as any).standalone === true;
+      
+      if (isIOS && !isStandalone) {
+        toast({
+          title: "Instalează aplicația mai întâi",
+          description: "Pe iOS, notificările funcționează doar în aplicația instalată. Apasă Share → Add to Home Screen",
+          variant: "destructive",
+          duration: 6000
+        });
+        return;
+      }
+
+      // Request notification permission
+      const permission = await Notification.requestPermission();
+      
+      if (permission !== 'granted') {
+        toast({
+          title: "Permisiune refuzată",
+          description: "Nu s-au putut activa notificările",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      await subscribeToNotifications();
+      
       toast({
-        title: "Permisiune refuzată",
+        title: "Succes!",
+        description: "Notificările au fost activate",
+      });
+    } catch (error) {
+      console.error('[NotificationProvider] Error subscribing:', error);
+      toast({
+        title: "Eroare",
         description: "Nu s-au putut activa notificările",
         variant: "destructive"
       });
-      return;
     }
-
-    await subscribeToNotifications();
-    
-    toast({
-      title: "Succes!",
-      description: "Notificările au fost activate",
-    });
-  } catch (error) {
-    console.error('[NotificationProvider] Error subscribing:', error);
-    toast({
-      title: "Eroare",
-      description: "Nu s-au putut activa notificările",
-      variant: "destructive"
-    });
-  }
-};
+  };
 
   const unsubscribe = async () => {
     try {

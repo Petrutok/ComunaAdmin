@@ -4,7 +4,6 @@ import "./globals.css";
 import { NotificationProvider } from "@/components/NotificationProvider";
 import { Toaster } from "@/components/ui/toaster";
 import { PWAInstallPrompt } from '@/components/PWAInstallPrompt';
-import { Providers } from '@/app/providers'; 
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -52,29 +51,15 @@ export default function RootLayout({
         {/* Theme Color */}
         <meta name="theme-color" content="#1e293b" />
         
-        {/* Service Worker Registration */}
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              if ('serviceWorker' in navigator) {
-                window.addEventListener('load', function() {
-                  navigator.serviceWorker.register('/sw.js').then(
-                    function(registration) {
-                      console.log('ServiceWorker registration successful');
-                    },
-                    function(err) {
-                      console.log('ServiceWorker registration failed: ', err);
-                    }
-                  );
-                });
-              }
-            `,
-          }}
-        />
+        {/* 
+          IMPORTANT: Service Worker registration removed!
+          It's now handled by NotificationProvider to avoid double registration
+        */}
       </head>
       <body className={inter.className}>
         <NotificationProvider>
           {children}
+          <PWAInstallPrompt />
         </NotificationProvider>
         <Toaster />
       </body>

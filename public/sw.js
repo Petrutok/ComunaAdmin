@@ -1,8 +1,8 @@
-// Service Worker pentru Comuna App
-console.log('[SW] Service Worker loading...');
+// Service Worker pentru Comuna App - FIXED pentru iOS
+console.log('[SW] Service Worker loading...', new Date().toISOString());
 
-// Cache configuration
-const CACHE_NAME = 'comuna-v2';
+// Cache configuration  
+const CACHE_NAME = 'comuna-v3'; // Incrementat versiunea
 const urlsToCache = [
   '/',
   '/offline.html',
@@ -10,48 +10,79 @@ const urlsToCache = [
   '/icon-512x512.png'
 ];
 
-// Install event
+// Install event - SIMPLIFIED pentru iOS
 self.addEventListener('install', (event) => {
-  console.log('[SW] Install event');
+  console.log('[SW] Install event', new Date().toISOString());
+  
+  // IMPORTANT: Skip waiting imediat pentru iOS
+  self.skipWaiting();
+  
   event.waitUntil(
     caches.open(CACHE_NAME)
-      .then((cache) => cache.addAll(urlsToCache))
-      .then(() => self.skipWaiting())
+      .then((cache) => {
+        console.log('[SW] Cache opened');
+        return cache.addAll(urlsToCache);
+      })
+      .then(() => {
+        console.log('[SW] Cache populated');
+      })
+      .catch((error) => {
+        console.error('[SW] Cache error:', error);
+      })
   );
 });
 
-// Activate event
+// Activate event - SIMPLIFIED
 self.addEventListener('activate', (event) => {
-  console.log('[SW] Activate event');
+  console.log('[SW] Activate event', new Date().toISOString());
+  
+  // IMPORTANT: Claim clients imediat
   event.waitUntil(
-    caches.keys()
-      .then((cacheNames) => {
+    Promise.all([
+      // Curăță cache-urile vechi
+      caches.keys().then((cacheNames) => {
         return Promise.all(
           cacheNames.map((cacheName) => {
-            if (cacheName !== CACHE_NAME) {
+            if (cacheName !== CACHE_NAME && cacheName.startsWith('comuna-')) {
+              console.log('[SW] Deleting old cache:', cacheName);
               return caches.delete(cacheName);
             }
           })
         );
-      })
-      .then(() => self.clients.claim())
+      }),
+      // Preia controlul imediat
+      self.clients.claim()
+    ]).then(() => {
+      console.log('[SW] Activated and claimed');
+    })
   );
 });
 
-// Fetch event
+// Fetch event - SIMPLIFIED pentru iOS
 self.addEventListener('fetch', (event) => {
+  // Skip non-GET requests
   if (event.request.method !== 'GET') return;
+  
+  // Skip chrome-extension și alte protocoale non-http
+  if (!event.request.url.startsWith('http')) return;
   
   event.respondWith(
     fetch(event.request)
-      .catch(() => caches.match(event.request))
-      .then((response) => response || caches.match('/offline.html'))
+      .then((response) => {
+        // Returnează răspunsul direct
+        return response;
+      })
+      .catch(() => {
+        // Fallback la cache doar dacă fetch eșuează
+        return caches.match(event.request)
+          .then((response) => response || caches.match('/offline.html'));
+      })
   );
 });
 
 // Push event
 self.addEventListener('push', function(event) {
-  console.log('[SW] Push received');
+  console.log('[SW] Push received', new Date().toISOString());
   
   if (!event.data) {
     console.log('[SW] No data in push event');
@@ -82,7 +113,8 @@ self.addEventListener('push', function(event) {
     silent: false,
     vibrate: [200, 100, 200],
     data: {
-      url: data.url || data.data?.url || '/'
+      url: data.url || data.data?.url || '/',
+      timestamp: new Date().toISOString()
     }
   };
 
@@ -120,20 +152,12 @@ self.addEventListener('notificationclick', function(event) {
   );
 });
 
-// Helper function for VAPID key
-function urlBase64ToUint8Array(base64String) {
-  const padding = '='.repeat((4 - base64String.length % 4) % 4);
-  const base64 = (base64String + padding)
-    .replace(/\-/g, '+')
-    .replace(/_/g, '/');
-
-  const rawData = atob(base64);
-  const outputArray = new Uint8Array(rawData.length);
-
-  for (let i = 0; i < rawData.length; ++i) {
-    outputArray[i] = rawData.charCodeAt(i);
+// Message event pentru debugging
+self.addEventListener('message', (event) => {
+  console.log('[SW] Message received:', event.data);
+  if (event.data === 'skipWaiting') {
+    self.skipWaiting();
   }
-  return outputArray;
-}
+});
 
-console.log('[SW] Service Worker loaded');
+console.log('[SW] Service Worker loaded completely', new Date().toISOString());
