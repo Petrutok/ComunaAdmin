@@ -60,123 +60,151 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   };
 
   const initializeNotifications = async () => {
-    console.log('[NotificationProvider] Starting initialization...');
+  console.log('[NotificationProvider] Starting initialization...');
+  console.log('[NotificationProvider] User Agent:', navigator.userAgent);
+  console.log('[NotificationProvider] Is iOS:', /iPad|iPhone|iPod/.test(navigator.userAgent));
+  console.log('[NotificationProvider] PWA mode:', window.matchMedia('(display-mode: standalone)').matches);
+  
+  // Verifică suportul pentru notificări
+  const supported = 'Notification' in window && 
+                   'serviceWorker' in navigator && 
+                   'PushManager' in window;
+  
+  setIsSupported(supported);
+  
+  if (!supported) {
+    console.log('[NotificationProvider] Not supported on this device');
+    return;
+  }
+
+  try {
+    // IMPORTANT: Verifică și înregistrează Service Worker
+    let registration = await navigator.serviceWorker.getRegistration();
+    console.log('[NotificationProvider] Existing SW registration:', !!registration);
     
-    // Verifică suportul pentru notificări
-    const supported = 'Notification' in window && 
-                     'serviceWorker' in navigator && 
-                     'PushManager' in window;
+    if (!registration) {
+      console.log('[NotificationProvider] No SW found, registering now...');
+      registration = await navigator.serviceWorker.register('/sw.js');
+      console.log('[NotificationProvider] SW registered successfully');
+      
+      // Așteaptă să devină activ
+      await navigator.serviceWorker.ready;
+      console.log('[NotificationProvider] SW is ready');
+    } else {
+      console.log('[NotificationProvider] Using existing SW registration');
+      await navigator.serviceWorker.ready;
+    }
+
+    // Verifică statusul permisiunii
+    const currentPermission = Notification.permission;
+    console.log('[NotificationProvider] Current permission:', currentPermission);
+
+    // Verifică dacă există deja o subscripție
+    const existingSubscription = await registration.pushManager.getSubscription();
+    console.log('[NotificationProvider] Existing subscription:', !!existingSubscription);
     
-    setIsSupported(supported);
-    
-    if (!supported) {
-      console.log('[NotificationProvider] Not supported on this device');
+    if (existingSubscription) {
+      console.log('[NotificationProvider] Found existing subscription');
+      setIsSubscribed(true);
       return;
     }
 
-    try {
-      // Înregistrează service worker-ul
-      if ('serviceWorker' in navigator) {
-        const registration = await navigator.serviceWorker.register('/sw.js');
-        console.log('[NotificationProvider] Service Worker registered');
-        await navigator.serviceWorker.ready;
-      }
+    // Verifică dacă e iOS
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    const isPWA = window.matchMedia('(display-mode: standalone)').matches;
+    let hasAskedBefore = localStorage.getItem('notification_permission_asked');
+    
+    console.log('[NotificationProvider] Decision tree:', {
+      isIOS,
+      isPWA,
+      currentPermission,
+      hasAskedBefore,
+      shouldShowDialog: currentPermission === 'default' && !hasAskedBefore
+    });
 
-      // Verifică statusul permisiunii
-      const currentPermission = Notification.permission;
-      console.log('[NotificationProvider] Current permission:', currentPermission);
-
-      // Verifică dacă există deja o subscripție
-      const registration = await navigator.serviceWorker.ready;
-      const existingSubscription = await registration.pushManager.getSubscription();
-      
-      if (existingSubscription) {
-        console.log('[NotificationProvider] Found existing subscription');
-        setIsSubscribed(true);
-        return;
-      }
-
-      // Verifică dacă e iOS
-      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-      const hasAskedBefore = localStorage.getItem('notification_permission_asked');
-      
-      // Pentru iOS PWA, resetează flag-urile la reinstalare
-      if (isIOS && currentPermission === 'default' && hasAskedBefore) {
-        console.log('[NotificationProvider] iOS PWA reinstalled, resetting flags...');
-        localStorage.removeItem('notification_permission_asked');
-        localStorage.removeItem('notification_permission_denied');
-      }
-
-      // Dacă permisiunea este 'default' și nu am întrebat niciodată
-      if (currentPermission === 'default' && !localStorage.getItem('notification_permission_asked')) {
-        console.log('[NotificationProvider] First time - will show dialog');
-        
-        // Pentru iOS, afișează dialog-ul care necesită interacțiune
-        if (isIOS) {
-          // Așteaptă doar 500ms înainte de a afișa dialogul
-          await new Promise(resolve => setTimeout(resolve, 500));
-          setShowPermissionDialog(true);
-        } else {
-          // Pentru Android/Desktop, putem cere direct
-          localStorage.setItem('notification_permission_asked', 'true');
-          
-          // Afișează toast informativ modern
-          toast({
-            title: "🔔 Permite notificările?",
-            description: "Fii primul care află despre evenimente și informații importante din comună",
-            duration: 4000,
-            className: "bg-gradient-to-r from-blue-500 to-purple-500 text-white border-0",
-          });
-          
-          await new Promise(resolve => setTimeout(resolve, 500)); // Redus de la 1500ms
-          
-          // Solicită permisiunea direct
-          const permission = await Notification.requestPermission();
-          console.log('[NotificationProvider] Permission result:', permission);
-          
-          if (permission === 'granted') {
-            await subscribeToNotifications();
-            
-            // Toast succes modern
-            toast({
-              title: "🎉 Excelent!",
-              description: (
-                <div className="space-y-2">
-                  <p className="font-medium">Notificările sunt acum active!</p>
-                  <p className="text-xs opacity-90">Vei primi prima notificare în curând...</p>
-                </div>
-              ),
-              duration: 5000,
-              className: "bg-gradient-to-r from-blue-600 to-blue-700 text-white border-0",
-            });
-          } else if (permission === 'denied') {
-            localStorage.setItem('notification_permission_denied', 'true');
-            
-            // Toast refuz modern
-            toast({
-              title: "😔 Notificări dezactivate",
-              description: (
-                <div className="space-y-2">
-                  <p>Nu vei primi notificări despre evenimente importante.</p>
-                  <p className="text-xs opacity-80">
-                    Pentru a le activa mai târziu, accesează setările browserului.
-                  </p>
-                </div>
-              ),
-              variant: "destructive",
-              duration: 8000,
-            });
-          }
-        }
-      } else if (currentPermission === 'granted' && !existingSubscription) {
-        // Avem permisiune dar nu subscripție
-        console.log('[NotificationProvider] Has permission but no subscription');
-        await subscribeToNotifications();
-      }
-    } catch (error) {
-      console.error('[NotificationProvider] Initialization error:', error);
+    // Pentru iOS PWA, resetează flag-urile dacă e reinstalat
+    if (isIOS && isPWA && currentPermission === 'default' && hasAskedBefore) {
+      console.log('[NotificationProvider] iOS PWA reinstalled, resetting flags...');
+      localStorage.removeItem('notification_permission_asked');
+      localStorage.removeItem('notification_permission_denied');
+      // Resetează variabila locală
+      hasAskedBefore = null;
     }
-  };
+
+    // Logică pentru afișare dialog/request
+    if (currentPermission === 'default' && !hasAskedBefore) {
+      console.log('[NotificationProvider] First time - will show dialog');
+      
+      if (isIOS && isPWA) {
+        // iOS în PWA mode - arată dialog custom
+        console.log('[NotificationProvider] iOS PWA - showing custom dialog');
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        setShowPermissionDialog(true);
+      } else if (isIOS && !isPWA) {
+        // iOS în Safari - nu poate folosi notificări
+        console.log('[NotificationProvider] iOS Safari - notifications not supported');
+        toast({
+          title: "📱 Instalează aplicația",
+          description: "Pentru notificări, adaugă aplicația pe ecranul principal: Share → Add to Home Screen",
+          duration: 8000,
+        });
+      } else {
+        // Android/Desktop - request direct
+        console.log('[NotificationProvider] Non-iOS - requesting permission directly');
+        localStorage.setItem('notification_permission_asked', 'true');
+        
+        // Toast informativ
+        toast({
+          title: "🔔 Permite notificările?",
+          description: "Fii primul care află despre evenimente importante",
+          duration: 4000,
+          className: "bg-gradient-to-r from-blue-500 to-purple-500 text-white border-0",
+        });
+        
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        // Solicită permisiunea
+        const permission = await Notification.requestPermission();
+        console.log('[NotificationProvider] Permission result:', permission);
+        
+        if (permission === 'granted') {
+          await subscribeToNotifications();
+          
+          toast({
+            title: "🎉 Excelent!",
+            description: "Notificările sunt acum active!",
+            duration: 5000,
+            className: "bg-gradient-to-r from-blue-600 to-blue-700 text-white border-0",
+          });
+        } else if (permission === 'denied') {
+          localStorage.setItem('notification_permission_denied', 'true');
+          
+          toast({
+            title: "😔 Notificări dezactivate",
+            description: "Poți activa notificările mai târziu din setări",
+            variant: "destructive",
+            duration: 8000,
+          });
+        }
+      }
+    } else if (currentPermission === 'granted' && !existingSubscription) {
+      // Are permisiune dar nu subscripție
+      console.log('[NotificationProvider] Has permission but no subscription - creating one');
+      await subscribeToNotifications();
+      
+      toast({
+        title: "🔔 Notificări reactivate",
+        description: "Subscripția ta a fost restaurată",
+        duration: 4000,
+      });
+    } else {
+      console.log('[NotificationProvider] No action needed');
+    }
+    
+  } catch (error) {
+    console.error('[NotificationProvider] Initialization error:', error);
+  }
+};
 
   const handlePermissionRequest = async () => {
     console.log('[NotificationProvider] User clicked to enable notifications');
