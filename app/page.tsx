@@ -260,7 +260,15 @@ export default function HomePage() {
           </Button>
         </Link>
       </div>
-
+      
+{/* BUTON TEMPORAR PENTRU TEST */}
+<div className="fixed top-4 right-4 z-50 flex gap-2">
+  <Link href="/notify-test">
+    <button className="bg-red-500 text-white px-4 py-2 rounded-lg shadow-lg">
+      🔔 Test Notif
+    </button>
+  </Link>
+</div>
       {/* Footer */}
       <footer className="bg-slate-900 border-t border-slate-800 mt-12">
         <div className="max-w-7xl mx-auto px-4 py-6">
