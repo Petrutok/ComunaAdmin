@@ -1,17 +1,21 @@
 "use client";
 
-import {useState, useEffect, useRef} from 'react';
+import {useState, useEffect} from 'react';
 import {useToast} from "@/hooks/use-toast";
 import {useRouter} from "next/navigation";
-import emailjs from '@emailjs/browser';
-import ReCAPTCHA from "react-google-recaptcha";
 
 import {Button} from "@/components/ui/button";
-import {Card, CardContent, CardDescription, CardHeader, CardTitle} from "@/components/ui/card";
+import {Card, CardContent} from "@/components/ui/card";
 import {Input} from "@/components/ui/input";
 import {Label} from "@/components/ui/label";
 import {Textarea} from "@/components/ui/textarea";
-import {Alert, AlertDescription, AlertTitle} from "@/components/ui/alert";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
@@ -22,23 +26,28 @@ import {
 } from "@/components/ui/dialog";
 import {Info, Upload, CheckCircle, AlertTriangle, Home, MapPin, Camera} from "lucide-react";
 
-// Initialize EmailJS with your public key
-emailjs.init("MVDSzBhCl0tADKp5N");
-
 // Cloudinary configuration
 const CLOUDINARY_UPLOAD_PRESET = "ml_default";
 const CLOUDINARY_CLOUD_NAME = "dckmiwgqq";
 
-// reCAPTCHA site key
-const RECAPTCHA_SITE_KEY = "6LfVZmQrAAAAAN5X8CRn2D6vcTWYEY7nyQ2GL0_0";
+// Problem types
+const problemTypes = [
+  { value: 'infrastructura', label: 'Infrastructură', icon: '🏗️' },
+  { value: 'iluminat', label: 'Iluminat public', icon: '💡' },
+  { value: 'gunoi', label: 'Colectare gunoi', icon: '🗑️' },
+  { value: 'vandalism', label: 'Vandalism', icon: '⚠️' },
+  { value: 'general', label: 'General', icon: '📌' },
+  { value: 'altele', label: 'Altele', icon: '📋' }
+];
 
 export default function ReportIssuePage() {
   const router = useRouter();
-  const recaptchaRef = useRef<ReCAPTCHA>(null);
   const [name, setName] = useState('');
   const [contact, setContact] = useState('');
   const [location, setLocation] = useState('');
   const [description, setDescription] = useState('');
+  const [problemType, setProblemType] = useState('general');
+  const [priority, setPriority] = useState('medium');
   const [image, setImage] = useState<File | null>(null);
   const [imageUrl, setImageUrl] = useState<string>('');
   const [uploadingImage, setUploadingImage] = useState(false);
@@ -46,7 +55,7 @@ export default function ReportIssuePage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [hasGeolocation, setHasGeolocation] = useState(false);
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
-  const [recaptchaValue, setRecaptchaValue] = useState<string | null>(null);
+  const [reportId, setReportId] = useState<string>('');
 
   useEffect(() => {
     if (navigator.geolocation) {
@@ -55,8 +64,8 @@ export default function ReportIssuePage() {
       console.log("Geolocation is not supported by this browser.");
       toast({
         variant: 'destructive',
-        title: 'Geolocation Error',
-        description: 'Geolocation is not supported by this browser.',
+        title: 'Eroare Geolocație',
+        description: 'Geolocația nu este suportată de acest browser.',
       });
     }
   }, []);
@@ -99,15 +108,6 @@ export default function ReportIssuePage() {
       return;
     }
 
-    if (!recaptchaValue) {
-      toast({
-        variant: 'destructive',
-        title: 'Verificare necesară',
-        description: 'Vă rugăm să confirmați că nu sunteți un robot.',
-      });
-      return;
-    }
-
     setIsSubmitting(true);
     console.log("Submitting issue...");
 
@@ -123,8 +123,8 @@ export default function ReportIssuePage() {
         } catch (uploadError) {
           console.error('Failed to upload image:', uploadError);
           toast({
-            title: 'Image Upload Warning',
-            description: 'Failed to upload image, but report will still be sent.',
+            title: 'Avertisment imagine',
+            description: 'Nu am putut încărca imaginea, dar raportul va fi trimis.',
             variant: 'default',
           });
         } finally {
@@ -132,78 +132,72 @@ export default function ReportIssuePage() {
         }
       }
 
-      // Debug: log template params
-      console.log('Sending email with params:', {
+      // Get problem type label for title
+      const typeLabel = problemTypes.find(t => t.value === problemType)?.label || 'General';
+      
+      // Prepare data for API
+      const reportData = {
         name,
         contact,
         location,
         description,
-        image_url: uploadedImageUrl || 'No image attached'
-      });
-      
-      // Prepare email template parameters
-      const templateParams = {
-        to_email: 'petrutasd@gmail.com',
-        from_name: name || 'Raportor Anonim',
-        reporter_name: name,
-        reporter_contact: contact,
-        location: location,
-        description: description,
-        image_url: uploadedImageUrl || 'NO_IMAGE',
-        image_link: uploadedImageUrl || '',
-        timestamp: new Date().toLocaleString('ro-RO', {
-          dateStyle: 'full',
-          timeStyle: 'medium'
-        })
+        type: problemType,
+        priority,
+        title: `Problemă ${typeLabel} - ${location.substring(0, 50)}`,
+        imageUrl: uploadedImageUrl,
+        // Add coordinates if using geolocation
+        coordinates: location.includes('Lat:') ? {
+          lat: parseFloat(location.split('Lat: ')[1].split(',')[0]),
+          lng: parseFloat(location.split('Lng: ')[1])
+        } : null
       };
 
-      // Send email using EmailJS
-      const response = await emailjs.send(
-        'service_zeu5knl',
-        'template_3d3zl0b',
-        templateParams
-      );
+      // Send to API
+      const response = await fetch('/api/report-issue', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(reportData)
+      });
 
-      console.log('Email sent successfully!', response.status, response.text);
+      const result = await response.json();
 
-      // Show success dialog instead of toast
-      setShowSuccessDialog(true);
+      if (result.success) {
+        console.log('Issue reported successfully!', result);
+        
+        // Save report ID for display
+        setReportId(result.reportId || result.id);
+        
+        // Show success dialog
+        setShowSuccessDialog(true);
 
-      // Reset form fields
-      setName('');
-      setContact('');
-      setLocation('');
-      setDescription('');
-      setImage(null);
-      setImageUrl('');
-      setRecaptchaValue(null);
-      
-      // Reset reCAPTCHA
-      if (recaptchaRef.current) {
-        recaptchaRef.current.reset();
+        // Reset form
+        setName('');
+        setContact('');
+        setLocation('');
+        setDescription('');
+        setProblemType('general');
+        setPriority('medium');
+        setImage(null);
+        setImageUrl('');
+        
+      } else {
+        throw new Error(result.error || 'Failed to submit issue');
       }
 
     } catch (error: unknown) {
-      console.error("Error sending email - Full error object: ", error);
-      console.error("Error type:", typeof error);
-      console.error("Error stringified:", JSON.stringify(error));
+      console.error("Error submitting issue:", error);
       
-      let errorMessage = 'An unknown error occurred';
-      
+      let errorMessage = 'A apărut o eroare necunoscută';
       if (error instanceof Error) {
         errorMessage = error.message;
-      } else if (typeof error === 'object' && error !== null) {
-        if ('text' in error) {
-          errorMessage = String((error as any).text);
-        } else if ('message' in error) {
-          errorMessage = String((error as any).message);
-        }
       }
       
       toast({
         variant: 'destructive',
-        title: 'Submission Error',
-        description: `Failed to submit issue: ${errorMessage}`,
+        title: 'Eroare la trimitere',
+        description: `Nu am putut trimite raportul: ${errorMessage}`,
       });
     } finally {
       setIsSubmitting(false);
@@ -225,34 +219,41 @@ export default function ReportIssuePage() {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
-          const lat = position.coords.latitude.toFixed(6);
-          const lng = position.coords.longitude.toFixed(6);
-          setLocation(`Lat: ${lat}, Lng: ${lng}`);
-          
-          toast({
-            title: 'Location Retrieved',
-            description: 'Your current location has been added.',
-          });
+          try {
+            const lat = position.coords.latitude.toFixed(6);
+            const lng = position.coords.longitude.toFixed(6);
+            setLocation(`Lat: ${lat}, Lng: ${lng}`);
+            
+            toast({
+              title: 'Locație preluată',
+              description: 'Locația dvs. curentă a fost adăugată.',
+            });
+          } catch (err) {
+            console.error("Error processing location:", err);
+            toast({
+              variant: 'destructive',
+              title: 'Eroare procesare locație',
+              description: 'Nu am putut procesa coordonatele GPS.',
+            });
+          }
         },
-        (error) => {
-          console.error("Error getting location:", error);
+        (error: GeolocationPositionError) => {
+          console.error("Error getting location - Code:", error.code, "Message:", error.message);
           
-          let errorMessage = 'Unable to get location';
-          switch(error.code) {
-            case error.PERMISSION_DENIED:
-              errorMessage = 'Location access denied. Please enable location permissions.';
-              break;
-            case error.POSITION_UNAVAILABLE:
-              errorMessage = 'Location information unavailable.';
-              break;
-            case error.TIMEOUT:
-              errorMessage = 'Location request timed out.';
-              break;
+          let errorMessage = 'Nu am putut prelua locația';
+          
+          // Folosim error.code care este un număr
+          if (error.code === 1) { // PERMISSION_DENIED
+            errorMessage = 'Accesul la locație a fost refuzat. Vă rugăm să activați permisiunile de locație.';
+          } else if (error.code === 2) { // POSITION_UNAVAILABLE
+            errorMessage = 'Informațiile despre locație nu sunt disponibile.';
+          } else if (error.code === 3) { // TIMEOUT
+            errorMessage = 'Cererea de locație a expirat.';
           }
           
           toast({
             variant: 'destructive',
-            title: 'Location Error',
+            title: 'Eroare locație',
             description: errorMessage,
           });
         },
@@ -265,8 +266,8 @@ export default function ReportIssuePage() {
     } else {
       toast({
         variant: 'destructive',
-        title: 'Geolocation Error',
-        description: 'Geolocation is not supported by this browser.',
+        title: 'Eroare Geolocație',
+        description: 'Geolocația nu este suportată de acest browser.',
       });
     }
   };
@@ -275,22 +276,20 @@ export default function ReportIssuePage() {
     <div className="min-h-screen bg-slate-900 text-white">
       <div className="p-4 max-w-4xl mx-auto">
         {/* Home Button */}
-         <button
- onClick={() => window.location.href = '/'}
-  className="fixed top-4 left-4 z-50 group"
->
-  <div className="bg-white/10 backdrop-blur-md text-white rounded-xl px-5 py-2.5 shadow-2xl hover:bg-white/20 transition-all duration-300 flex items-center gap-2.5 font-medium border border-white/20 hover:scale-105">
-    <Home className="h-5 w-5 group-hover:scale-110 transition-transform" />
-    <span className="bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent font-semibold">
-      Acasă
-    </span>
-  </div>
-
-  
-  {/* Glow effect */}
-  <div className="absolute inset-0 rounded-xl bg-white/20 blur-xl opacity-0 group-hover:opacity-50 transition-opacity -z-10"></div>
-          </button>
-
+        <button
+          onClick={() => window.location.href = '/'}
+          className="fixed top-4 left-4 z-50 group"
+        >
+          <div className="bg-white/10 backdrop-blur-md text-white rounded-xl px-5 py-2.5 shadow-2xl hover:bg-white/20 transition-all duration-300 flex items-center gap-2.5 font-medium border border-white/20 hover:scale-105">
+            <Home className="h-5 w-5 group-hover:scale-110 transition-transform" />
+            <span className="bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent font-semibold">
+              Acasă
+            </span>
+          </div>
+          
+          {/* Glow effect */}
+          <div className="absolute inset-0 rounded-xl bg-white/20 blur-xl opacity-0 group-hover:opacity-50 transition-opacity -z-10"></div>
+        </button>
 
         {/* Header */}
         <div className="text-center pt-16 pb-6">
@@ -314,8 +313,8 @@ export default function ReportIssuePage() {
             <div>
               <h3 className="font-semibold text-white mb-1">Informație importantă</h3>
               <p className="text-gray-300 text-sm">
-                Raportul dvs. va fi trimis către echipa noastră de suport. 
-                Imaginile vor fi încărcate securizat și incluse ca link-uri în raport.
+                Raportul dvs. va fi înregistrat în sistemul nostru și procesat de echipa responsabilă. 
+                Veți primi o confirmare pe email cu numărul de înregistrare.
               </p>
             </div>
           </div>
@@ -384,6 +383,66 @@ export default function ReportIssuePage() {
                   )}
                 </div>
               </div>
+
+              {/* Problem Type Field */}
+              <div className="space-y-2">
+                <Label htmlFor="problemType" className="text-white">
+                  Tip problemă *
+                </Label>
+                <Select value={problemType} onValueChange={setProblemType}>
+                  <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
+                    <SelectValue placeholder="Selectează tipul problemei" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {problemTypes.map((type) => (
+                      <SelectItem key={type.value} value={type.value}>
+                        <span className="flex items-center gap-2">
+                          <span>{type.icon}</span>
+                          <span>{type.label}</span>
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Priority Field */}
+              <div className="space-y-2">
+                <Label htmlFor="priority" className="text-white">
+                  Prioritate
+                </Label>
+                <Select value={priority} onValueChange={setPriority}>
+                  <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
+                    <SelectValue placeholder="Selectează prioritatea" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="low">
+                      <span className="flex items-center gap-2">
+                        <span className="w-2 h-2 bg-gray-500 rounded-full"></span>
+                        Scăzută
+                      </span>
+                    </SelectItem>
+                    <SelectItem value="medium">
+                      <span className="flex items-center gap-2">
+                        <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
+                        Medie
+                      </span>
+                    </SelectItem>
+                    <SelectItem value="high">
+                      <span className="flex items-center gap-2">
+                        <span className="w-2 h-2 bg-orange-500 rounded-full"></span>
+                        Ridicată
+                      </span>
+                    </SelectItem>
+                    <SelectItem value="urgent">
+                      <span className="flex items-center gap-2">
+                        <span className="w-2 h-2 bg-red-500 rounded-full"></span>
+                        Urgentă
+                      </span>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
               
               {/* Description Field */}
               <div className="space-y-2">
@@ -438,24 +497,10 @@ export default function ReportIssuePage() {
               
               <p className="text-sm text-gray-400">* Câmpuri obligatorii</p>
               
-              {/* reCAPTCHA */}
-              <div className="flex justify-center py-4">
-                <div className="bg-white p-2 rounded-lg">
-                  <ReCAPTCHA
-                    ref={recaptchaRef}
-                    sitekey={RECAPTCHA_SITE_KEY}
-                    onChange={(value) => setRecaptchaValue(value)}
-                    theme="light"
-                    size="normal"
-                    hl="ro"
-                  />
-                </div>
-              </div>
-              
               {/* Submit Button */}
               <Button 
                 type="submit" 
-                disabled={isSubmitting || uploadingImage || !recaptchaValue} 
+                disabled={isSubmitting || uploadingImage} 
                 className="w-full bg-red-500 hover:bg-red-600 text-white font-semibold py-3 text-base disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {uploadingImage ? (
@@ -487,12 +532,18 @@ export default function ReportIssuePage() {
                 <CheckCircle className="h-12 w-12 text-green-400" />
               </div>
               <DialogTitle className="text-2xl font-bold text-center mb-3 text-white">
-                Mulțumim! 🎉
+                Problemă Raportată! 🎉
               </DialogTitle>
               <DialogDescription className="text-center text-base leading-relaxed px-4 text-gray-300">
-                Am primit raportul tău și ne vom ocupa de problemă cât mai repede.<br />
-                <span className="text-gray-400">
-                  S-ar putea să te contactăm dacă avem nevoie de mai multe detalii.
+                Am primit raportul tău și echipa noastră va analiza problema cât mai repede.
+                {reportId && (
+                  <div className="mt-3 p-3 bg-slate-700 rounded-lg">
+                    <p className="text-sm text-gray-400">Număr înregistrare:</p>
+                    <p className="text-lg font-semibold text-white">{reportId}</p>
+                  </div>
+                )}
+                <span className="block mt-3 text-gray-400">
+                  Vei primi o confirmare pe email și te vom contacta dacă avem nevoie de mai multe detalii.
                 </span>
               </DialogDescription>
             </DialogHeader>
@@ -502,7 +553,7 @@ export default function ReportIssuePage() {
                 onClick={() => setShowSuccessDialog(false)}
                 className="w-full sm:w-auto bg-slate-700 hover:bg-slate-600 text-white border-slate-600"
               >
-                Închide
+                Raportează altă problemă
               </Button>
               <Button
                 onClick={() => router.push('/')}

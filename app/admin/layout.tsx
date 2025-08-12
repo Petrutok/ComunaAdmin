@@ -1,4 +1,3 @@
-// LOCAȚIE: app/admin/layout.tsx
 'use client';
 
 import Link from 'next/link';
@@ -13,6 +12,7 @@ import {
   Newspaper,
   X,
   FileText,
+  AlertTriangle, // ADAUGĂ ACEST IMPORT
 } from 'lucide-react';
 import { useState } from 'react';
 import { AdminAuthProvider } from '@/contexts/AdminAuthContext';
@@ -24,6 +24,7 @@ function AdminNav() {
   const navItems = [
     { href: '/admin', label: 'Dashboard', icon: Home },
     { href: '/admin/cereri', label: 'Cereri', icon: FileText },
+    { href: '/admin/issues', label: 'Probleme Raportate', icon: AlertTriangle }, // LINIE NOUĂ
     { href: '/admin/notifications', label: 'Notificări', icon: Bell },
     { href: '/admin/notification-stats', label: 'Statistici', icon: Bell },
     { href: '/admin/announcements', label: 'Anunțuri', icon: Newspaper },

@@ -1,4 +1,3 @@
-// LOCAȚIE: app/admin/page.tsx
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -27,6 +26,7 @@ interface Stats {
   pendingAnnouncements: number;
   pendingJobs: number;
   pendingCereri: number;
+  pendingIssues: number; // ADĂUGAT
   totalAnnouncements: number;
   totalJobs: number;
   totalCereri: number;
@@ -47,6 +47,7 @@ export default function AdminDashboard() {
     pendingAnnouncements: 0,
     pendingJobs: 0,
     pendingCereri: 0,
+    pendingIssues: 0, // ADĂUGAT
     totalAnnouncements: 0,
     totalJobs: 0,
     totalCereri: 0,
@@ -111,6 +112,24 @@ export default function AdminDashboard() {
       const pendingCereri = cereri.filter(c => c.status === 'în așteptare').length;
       const totalCereri = cereri.length;
 
+      // Load reported issues - BLOC NOU ADĂUGAT
+      const issuesSnapshot = await getDocs(collection(db, 'reported_issues'));
+      const issues = issuesSnapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          title: data.title || `Problemă ${data.type}`,
+          status: data.status || 'noua',
+          createdAt: data.createdAt,
+          type: data.type,
+          reporterName: data.reporterName,
+          ...data
+        };
+      });
+
+      const pendingIssues = issues.filter(i => i.status === 'noua').length;
+      const totalIssues = issues.length;
+
       // Get recent items for activity feed
       const recent: RecentItem[] = [];
       
@@ -171,6 +190,25 @@ export default function AdminDashboard() {
           });
         });
 
+      // Add recent issues to activity feed - BLOC NOU ADĂUGAT
+      issues
+        .filter(i => i.createdAt)
+        .sort((a, b) => {
+          const dateA = a.createdAt?.toDate?.() || new Date(a.createdAt);
+          const dateB = b.createdAt?.toDate?.() || new Date(b.createdAt);
+          return dateB.getTime() - dateA.getTime();
+        })
+        .slice(0, 3)
+        .forEach(item => {
+          recent.push({
+            id: item.id,
+            title: item.title || `Problemă ${item.type} - ${item.reporterName}`,
+            type: 'issue',
+            status: item.status || 'noua',
+            createdAt: item.createdAt?.toDate?.() || new Date()
+          });
+        });
+
       // Sort all recent items by date
       recent.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 
@@ -178,10 +216,11 @@ export default function AdminDashboard() {
         pendingAnnouncements,
         pendingJobs,
         pendingCereri,
+        pendingIssues, // ADĂUGAT
         totalAnnouncements,
         totalJobs,
         totalCereri,
-        totalIssues: 0,
+        totalIssues, // Acum cu valoarea reală
         activeSubscriptions: 0
       });
       
@@ -201,6 +240,12 @@ export default function AdminDashboard() {
         return <Badge className="bg-green-500 text-white">Aprobat</Badge>;
       case 'rejected':
         return <Badge className="bg-red-500 text-white">Respins</Badge>;
+      case 'noua':
+        return <Badge className="bg-blue-500 text-white">Nouă</Badge>;
+      case 'in_lucru':
+        return <Badge className="bg-yellow-500 text-white">În lucru</Badge>;
+      case 'rezolvata':
+        return <Badge className="bg-green-500 text-white">Rezolvată</Badge>;
       default:
         return <Badge>{status}</Badge>;
     }
@@ -236,24 +281,33 @@ export default function AdminDashboard() {
         <p className="text-gray-400">Bine ai revenit! Aici sunt ultimele actualizări.</p>
       </div>
 
-      {/* Quick Actions */}
-      {(stats.pendingAnnouncements > 0 || stats.pendingJobs > 0 || stats.pendingCereri > 0) && (
+      {/* Quick Actions - ACTUALIZAT */}
+      {(stats.pendingAnnouncements > 0 || stats.pendingJobs > 0 || stats.pendingCereri > 0 || stats.pendingIssues > 0) && (
         <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4">
           <div className="flex items-center gap-3">
             <Clock className="h-5 w-5 text-yellow-400" />
             <div className="flex-1">
               <p className="text-white font-medium">
-                Ai {stats.pendingAnnouncements + stats.pendingJobs + stats.pendingCereri} elemente în așteptare
+                Ai {stats.pendingAnnouncements + stats.pendingJobs + stats.pendingCereri + stats.pendingIssues} elemente în așteptare
               </p>
               <p className="text-sm text-gray-300">
                 {stats.pendingAnnouncements > 0 && `${stats.pendingAnnouncements} anunțuri`}
-                {stats.pendingAnnouncements > 0 && (stats.pendingJobs > 0 || stats.pendingCereri > 0) && ', '}
+                {stats.pendingAnnouncements > 0 && (stats.pendingJobs > 0 || stats.pendingCereri > 0 || stats.pendingIssues > 0) && ', '}
                 {stats.pendingJobs > 0 && `${stats.pendingJobs} joburi`}
-                {(stats.pendingJobs > 0 || stats.pendingAnnouncements > 0) && stats.pendingCereri > 0 && ', '}
+                {stats.pendingJobs > 0 && (stats.pendingCereri > 0 || stats.pendingIssues > 0) && ', '}
                 {stats.pendingCereri > 0 && `${stats.pendingCereri} cereri`}
+                {stats.pendingCereri > 0 && stats.pendingIssues > 0 && ', '}
+                {stats.pendingIssues > 0 && `${stats.pendingIssues} probleme`}
               </p>
             </div>
             <div className="flex gap-2">
+              {stats.pendingIssues > 0 && (
+                <Link href="/admin/issues">
+                  <Button size="sm" className="bg-yellow-500 hover:bg-yellow-600 text-black">
+                    Vezi probleme
+                  </Button>
+                </Link>
+              )}
               {stats.pendingCereri > 0 && (
                 <Link href="/admin/cereri">
                   <Button size="sm" className="bg-yellow-500 hover:bg-yellow-600 text-black">
@@ -333,6 +387,7 @@ export default function AdminDashboard() {
           </CardContent>
         </Card>
 
+        {/* Card Probleme Raportate - ACTUALIZAT */}
         <Card className="bg-slate-800 border-slate-700">
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
@@ -342,7 +397,13 @@ export default function AdminDashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-white">{stats.totalIssues}</div>
-            <p className="text-xs text-gray-500 mt-1">Total istoric</p>
+            {stats.pendingIssues > 0 ? (
+              <p className="text-xs text-yellow-400 mt-1">
+                {stats.pendingIssues} noi
+              </p>
+            ) : (
+              <p className="text-xs text-gray-500 mt-1">Toate procesate</p>
+            )}
           </CardContent>
         </Card>
 
@@ -405,8 +466,8 @@ export default function AdminDashboard() {
         </CardContent>
       </Card>
 
-      {/* Quick Links */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {/* Quick Links - EXTINS CU CARD NOU */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Link href="/admin/notifications">
           <Card className="bg-slate-800 border-slate-700 hover:bg-slate-700 transition-colors cursor-pointer">
             <CardContent className="p-6">
@@ -437,6 +498,26 @@ export default function AdminDashboard() {
                   <div>
                     <h3 className="text-white font-medium">Moderare Conținut</h3>
                     <p className="text-sm text-gray-400">Aprobă anunțuri și joburi</p>
+                  </div>
+                </div>
+                <ArrowRight className="h-5 w-5 text-gray-400" />
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
+
+        {/* Card nou pentru Probleme Raportate */}
+        <Link href="/admin/issues">
+          <Card className="bg-slate-800 border-slate-700 hover:bg-slate-700 transition-colors cursor-pointer">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="bg-red-500/20 rounded-lg p-3">
+                    <AlertTriangle className="h-6 w-6 text-red-400" />
+                  </div>
+                  <div>
+                    <h3 className="text-white font-medium">Probleme Raportate</h3>
+                    <p className="text-sm text-gray-400">Gestionează problemele cetățenilor</p>
                   </div>
                 </div>
                 <ArrowRight className="h-5 w-5 text-gray-400" />
