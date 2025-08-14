@@ -68,25 +68,85 @@ export const COLLECTIONS = {
   FCM_TOKENS: 'fcm_tokens',
 } as const;
 
-// Types
+// UPDATED Types for Announcements
 export interface Announcement {
   id?: string;
   title: string;
   description: string;
-  category: 'vanzare' | 'cumparare' | 'schimb' | 'diverse';
+  category: 'terenuri' | 'produse-locale' | 'diverse' | 'servicii' | 'cumparare' | 'schimb';
+  subcategory?: string; // Pentru subcategorii specifice
   price?: number;
+  priceType?: 'fix' | 'negociabil' | 'gratuit'; // Tip preț
+  unit?: string; // kg, mp, bucată, etc.
   images?: string[];
+  location?: string; // Locația specifică în comună
   contact: {
     name: string;
     phone: string;
     email?: string;
+    preferredContact?: 'phone' | 'email' | 'whatsapp';
   };
   status: 'pending' | 'approved' | 'rejected';
+  featured?: boolean; // Pentru anunțuri promovate
+  views?: number; // Număr vizualizări
   createdAt: any;
   updatedAt: any;
+  expiresAt?: any; // Data expirare anunț
   userId?: string;
   rejectionReason?: string;
+  
+  // Câmpuri specifice pentru terenuri
+  surfaceArea?: number; // Suprafață în mp
+  landType?: 'intravilan' | 'extravilan' | 'agricol';
+  
+  // Câmpuri specifice pentru produse locale
+  isOrganic?: boolean;
+  availableFrom?: string; // Perioadă disponibilitate
+  
+  // Câmpuri specifice pentru servicii
+  serviceType?: string;
+  availability?: string; // Program disponibilitate
 }
+
+// NEW: Categorii pentru anunțuri
+export const ANNOUNCEMENT_CATEGORIES = {
+  terenuri: {
+    label: 'Vânzări Terenuri',
+    icon: '🏞️',
+    color: 'emerald',
+    subcategories: ['Intravilan', 'Extravilan', 'Agricol', 'Pădure']
+  },
+  'produse-locale': {
+    label: 'Produse Locale',
+    icon: '🥬',
+    color: 'green',
+    subcategories: ['Legume', 'Fructe', 'Lactate', 'Carne', 'Miere', 'Tradiționale']
+  },
+  diverse: {
+    label: 'Vânzări Diverse',
+    icon: '📦',
+    color: 'blue',
+    subcategories: ['Electrocasnice', 'Mobilier', 'Unelte', 'Îmbrăcăminte', 'Altele']
+  },
+  servicii: {
+    label: 'Servicii',
+    icon: '🔧',
+    color: 'purple',
+    subcategories: ['Construcții', 'Reparații', 'Transport', 'Grădinărit', 'Curățenie', 'Altele']
+  },
+  cumparare: {
+    label: 'Cumpărări',
+    icon: '🛒',
+    color: 'orange',
+    subcategories: []
+  },
+  schimb: {
+    label: 'Schimburi',
+    icon: '🔄',
+    color: 'yellow',
+    subcategories: []
+  }
+} as const;
 
 export interface Job {
   id?: string;

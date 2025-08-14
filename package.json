@@ -49,6 +49,7 @@
     "emailjs-com": "*",
     "firebase": "^11.9.1",
     "firebase-admin": "^13.4.0",
+    "framer-motion": "^12.23.12",
     "genkit": "^1.0.4",
     "jspdf": "^3.0.1",
     "lucide-react": "^0.475.0",

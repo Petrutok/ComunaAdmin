@@ -16,7 +16,7 @@ import {
   updateDoc,
   deleteDoc,
 } from 'firebase/firestore';
-import { db, COLLECTIONS, Announcement } from '@/lib/firebase';
+import { db, COLLECTIONS, Announcement, ANNOUNCEMENT_CATEGORIES } from '@/lib/firebase';
 import {
   Check,
   X,
@@ -27,6 +27,10 @@ import {
   Calendar,
   AlertCircle,
   Trash2,
+  MapPin,
+  Tag,
+  Eye,
+  TrendingUp,
 } from 'lucide-react';
 import {
   Dialog,
@@ -192,13 +196,34 @@ export default function AdminAnnouncementsPage() {
     }
   };
 
-  const getCategoryColor = (category: string) => {
-    switch (category) {
-      case 'vanzare': return 'bg-green-500';
-      case 'cumparare': return 'bg-blue-500';
-      case 'schimb': return 'bg-orange-500';
-      default: return 'bg-gray-500';
+  // Funcție actualizată pentru noile categorii
+  const getCategoryStyle = (category: string) => {
+    const cat = ANNOUNCEMENT_CATEGORIES[category as keyof typeof ANNOUNCEMENT_CATEGORIES];
+    if (!cat) {
+      // Fallback pentru categorii vechi
+      switch (category) {
+        case 'vanzare': return { className: 'bg-green-500', icon: '💰', label: 'Vânzare' };
+        case 'cumparare': return { className: 'bg-blue-500', icon: '🛒', label: 'Cumpărare' };
+        case 'schimb': return { className: 'bg-orange-500', icon: '🔄', label: 'Schimb' };
+        default: return { className: 'bg-gray-500', icon: '📌', label: 'Diverse' };
+      }
     }
+    
+    const colorMap: Record<string, string> = {
+      emerald: 'bg-emerald-500',
+      green: 'bg-green-500',
+      blue: 'bg-blue-500',
+      purple: 'bg-purple-500',
+      orange: 'bg-orange-500',
+      yellow: 'bg-yellow-500',
+      gray: 'bg-gray-500'
+    };
+    
+    return {
+      className: colorMap[cat.color] || 'bg-gray-500',
+      icon: cat.icon,
+      label: cat.label
+    };
   };
 
   const formatDate = (date: any) => {
@@ -212,10 +237,33 @@ export default function AdminAnnouncementsPage() {
     });
   };
 
+  const formatPrice = (announcement: Announcement) => {
+    if (!announcement.price) return null;
+    
+    let priceStr = `${announcement.price.toLocaleString('ro-RO')} RON`;
+    
+    if (announcement.unit) {
+      priceStr += `/${announcement.unit}`;
+    }
+    
+    if (announcement.priceType === 'negociabil') {
+      priceStr += ' (negociabil)';
+    } else if (announcement.priceType === 'gratuit') {
+      return 'GRATUIT';
+    }
+    
+    return priceStr;
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold text-white">Moderare Anunțuri</h1>
+        <div className="flex items-center gap-2">
+          <Badge variant="outline" className="text-gray-400">
+            Total: {announcements.length} anunțuri
+          </Badge>
+        </div>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
@@ -223,7 +271,7 @@ export default function AdminAnnouncementsPage() {
           <TabsTrigger value="pending">
             În așteptare
             {announcements.length > 0 && activeTab === 'pending' && (
-              <Badge className="ml-2" variant="secondary">
+              <Badge className="ml-2 bg-yellow-500 text-black">
                 {announcements.length}
               </Badge>
             )}
@@ -248,106 +296,189 @@ export default function AdminAnnouncementsPage() {
             </Card>
           ) : (
             <div className="space-y-4">
-              {announcements.map((announcement) => (
-                <Card key={announcement.id} className="bg-slate-800 border-slate-700">
-                  <CardHeader>
-                    <div className="flex items-start justify-between">
-                      <div className="space-y-1">
-                        <CardTitle className="text-white">
-                          {announcement.title}
-                        </CardTitle>
+              {announcements.map((announcement) => {
+                const categoryStyle = getCategoryStyle(announcement.category);
+                const price = formatPrice(announcement);
+                
+                return (
+                  <Card key={announcement.id} className="bg-slate-800 border-slate-700">
+                    <CardHeader>
+                      <div className="flex items-start justify-between">
+                        <div className="space-y-2">
+                          <CardTitle className="text-white text-xl">
+                            {announcement.title}
+                          </CardTitle>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <Badge className={`${categoryStyle.className} text-white`}>
+                              <span className="mr-1">{categoryStyle.icon}</span>
+                              {categoryStyle.label}
+                            </Badge>
+                            
+                            {announcement.subcategory && (
+                              <Badge variant="outline" className="border-slate-600 text-gray-400">
+                                {announcement.subcategory}
+                              </Badge>
+                            )}
+                            
+                            {announcement.featured && (
+                              <Badge className="bg-yellow-500 text-black">
+                                <TrendingUp className="h-3 w-3 mr-1" />
+                                Promovat
+                              </Badge>
+                            )}
+                            
+                            {price && (
+                              <span className="font-semibold text-green-400 text-lg">
+                                {price}
+                              </span>
+                            )}
+                          </div>
+                        </div>
                         <div className="flex items-center gap-2 text-sm text-gray-400">
-                          <Badge className={getCategoryColor(announcement.category)}>
-                            {announcement.category}
-                          </Badge>
-                          {announcement.price && (
-                            <span className="font-medium text-white">
-                              {announcement.price} RON
+                          <Calendar className="h-4 w-4" />
+                          <span>{formatDate(announcement.createdAt)}</span>
+                        </div>
+                      </div>
+                    </CardHeader>
+                    
+                    <CardContent className="space-y-4">
+                      <p className="text-gray-300">{announcement.description}</p>
+                      
+                      {/* Detalii specifice pentru terenuri */}
+                      {announcement.category === 'terenuri' && announcement.surfaceArea && (
+                        <div className="flex items-center gap-4 text-sm text-gray-400">
+                          <div className="flex items-center gap-1">
+                            <Tag className="h-4 w-4" />
+                            <span>{announcement.surfaceArea} mp</span>
+                          </div>
+                          {announcement.landType && (
+                            <Badge variant="outline" className="text-xs">
+                              {announcement.landType}
+                            </Badge>
+                          )}
+                        </div>
+                      )}
+                      
+                      {/* Detalii specifice pentru produse locale */}
+                      {announcement.category === 'produse-locale' && announcement.isOrganic && (
+                        <Badge className="bg-green-600 text-white">
+                          🌿 Produs ecologic/bio
+                        </Badge>
+                      )}
+                      
+                      {/* Detalii specifice pentru servicii */}
+                      {announcement.category === 'servicii' && announcement.serviceType && (
+                        <div className="text-sm text-gray-400">
+                          <span className="font-medium">Tip serviciu:</span> {announcement.serviceType}
+                          {announcement.availability && (
+                            <span className="ml-4">
+                              <span className="font-medium">Disponibilitate:</span> {announcement.availability}
                             </span>
                           )}
                         </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Calendar className="h-4 w-4 text-gray-400" />
-                        <span className="text-sm text-gray-400">
-                          {formatDate(announcement.createdAt)}
-                        </span>
-                      </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <p className="text-gray-300">{announcement.description}</p>
-                    
-                    <div className="flex flex-wrap gap-4 text-sm">
-                      <div className="flex items-center gap-2 text-gray-400">
-                        <User className="h-4 w-4" />
-                        <span>{announcement.contact.name}</span>
-                      </div>
-                      <div className="flex items-center gap-2 text-gray-400">
-                        <Phone className="h-4 w-4" />
-                        <span>{announcement.contact.phone}</span>
-                      </div>
-                      {announcement.contact.email && (
-                        <div className="flex items-center gap-2 text-gray-400">
-                          <Mail className="h-4 w-4" />
-                          <span>{announcement.contact.email}</span>
+                      )}
+                      
+                      {/* Locație */}
+                      {announcement.location && (
+                        <div className="flex items-center gap-2 text-sm text-gray-400">
+                          <MapPin className="h-4 w-4" />
+                          <span>{announcement.location}</span>
                         </div>
                       )}
-                    </div>
-
-                    {announcement.rejectionReason && activeTab === 'rejected' && (
-                      <div className="flex items-start gap-2 p-3 bg-red-900/20 rounded-lg">
-                        <AlertCircle className="h-4 w-4 text-red-400 mt-0.5" />
-                        <div>
-                          <p className="text-sm font-medium text-red-400">
-                            Motiv respingere:
-                          </p>
-                          <p className="text-sm text-gray-300">
-                            {announcement.rejectionReason}
-                          </p>
+                      
+                      {/* Contact */}
+                      <div className="flex flex-wrap gap-4 text-sm">
+                        <div className="flex items-center gap-2 text-gray-400">
+                          <User className="h-4 w-4" />
+                          <span>{announcement.contact.name}</span>
                         </div>
+                        <div className="flex items-center gap-2 text-gray-400">
+                          <Phone className="h-4 w-4" />
+                          <span>{announcement.contact.phone}</span>
+                        </div>
+                        {announcement.contact.email && (
+                          <div className="flex items-center gap-2 text-gray-400">
+                            <Mail className="h-4 w-4" />
+                            <span>{announcement.contact.email}</span>
+                          </div>
+                        )}
+                        {announcement.contact.preferredContact && (
+                          <Badge variant="outline" className="text-xs">
+                            Contact preferat: {announcement.contact.preferredContact}
+                          </Badge>
+                        )}
                       </div>
-                    )}
+                      
+                      {/* Views și expirare */}
+                      <div className="flex items-center gap-4 text-xs text-gray-500">
+                        {announcement.views !== undefined && (
+                          <div className="flex items-center gap-1">
+                            <Eye className="h-3 w-3" />
+                            <span>{announcement.views} vizualizări</span>
+                          </div>
+                        )}
+                        {announcement.expiresAt && (
+                          <div className="flex items-center gap-1">
+                            <Clock className="h-3 w-3" />
+                            <span>Expiră: {formatDate(announcement.expiresAt)}</span>
+                          </div>
+                        )}
+                      </div>
 
-                    {activeTab === 'pending' && (
-                      <div className="flex gap-2 pt-2">
-                        <Button
-                          onClick={() => handleApprove(announcement)}
-                          className="flex-1"
-                        >
-                          <Check className="h-4 w-4 mr-2" />
-                          Aprobă
-                        </Button>
+                      {announcement.rejectionReason && activeTab === 'rejected' && (
+                        <div className="flex items-start gap-2 p-3 bg-red-900/20 rounded-lg">
+                          <AlertCircle className="h-4 w-4 text-red-400 mt-0.5" />
+                          <div>
+                            <p className="text-sm font-medium text-red-400">
+                              Motiv respingere:
+                            </p>
+                            <p className="text-sm text-gray-300">
+                              {announcement.rejectionReason}
+                            </p>
+                          </div>
+                        </div>
+                      )}
+
+                      {activeTab === 'pending' && (
+                        <div className="flex gap-2 pt-2">
+                          <Button
+                            onClick={() => handleApprove(announcement)}
+                            className="flex-1 bg-green-600 hover:bg-green-700"
+                          >
+                            <Check className="h-4 w-4 mr-2" />
+                            Aprobă
+                          </Button>
+                          <Button
+                            onClick={() => {
+                              setSelectedAnnouncement(announcement);
+                              setShowRejectDialog(true);
+                            }}
+                            variant="destructive"
+                            className="flex-1"
+                          >
+                            <X className="h-4 w-4 mr-2" />
+                            Respinge
+                          </Button>
+                        </div>
+                      )}
+
+                      {(activeTab === 'approved' || activeTab === 'rejected') && (
                         <Button
                           onClick={() => {
-                            setSelectedAnnouncement(announcement);
-                            setShowRejectDialog(true);
+                            setAnnouncementToDelete(announcement);
+                            setShowDeleteDialog(true);
                           }}
                           variant="destructive"
-                          className="flex-1"
+                          size="sm"
                         >
-                          <X className="h-4 w-4 mr-2" />
-                          Respinge
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          Șterge definitiv
                         </Button>
-                      </div>
-                    )}
-
-                    {(activeTab === 'approved' || activeTab === 'rejected') && (
-                      <Button
-                        onClick={() => {
-                          setAnnouncementToDelete(announcement);
-                          setShowDeleteDialog(true);
-                        }}
-                        variant="destructive"
-                        size="sm"
-                      >
-                        <Trash2 className="h-4 w-4 mr-2" />
-                        Șterge definitiv
-                      </Button>
-                    )}
-                  </CardContent>
-                </Card>
-              ))}
+                      )}
+                    </CardContent>
+                  </Card>
+                );
+              })}
             </div>
           )}
         </TabsContent>
@@ -376,6 +507,7 @@ export default function AdminAnnouncementsPage() {
                 setShowRejectDialog(false);
                 setRejectReason('');
               }}
+              className="border-slate-600"
             >
               Anulează
             </Button>
@@ -402,10 +534,16 @@ export default function AdminAnnouncementsPage() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setAnnouncementToDelete(null)}>
+            <AlertDialogCancel 
+              onClick={() => setAnnouncementToDelete(null)}
+              className="border-slate-600"
+            >
               Anulează
             </AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} className="bg-red-600 hover:bg-red-700">
+            <AlertDialogAction 
+              onClick={handleDelete} 
+              className="bg-red-600 hover:bg-red-700"
+            >
               Șterge definitiv
             </AlertDialogAction>
           </AlertDialogFooter>
