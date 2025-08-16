@@ -696,12 +696,6 @@ export default function AnnouncementsPage() {
                           <User className="h-4 w-4" />
                           <span>{announcement.contact.name}</span>
                         </div>
-                        {announcement.views && (
-                          <div className="flex items-center gap-1 text-xs text-gray-500">
-                            <Eye className="h-3 w-3" />
-                            {announcement.views}
-                          </div>
-                        )}
                       </div>
                       
                       <div className="flex items-center justify-between">
@@ -853,10 +847,6 @@ export default function AnnouncementsPage() {
 
                   {/* Footer info */}
                   <div className="flex items-center justify-between text-xs text-gray-500 pt-4 border-t border-slate-700">
-                    <div className="flex items-center gap-2">
-                      <Calendar className="h-3 w-3" />
-                      <span>Publicat {new Date(selectedAnnouncement.createdAt).toLocaleDateString('ro-RO')}</span>
-                    </div>
                     <div className="flex items-center gap-2">
                       <Eye className="h-3 w-3" />
                       <span>{selectedAnnouncement.views || 0} vizualizări</span>
