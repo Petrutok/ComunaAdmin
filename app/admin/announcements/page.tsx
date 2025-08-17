@@ -409,21 +409,13 @@ export default function AdminAnnouncementsPage() {
                         )}
                       </div>
                       
-                      {/* Views și expirare */}
-                      <div className="flex items-center gap-4 text-xs text-gray-500">
-                        {announcement.views !== undefined && (
-                          <div className="flex items-center gap-1">
-                            <Eye className="h-3 w-3" />
-                            <span>{announcement.views} vizualizări</span>
-                          </div>
-                        )}
-                        {announcement.expiresAt && (
-                          <div className="flex items-center gap-1">
-                            <Clock className="h-3 w-3" />
-                            <span>Expiră: {formatDate(announcement.expiresAt)}</span>
-                          </div>
-                        )}
-                      </div>
+                      {/* Expirare */}
+                      {announcement.expiresAt && (
+                        <div className="flex items-center gap-1 text-xs text-gray-500">
+                          <Clock className="h-3 w-3" />
+                          <span>Expiră: {formatDate(announcement.expiresAt)}</span>
+                        </div>
+                      )}
 
                       {announcement.rejectionReason && activeTab === 'rejected' && (
                         <div className="flex items-start gap-2 p-3 bg-red-900/20 rounded-lg">
