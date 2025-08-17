@@ -536,7 +536,9 @@ export default function AnnouncementsPage() {
                 <Select value={selectedCategory} onValueChange={setSelectedCategory}>
                   <SelectTrigger className="flex-1 lg:w-[180px] bg-slate-900 border-slate-600 text-white text-sm">
                     <Filter className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1.5 sm:mr-2" />
-                    <SelectValue />
+                    <span className="truncate">
+                      {ANNOUNCEMENT_CATEGORIES_LOCAL[selectedCategory as keyof typeof ANNOUNCEMENT_CATEGORIES_LOCAL]?.label || 'Toate'}
+                    </span>
                   </SelectTrigger>
                   <SelectContent>
                     {Object.entries(ANNOUNCEMENT_CATEGORIES_LOCAL).map(([key, cat]) => (
