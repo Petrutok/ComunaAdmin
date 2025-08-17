@@ -19,7 +19,9 @@ import {
   Menu,
   MapPin,
   Phone,
-  Shield
+  Shield,
+  Heart,
+  Code
 } from 'lucide-react';
 import { Resend } from 'resend';
 import Image from 'next/image';
@@ -45,6 +47,15 @@ export default function HomePage() {
       iconBg: "bg-blue-500/10"
     },
     {
+      title: "Cereri Online",
+      description: "Completează și trimite cereri direct din aplicație",
+      icon: FileText,
+      link: "/cereri-online",
+      buttonText: "Completează Cerere",
+      color: "text-indigo-400",
+      iconBg: "bg-indigo-500/10"
+    },
+    {
       title: "Locuri de Muncă",
       description: "Oportunități de angajare în comună și împrejurimi",
       icon: Briefcase,
@@ -52,15 +63,6 @@ export default function HomePage() {
       buttonText: "Vezi Joburi",
       color: "text-green-400",
       iconBg: "bg-green-500/10"
-    },
-    {
-      title: "Colectare Selectivă",
-      description: "Calendar colectare deșeuri și informații despre reciclare",
-      icon: Recycle,
-      link: "/colectare-selectiva",
-      buttonText: "Vezi Calendar",
-      color: "text-emerald-400",
-      iconBg: "bg-emerald-500/10"
     },
     {
       title: "Plată Impozite",
@@ -72,6 +74,15 @@ export default function HomePage() {
       iconBg: "bg-purple-500/10"
     },
     {
+      title: "Colectare Selectivă",
+      description: "Calendar colectare deșeuri și informații despre reciclare",
+      icon: Recycle,
+      link: "/colectare-selectiva",
+      buttonText: "Vezi Calendar",
+      color: "text-emerald-400",
+      iconBg: "bg-emerald-500/10"
+    },
+    {
       title: "Evenimente",
       description: "Evenimente culturale și activități în comunitate",
       icon: CalendarDays,
@@ -79,15 +90,6 @@ export default function HomePage() {
       buttonText: "Vezi Evenimente",
       color: "text-orange-400",
       iconBg: "bg-orange-500/10"
-    },
-    {
-      title: "Consilieri Locali",
-      description: "Găsește informații de contact pentru consilierii locali",
-      icon: Users,
-      link: "/representatives",
-      buttonText: "Vezi Lista",
-      color: "text-sky-400",
-      iconBg: "bg-sky-500/10"
     },
     {
       title: "Lucrări în Desfășurare",
@@ -98,15 +100,15 @@ export default function HomePage() {
       color: "text-yellow-400",
       iconBg: "bg-yellow-500/10"
     },
-   {
-     title: "Cereri Online",
-     description: "Completează și trimite cereri direct din aplicație",
-     icon: FileText,
-     link: "/cereri-online",
-     buttonText: "Completează Cerere",
-     color: "text-indigo-400",
-     iconBg: "bg-indigo-500/10"
-},
+    {
+      title: "Consilieri Locali",
+      description: "Găsește informații de contact pentru consilierii locali",
+      icon: Users,
+      link: "/representatives",
+      buttonText: "Vezi Lista",
+      color: "text-sky-400",
+      iconBg: "bg-sky-500/10"
+    },
     {
       title: "Ședințe Consiliu",
       description: "Ordine de zi, hotărâri și procese verbale",
@@ -203,17 +205,17 @@ export default function HomePage() {
         <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
           {cards.map((card, index) => {
             const Icon = card.icon;
-            // Define border colors for each card
+            // Define border colors for each card based on new order
             const borderColors = [
               'border-t-red-500',      // Raportează o Problemă
               'border-t-blue-500',     // Anunțuri Locale
-              'border-t-green-500',    // Locuri de Muncă
-              'border-t-emerald-500',  // Colectare Selectivă
-              'border-t-purple-500',   // Plată Impozite
-              'border-t-orange-500',   // Evenimente
-              'border-t-sky-500',      // Consilieri Locali
-              'border-t-yellow-500',   // Lucrări în Desfășurare
               'border-t-indigo-500',   // Cereri Online
+              'border-t-green-500',    // Locuri de Muncă
+              'border-t-purple-500',   // Plată Impozite
+              'border-t-emerald-500',  // Colectare Selectivă
+              'border-t-orange-500',   // Evenimente
+              'border-t-yellow-500',   // Lucrări în Desfășurare
+              'border-t-sky-500',      // Consilieri Locali
               'border-t-gray-500'      // Ședințe Consiliu
             ];
             
@@ -243,7 +245,6 @@ export default function HomePage() {
                       className="w-full bg-slate-100 hover:bg-white text-slate-900 font-semibold py-3 rounded-full transition-all group-hover:scale-105 border border-slate-600"
                     >
                       <span className="text-sm sm:text-base">{card.buttonText}</span>
-                      <span className="ml-2">→</span>
                     </Button>
                   </div>
                 </Card>
@@ -253,25 +254,41 @@ export default function HomePage() {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 pb-8">
-        <Link href="/debug-mobile">
-          <Button className="w-full bg-red-600 hover:bg-red-700 text-white">
-            🔧 Debug Mobile (Dev Only)
-          </Button>
-        </Link>
-      </div>
-      
-
       {/* Footer */}
       <footer className="bg-slate-900 border-t border-slate-800 mt-12">
-        <div className="max-w-7xl mx-auto px-4 py-6">
-          <div className="text-center text-gray-300">
+        <div className="max-w-7xl mx-auto px-4 py-8">
+          {/* Contact Info */}
+          <div className="text-center text-gray-300 mb-6">
             <p className="mb-2">
               <strong className="text-white">Program cu publicul:</strong> Luni - Vineri: 08:00 - 16:00
             </p>
             <p className="text-sm">
               Pentru urgențe, sunați la <a href="tel:112" className="text-blue-400 hover:underline">112</a>
             </p>
+          </div>
+
+          {/* Divider */}
+          <div className="border-t border-slate-800 pt-6">
+            {/* Powered By Section */}
+            <div className="text-center">
+              <div className="inline-flex items-center gap-2 text-sm text-gray-500">
+                <span>Powered by</span>
+                <a 
+                  href="https://primaria.digital" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 text-blue-400 hover:text-blue-300 transition-colors font-medium"
+                >
+                  <Code className="h-4 w-4" />
+                  <span>primaria.digital</span>
+                </a>
+                <span>for</span>
+                <span className="text-gray-300 font-medium">Primăria Filipești</span>
+              </div>
+              <p className="text-xs text-gray-600 mt-2">
+                Digitalizarea administrației publice locale
+              </p>
+            </div>
           </div>
         </div>
       </footer>
