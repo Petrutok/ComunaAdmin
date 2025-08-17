@@ -997,7 +997,17 @@ export default function AnnouncementsPage() {
                         id="title"
                         value={formData.title}
                         onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                        placeholder="Ex: Vând teren intravilan 500mp"
+                        placeholder={
+                          formData.category === 'cumparare' 
+                            ? "Ex: Cumpăr teren intravilan 500mp"
+                            : formData.category === 'servicii'
+                            ? "Ex: Ofer servicii instalații sanitare"
+                            : formData.category === 'produse-locale'
+                            ? "Ex: Vând miere de albine naturală"
+                            : formData.category === 'terenuri'
+                            ? "Ex: Vând teren intravilan 500mp"
+                            : "Ex: Vând mobilă second-hand"
+                        }
                         className="bg-slate-900 border-slate-600 text-white"
                         maxLength={100}
                       />
