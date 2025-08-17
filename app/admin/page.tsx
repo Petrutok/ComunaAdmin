@@ -26,7 +26,7 @@ interface Stats {
   pendingAnnouncements: number;
   pendingJobs: number;
   pendingCereri: number;
-  pendingIssues: number; // ADĂUGAT
+  pendingIssues: number;
   totalAnnouncements: number;
   totalJobs: number;
   totalCereri: number;
@@ -47,7 +47,7 @@ export default function AdminDashboard() {
     pendingAnnouncements: 0,
     pendingJobs: 0,
     pendingCereri: 0,
-    pendingIssues: 0, // ADĂUGAT
+    pendingIssues: 0,
     totalAnnouncements: 0,
     totalJobs: 0,
     totalCereri: 0,
@@ -112,7 +112,7 @@ export default function AdminDashboard() {
       const pendingCereri = cereri.filter(c => c.status === 'în așteptare').length;
       const totalCereri = cereri.length;
 
-      // Load reported issues - BLOC NOU ADĂUGAT
+      // Load reported issues
       const issuesSnapshot = await getDocs(collection(db, 'reported_issues'));
       const issues = issuesSnapshot.docs.map(doc => {
         const data = doc.data();
@@ -190,7 +190,7 @@ export default function AdminDashboard() {
           });
         });
 
-      // Add recent issues to activity feed - BLOC NOU ADĂUGAT
+      // Add recent issues to activity feed
       issues
         .filter(i => i.createdAt)
         .sort((a, b) => {
@@ -216,11 +216,11 @@ export default function AdminDashboard() {
         pendingAnnouncements,
         pendingJobs,
         pendingCereri,
-        pendingIssues, // ADĂUGAT
+        pendingIssues,
         totalAnnouncements,
         totalJobs,
         totalCereri,
-        totalIssues, // Acum cu valoarea reală
+        totalIssues,
         activeSubscriptions: 0
       });
       
@@ -281,7 +281,7 @@ export default function AdminDashboard() {
         <p className="text-gray-400">Bine ai revenit! Aici sunt ultimele actualizări.</p>
       </div>
 
-      {/* Quick Actions - ACTUALIZAT */}
+      {/* Quick Actions */}
       {(stats.pendingAnnouncements > 0 || stats.pendingJobs > 0 || stats.pendingCereri > 0 || stats.pendingIssues > 0) && (
         <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4">
           <div className="flex items-center gap-3">
@@ -334,93 +334,6 @@ export default function AdminDashboard() {
         </div>
       )}
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-        <Card className="bg-slate-800 border-slate-700">
-          <CardHeader className="pb-2">
-            <div className="flex items-center justify-between">
-              <CardDescription className="text-gray-400">Anunțuri</CardDescription>
-              <Newspaper className="h-4 w-4 text-gray-400" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-white">{stats.totalAnnouncements}</div>
-            {stats.pendingAnnouncements > 0 && (
-              <p className="text-xs text-yellow-400 mt-1">
-                {stats.pendingAnnouncements} în așteptare
-              </p>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card className="bg-slate-800 border-slate-700">
-          <CardHeader className="pb-2">
-            <div className="flex items-center justify-between">
-              <CardDescription className="text-gray-400">Joburi</CardDescription>
-              <Briefcase className="h-4 w-4 text-gray-400" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-white">{stats.totalJobs}</div>
-            {stats.pendingJobs > 0 && (
-              <p className="text-xs text-yellow-400 mt-1">
-                {stats.pendingJobs} în așteptare
-              </p>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card className="bg-slate-800 border-slate-700">
-          <CardHeader className="pb-2">
-            <div className="flex items-center justify-between">
-              <CardDescription className="text-gray-400">Cereri Online</CardDescription>
-              <FileText className="h-4 w-4 text-gray-400" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-white">{stats.totalCereri}</div>
-            {stats.pendingCereri > 0 && (
-              <p className="text-xs text-yellow-400 mt-1">
-                {stats.pendingCereri} în așteptare
-              </p>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Card Probleme Raportate - ACTUALIZAT */}
-        <Card className="bg-slate-800 border-slate-700">
-          <CardHeader className="pb-2">
-            <div className="flex items-center justify-between">
-              <CardDescription className="text-gray-400">Probleme Raportate</CardDescription>
-              <AlertTriangle className="h-4 w-4 text-gray-400" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-white">{stats.totalIssues}</div>
-            {stats.pendingIssues > 0 ? (
-              <p className="text-xs text-yellow-400 mt-1">
-                {stats.pendingIssues} noi
-              </p>
-            ) : (
-              <p className="text-xs text-gray-500 mt-1">Toate procesate</p>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card className="bg-slate-800 border-slate-700">
-          <CardHeader className="pb-2">
-            <div className="flex items-center justify-between">
-              <CardDescription className="text-gray-400">Notificări Active</CardDescription>
-              <Bell className="h-4 w-4 text-gray-400" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-white">{stats.activeSubscriptions}</div>
-            <p className="text-xs text-gray-500 mt-1">Utilizatori</p>
-          </CardContent>
-        </Card>
-      </div>
-
       {/* Recent Activity */}
       <Card className="bg-slate-800 border-slate-700">
         <CardHeader>
@@ -466,7 +379,7 @@ export default function AdminDashboard() {
         </CardContent>
       </Card>
 
-      {/* Quick Links - EXTINS CU CARD NOU */}
+      {/* Quick Links */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Link href="/admin/notifications">
           <Card className="bg-slate-800 border-slate-700 hover:bg-slate-700 transition-colors cursor-pointer">
@@ -506,7 +419,6 @@ export default function AdminDashboard() {
           </Card>
         </Link>
 
-        {/* Card nou pentru Probleme Raportate */}
         <Link href="/admin/issues">
           <Card className="bg-slate-800 border-slate-700 hover:bg-slate-700 transition-colors cursor-pointer">
             <CardContent className="p-6">
