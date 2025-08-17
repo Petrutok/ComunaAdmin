@@ -68,12 +68,12 @@ export const COLLECTIONS = {
   FCM_TOKENS: 'fcm_tokens',
 } as const;
 
-// UPDATED Types for Announcements
+// UPDATED Types for Announcements - FĂRĂ 'schimb' și FĂRĂ 'views'
 export interface Announcement {
   id?: string;
   title: string;
   description: string;
-  category: 'terenuri' | 'produse-locale' | 'diverse' | 'servicii' | 'cumparare' | 'schimb';
+  category: 'terenuri' | 'produse-locale' | 'diverse' | 'servicii' | 'cumparare';
   subcategory?: string; // Pentru subcategorii specifice
   price?: number;
   priceType?: 'fix' | 'negociabil' | 'gratuit'; // Tip preț
@@ -88,7 +88,7 @@ export interface Announcement {
   };
   status: 'pending' | 'approved' | 'rejected';
   featured?: boolean; // Pentru anunțuri promovate
-  views?: number; // Număr vizualizări
+  // REMOVED: views?: number; // Număr vizualizări
   createdAt: any;
   updatedAt: any;
   expiresAt?: any; // Data expirare anunț
@@ -108,7 +108,7 @@ export interface Announcement {
   availability?: string; // Program disponibilitate
 }
 
-// NEW: Categorii pentru anunțuri
+// NEW: Categorii pentru anunțuri - FĂRĂ categoria 'schimb'
 export const ANNOUNCEMENT_CATEGORIES = {
   terenuri: {
     label: 'Vânzări Terenuri',
@@ -131,19 +131,13 @@ export const ANNOUNCEMENT_CATEGORIES = {
   servicii: {
     label: 'Servicii',
     icon: '🔧',
-    color: 'purple',
+    color: 'indigo',
     subcategories: ['Construcții', 'Reparații', 'Transport', 'Grădinărit', 'Curățenie', 'Altele']
   },
   cumparare: {
     label: 'Cumpărări',
     icon: '🛒',
     color: 'orange',
-    subcategories: []
-  },
-  schimb: {
-    label: 'Schimburi',
-    icon: '🔄',
-    color: 'yellow',
     subcategories: []
   }
 } as const;

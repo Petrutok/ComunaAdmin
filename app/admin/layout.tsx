@@ -12,19 +12,22 @@ import {
   Newspaper,
   X,
   FileText,
-  AlertTriangle, // ADAUGĂ ACEST IMPORT
+  AlertTriangle,
+  Shield,
+  User,
 } from 'lucide-react';
-import { useState } from 'react';
-import { AdminAuthProvider } from '@/contexts/AdminAuthContext';
+import { useState, useEffect } from 'react';
+import { AdminAuthProvider, useAdminAuth } from '@/contexts/AdminAuthContext';
 
 function AdminNav() {
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const { user, logout, isAdmin } = useAdminAuth();
 
   const navItems = [
     { href: '/admin', label: 'Dashboard', icon: Home },
     { href: '/admin/cereri', label: 'Cereri', icon: FileText },
-    { href: '/admin/issues', label: 'Probleme Raportate', icon: AlertTriangle }, // LINIE NOUĂ
+    { href: '/admin/issues', label: 'Probleme Raportate', icon: AlertTriangle },
     { href: '/admin/notifications', label: 'Notificări', icon: Bell },
     { href: '/admin/notification-stats', label: 'Statistici', icon: Bell },
     { href: '/admin/announcements', label: 'Anunțuri', icon: Newspaper },
@@ -32,7 +35,7 @@ function AdminNav() {
   ];
 
   // Pentru login page, nu afișa navigația
-  if (pathname === '/admin/login') {
+  if (pathname === '/admin/login' || !isAdmin) {
     return null;
   }
 
@@ -40,7 +43,10 @@ function AdminNav() {
     <div className="bg-slate-800 border-b border-slate-700">
       <div className="max-w-7xl mx-auto px-4">
         <div className="flex items-center justify-between h-16">
-          <div className="flex items-center">
+          <div className="flex items-center gap-3">
+            <div className="bg-blue-600/20 rounded-lg p-2">
+              <Shield className="h-5 w-5 text-blue-400" />
+            </div>
             <h1 className="text-xl font-bold text-white">Admin Panel</h1>
           </div>
 
@@ -66,18 +72,23 @@ function AdminNav() {
           </nav>
 
           <div className="flex items-center gap-4">
-            <span className="text-sm text-gray-300 hidden md:block">
-              admin@primaria.ro
-            </span>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-gray-300 hover:text-white hidden md:flex"
-              onClick={() => window.location.href = '/admin/login'}
-            >
-              <LogOut className="h-4 w-4 mr-2" />
-              Logout
-            </Button>
+            {user && (
+              <div className="hidden md:flex items-center gap-3">
+                <div className="bg-slate-700/50 rounded-lg px-3 py-1.5 flex items-center gap-2">
+                  <User className="h-4 w-4 text-gray-400" />
+                  <span className="text-sm text-gray-300">{user.email}</span>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-gray-300 hover:text-white"
+                  onClick={logout}
+                >
+                  <LogOut className="h-4 w-4 mr-2" />
+                  Logout
+                </Button>
+              </div>
+            )}
 
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
@@ -115,11 +126,73 @@ function AdminNav() {
                 );
               })}
             </nav>
+            {user && (
+              <div className="mt-4 pt-4 border-t border-slate-700 px-4">
+                <div className="flex items-center gap-3 mb-3">
+                  <User className="h-4 w-4 text-gray-400" />
+                  <span className="text-sm text-gray-300">{user.email}</span>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="w-full text-gray-300 hover:text-white"
+                  onClick={logout}
+                >
+                  <LogOut className="h-4 w-4 mr-2" />
+                  Logout
+                </Button>
+              </div>
+            )}
           </div>
         )}
       </div>
     </div>
   );
+}
+
+function ProtectedContent({ children }: { children: React.ReactNode }) {
+  const { loading, isAdmin } = useAdminAuth();
+  const pathname = usePathname();
+
+  // Loading state
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center">
+        <div className="text-center">
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-slate-800 rounded-full mb-4">
+            <div className="h-8 w-8 border-3 border-blue-500 border-t-transparent rounded-full animate-spin" />
+          </div>
+          <p className="text-gray-400">Se verifică autentificarea...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Dacă nu e admin și nu e pe pagina de login, arată mesaj
+  if (!isAdmin && pathname !== '/admin/login') {
+    return (
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center">
+        <Card className="bg-slate-800 border-slate-700 max-w-md">
+          <CardContent className="text-center py-8">
+            <div className="inline-flex items-center justify-center w-16 h-16 bg-red-500/20 rounded-full mb-4">
+              <AlertTriangle className="h-8 w-8 text-red-400" />
+            </div>
+            <h2 className="text-xl font-bold text-white mb-2">Acces Restricționat</h2>
+            <p className="text-gray-400 mb-4">
+              Nu aveți permisiunea de a accesa această pagină.
+            </p>
+            <Link href="/admin/login">
+              <Button className="bg-blue-600 hover:bg-blue-700">
+                Mergi la Login
+              </Button>
+            </Link>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  return <>{children}</>;
 }
 
 export default function AdminLayout({
@@ -133,8 +206,27 @@ export default function AdminLayout({
     <AdminAuthProvider>
       <div className="min-h-screen bg-slate-900">
         {pathname !== '/admin/login' && <AdminNav />}
-        <main className="max-w-7xl mx-auto px-4 py-8">{children}</main>
+        <main className="max-w-7xl mx-auto px-4 py-8">
+          <ProtectedContent>{children}</ProtectedContent>
+        </main>
       </div>
     </AdminAuthProvider>
+  );
+}
+
+// Import Card dacă nu există
+function Card({ children, className }: { children: React.ReactNode; className?: string }) {
+  return (
+    <div className={`rounded-lg border ${className}`}>
+      {children}
+    </div>
+  );
+}
+
+function CardContent({ children, className }: { children: React.ReactNode; className?: string }) {
+  return (
+    <div className={`p-6 ${className}`}>
+      {children}
+    </div>
   );
 }

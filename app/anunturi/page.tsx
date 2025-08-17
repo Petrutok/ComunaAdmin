@@ -23,9 +23,6 @@ import {
   orderBy,
   getDocs,
   addDoc,
-  doc,
-  getDoc,
-  updateDoc,
 } from 'firebase/firestore';
 import { 
   ref, 
@@ -43,7 +40,6 @@ import {
   Filter,
   Check,
   MapPin,
-  Eye,
   ChevronRight,
   TrendingUp,
   Clock,
@@ -205,7 +201,7 @@ export default function AnnouncementsPage() {
     }
 
     setSelectedImage(file);
-    // Crează URL pentru preview
+    // Creează URL pentru preview
     if (imageUrl) {
       URL.revokeObjectURL(imageUrl);
     }
@@ -247,22 +243,10 @@ export default function AnnouncementsPage() {
     }
   };
 
-  // Handler pentru detalii anunț
-  const handleViewDetails = async (announcement: Announcement) => {
+  // Handler pentru detalii anunț - FĂRĂ incrementare views
+  const handleViewDetails = (announcement: Announcement) => {
     setSelectedAnnouncement(announcement);
     setShowDetailDialog(true);
-    
-    // Incrementează views
-    if (announcement.id) {
-      try {
-        const docRef = doc(db, COLLECTIONS.ANNOUNCEMENTS, announcement.id);
-        await updateDoc(docRef, {
-          views: (announcement.views || 0) + 1
-        });
-      } catch (error) {
-        console.error('Error updating views:', error);
-      }
-    }
   };
 
   const validateStep = (step: number) => {
@@ -340,7 +324,6 @@ export default function AnnouncementsPage() {
           preferredContact: formData.preferredContact as any,
         },
         status: 'pending',
-        views: 0,
         createdAt: new Date(),
         updatedAt: new Date(),
         expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
@@ -844,14 +827,6 @@ export default function AnnouncementsPage() {
                       )}
                     </div>
                   </div>
-
-                  {/* Footer info */}
-                  <div className="flex items-center justify-between text-xs text-gray-500 pt-4 border-t border-slate-700">
-                    <div className="flex items-center gap-2">
-                      <Eye className="h-3 w-3" />
-                      <span>{selectedAnnouncement.views || 0} vizualizări</span>
-                    </div>
-                  </div>
                 </div>
 
                 <DialogFooter>
@@ -868,7 +843,7 @@ export default function AnnouncementsPage() {
           </DialogContent>
         </Dialog>
 
-        {/* Success Dialog */}
+        {/* Success Dialog - MESAJ ACTUALIZAT */}
         <Dialog open={showSuccessDialog} onOpenChange={setShowSuccessDialog}>
           <DialogContent className="bg-slate-800 border-slate-700 max-w-md">
             <div className="text-center py-6">
@@ -879,8 +854,8 @@ export default function AnnouncementsPage() {
                 Anunț trimis cu succes!
               </DialogTitle>
               <DialogDescription className="text-gray-400 text-base">
-                Anunțul tău a fost trimis și va fi verificat de echipa noastră în cel mai scurt timp.
-                Vei fi notificat când va fi aprobat și publicat.
+                Anunțul tău a fost trimis și va fi verificat de echipa noastră.
+                Anunțul tău va fi vizibil în următoarele 24 de ore.
               </DialogDescription>
             </div>
             <DialogFooter>
@@ -1373,8 +1348,8 @@ export default function AnnouncementsPage() {
                     <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-3">
                       <p className="text-sm text-blue-400 flex items-start gap-2">
                         <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
-                        Anunțul va fi verificat de echipa noastră înainte de publicare. 
-                        Vei fi notificat când va fi aprobat.
+                        Anunțul va fi verificat de echipa noastră înainte de publicare.
+                        Anunțul tău va fi vizibil în următoarele 24 de ore.
                       </p>
                     </div>
                   </motion.div>
