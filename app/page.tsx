@@ -272,7 +272,7 @@ export default function HomePage() {
             {/* Powered By Section */}
             <div className="text-center">
               <div className="inline-flex items-center gap-2 text-sm text-gray-500">
-                <span>Powered by</span>
+                <span>Ⓒ Powered by</span>
                 <a 
                   href="https://primaria.digital" 
                   target="_blank" 

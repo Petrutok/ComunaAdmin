@@ -464,30 +464,30 @@ export default function AnnouncementsPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-900 to-slate-800">
-      {/* Home Button */}
+      {/* Home Button - mai mic pe mobil */}
       <button
         onClick={() => window.location.href = '/'}
-        className="fixed top-4 left-4 z-50 group"
+        className="fixed top-3 left-3 z-50 group"
       >
-        <div className="bg-white/10 backdrop-blur-md text-white rounded-xl px-4 py-2.5 shadow-lg hover:bg-white/20 transition-all duration-300 flex items-center gap-2 font-medium border border-white/20">
-          <Home className="h-5 w-5" />
-          <span className="font-semibold">Acasă</span>
+        <div className="bg-white/10 backdrop-blur-md text-white rounded-lg px-3 py-2 shadow-lg hover:bg-white/20 transition-all duration-300 flex items-center gap-1.5 font-medium border border-white/20">
+          <Home className="h-4 w-4" />
+          <span className="font-semibold text-sm">Acasă</span>
         </div>
       </button>
 
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        {/* Header simplificat */}
-        <div className="mb-8 text-center pt-16">
-          <h1 className="text-4xl md:text-5xl font-bold text-white mb-3">
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 py-6 sm:py-8">
+        {/* Header simplificat - responsive */}
+        <div className="mb-6 sm:mb-8 text-center pt-12 sm:pt-16">
+          <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold text-white mb-2 sm:mb-3">
             Anunțuri Locale
           </h1>
-          <p className="text-gray-400 text-lg max-w-2xl mx-auto">
+          <p className="text-gray-400 text-base sm:text-lg max-w-2xl mx-auto px-4">
             Cumpără sau vinde în comunitatea noastră. Găsește servicii locale de încredere.
           </p>
         </div>
 
-        {/* Statistici categorii */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
+        {/* Statistici categorii - grid optimizat pentru mobil */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-3 mb-4 sm:mb-6">
           {Object.entries(ANNOUNCEMENT_CATEGORIES_LOCAL).map(([key, cat]) => {
             const count = key === 'toate' 
               ? announcements.length 
@@ -502,11 +502,11 @@ export default function AnnouncementsPage() {
                 )}
                 onClick={() => setSelectedCategory(key)}
               >
-                <CardContent className="p-3">
-                  <div className="flex flex-col items-center text-center space-y-1">
-                    <div className="text-2xl">{cat.icon}</div>
-                    <p className="text-xs text-gray-400">{cat.label}</p>
-                    <p className="text-lg font-bold text-white">{count}</p>
+                <CardContent className="p-2.5 sm:p-3">
+                  <div className="flex flex-col items-center text-center space-y-0.5 sm:space-y-1">
+                    <div className="text-xl sm:text-2xl">{cat.icon}</div>
+                    <p className="text-[10px] sm:text-xs text-gray-400 line-clamp-1">{cat.label}</p>
+                    <p className="text-base sm:text-lg font-bold text-white">{count}</p>
                   </div>
                 </CardContent>
               </Card>
@@ -514,33 +514,34 @@ export default function AnnouncementsPage() {
           })}
         </div>
 
-        {/* Toolbar */}
-        <Card className="bg-slate-800/50 border-slate-700 mb-6">
-          <CardContent className="p-4">
-            <div className="flex flex-col lg:flex-row gap-3">
-              {/* Search */}
-              <div className="relative flex-1">
+        {/* Toolbar - stack pe mobil */}
+        <Card className="bg-slate-800/50 border-slate-700 mb-4 sm:mb-6">
+          <CardContent className="p-3 sm:p-4">
+            <div className="flex flex-col gap-2 sm:gap-3 lg:flex-row">
+              {/* Search - full width pe mobil */}
+              <div className="relative flex-1 order-1">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <Input
                   type="text"
                   placeholder="Caută în anunțuri..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 bg-slate-900 border-slate-600 text-white"
+                  className="pl-10 bg-slate-900 border-slate-600 text-white text-sm sm:text-base"
                 />
               </div>
 
-              {/* Filters */}
-              <div className="flex gap-2">
+              {/* Filters row - pe mobil sub search */}
+              <div className="flex gap-2 order-2 lg:order-2">
+                {/* Filter dropdown - mai mic pe mobil */}
                 <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                  <SelectTrigger className="w-[180px] bg-slate-900 border-slate-600 text-white">
-                    <Filter className="h-4 w-4 mr-2" />
+                  <SelectTrigger className="flex-1 lg:w-[180px] bg-slate-900 border-slate-600 text-white text-sm">
+                    <Filter className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1.5 sm:mr-2" />
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     {Object.entries(ANNOUNCEMENT_CATEGORIES_LOCAL).map(([key, cat]) => (
                       <SelectItem key={key} value={key}>
-                        <span className="flex items-center gap-2">
+                        <span className="flex items-center gap-2 text-sm">
                           <span>{cat.icon}</span>
                           <span>{cat.label}</span>
                         </span>
@@ -549,63 +550,63 @@ export default function AnnouncementsPage() {
                   </SelectContent>
                 </Select>
 
-                {/* View mode toggle */}
-                <div className="flex bg-slate-900 rounded-lg border border-slate-600 p-0.5">
+                {/* View mode toggle - ascuns pe mobil mic */}
+                <div className="hidden sm:flex bg-slate-900 rounded-lg border border-slate-600 p-0.5">
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={() => setViewMode('grid')}
                     className={cn(
-                      "rounded",
+                      "rounded px-2",
                       viewMode === 'grid' && "bg-slate-700"
                     )}
                   >
-                    <Grid3x3 className="h-4 w-4" />
+                    <Grid3x3 className="h-3.5 w-3.5" />
                   </Button>
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={() => setViewMode('list')}
                     className={cn(
-                      "rounded",
+                      "rounded px-2",
                       viewMode === 'list' && "bg-slate-700"
                     )}
                   >
-                    <List className="h-4 w-4" />
+                    <List className="h-3.5 w-3.5" />
                   </Button>
                 </div>
-
-                {/* Add button */}
-                <Button 
-                  onClick={() => setShowAddDialog(true)}
-                  className="bg-blue-600 hover:bg-blue-700 text-white"
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  Publică anunț
-                </Button>
               </div>
+
+              {/* Add button - full width pe mobil */}
+              <Button 
+                onClick={() => setShowAddDialog(true)}
+                className="bg-blue-600 hover:bg-blue-700 text-white order-3 lg:order-3 w-full lg:w-auto text-sm sm:text-base"
+              >
+                <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1.5 sm:mr-2" />
+                Publică anunț
+              </Button>
             </div>
           </CardContent>
         </Card>
 
-        {/* Announcements Display - CARDURI UNIFORME */}
+        {/* Announcements Display - o singură coloană pe mobil */}
         {loading ? (
-          <div className="text-center text-gray-400 py-12">
+          <div className="text-center text-gray-400 py-8 sm:py-12">
             <div className="inline-flex items-center gap-2">
-              <Clock className="h-5 w-5 animate-spin" />
-              Se încarcă anunțurile...
+              <Clock className="h-4 w-4 sm:h-5 sm:w-5 animate-spin" />
+              <span className="text-sm sm:text-base">Se încarcă anunțurile...</span>
             </div>
           </div>
         ) : filteredAnnouncements.length === 0 ? (
           <Card className="bg-slate-800/50 border-slate-700">
-            <CardContent className="text-center py-16">
-              <div className="inline-flex items-center justify-center w-20 h-20 bg-slate-700 rounded-full mb-4">
-                <Search className="h-10 w-10 text-gray-500" />
+            <CardContent className="text-center py-12 sm:py-16">
+              <div className="inline-flex items-center justify-center w-16 h-16 sm:w-20 sm:h-20 bg-slate-700 rounded-full mb-3 sm:mb-4">
+                <Search className="h-8 w-8 sm:h-10 sm:w-10 text-gray-500" />
               </div>
-              <p className="text-gray-400 text-lg mb-2">
+              <p className="text-gray-400 text-base sm:text-lg mb-2">
                 Nu s-au găsit anunțuri
               </p>
-              <p className="text-gray-500 text-sm">
+              <p className="text-gray-500 text-xs sm:text-sm px-4">
                 Încearcă să modifici filtrele sau publică primul anunț din această categorie
               </p>
             </CardContent>
@@ -613,8 +614,8 @@ export default function AnnouncementsPage() {
         ) : (
           <div className={cn(
             viewMode === 'grid' 
-              ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
-              : "space-y-4"
+              ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4"
+              : "space-y-3 sm:space-y-4"
           )}>
             {filteredAnnouncements.map((announcement) => {
               const categoryStyle = getCategoryStyle(announcement.category);
@@ -624,9 +625,9 @@ export default function AnnouncementsPage() {
                   key={announcement.id} 
                   className="bg-slate-800/50 border-slate-700 hover:bg-slate-800 transition-all h-full flex flex-col"
                 >
-                  {/* Imagine preview */}
+                  {/* Imagine preview - mai mică pe mobil */}
                   {announcement.images && announcement.images.length > 0 && (
-                    <div className="relative h-48 overflow-hidden rounded-t-lg">
+                    <div className="relative h-40 sm:h-48 overflow-hidden rounded-t-lg">
                       <img 
                         src={announcement.images[0]} 
                         alt={announcement.title}
@@ -636,54 +637,54 @@ export default function AnnouncementsPage() {
                     </div>
                   )}
                   
-                  <CardHeader className="pb-2">
-                    <div className="flex items-start justify-between mb-2">
-                      <Badge className={categoryStyle.className}>
-                        <span className="mr-1">{categoryStyle.icon}</span>
-                        {categoryStyle.label}
+                  <CardHeader className="pb-2 p-3 sm:p-4">
+                    <div className="flex items-start justify-between mb-1.5 sm:mb-2">
+                      <Badge className={`${categoryStyle.className} text-xs`}>
+                        <span className="mr-0.5 sm:mr-1 text-xs">{categoryStyle.icon}</span>
+                        <span className="text-[10px] sm:text-xs">{categoryStyle.label}</span>
                       </Badge>
                       {announcement.featured && (
-                        <Badge className="bg-yellow-500 text-black">
-                          <Star className="h-3 w-3 mr-1 fill-current" />
-                          Promovat
+                        <Badge className="bg-yellow-500 text-black text-xs">
+                          <Star className="h-2.5 w-2.5 sm:h-3 sm:w-3 mr-0.5 sm:mr-1 fill-current" />
+                          <span className="text-[10px] sm:text-xs">Promovat</span>
                         </Badge>
                       )}
                     </div>
                     
-                    <CardTitle className="text-white text-lg line-clamp-2">
+                    <CardTitle className="text-white text-base sm:text-lg line-clamp-2">
                       {announcement.title}
                     </CardTitle>
                     
-                    <div className="mt-2">
-                      <p className="text-2xl font-bold text-green-400">
+                    <div className="mt-1.5 sm:mt-2">
+                      <p className="text-xl sm:text-2xl font-bold text-green-400">
                         {formatPrice(announcement.price, announcement.priceType, announcement.unit)}
                       </p>
                     </div>
                   </CardHeader>
                   
-                  <CardContent className="flex-1 flex flex-col">
-                    <p className="text-gray-300 line-clamp-3 mb-3 flex-1">
+                  <CardContent className="flex-1 flex flex-col p-3 sm:p-4 pt-0 sm:pt-0">
+                    <p className="text-gray-300 text-sm sm:text-base line-clamp-2 sm:line-clamp-3 mb-2 sm:mb-3 flex-1">
                       {announcement.description}
                     </p>
                     
                     {announcement.location && (
-                      <div className="flex items-center gap-2 text-sm text-gray-400 mb-3">
-                        <MapPin className="h-4 w-4" />
+                      <div className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm text-gray-400 mb-2 sm:mb-3">
+                        <MapPin className="h-3 w-3 sm:h-4 sm:w-4" />
                         <span>{announcement.location}</span>
                       </div>
                     )}
                     
-                    <div className="border-t border-slate-700 pt-3 mt-auto">
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-2 text-sm text-gray-400">
-                          <User className="h-4 w-4" />
-                          <span>{announcement.contact.name}</span>
+                    <div className="border-t border-slate-700 pt-2 sm:pt-3 mt-auto">
+                      <div className="flex items-center justify-between mb-1.5 sm:mb-2">
+                        <div className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm text-gray-400">
+                          <User className="h-3 w-3 sm:h-4 sm:w-4" />
+                          <span className="truncate max-w-[120px] sm:max-w-none">{announcement.contact.name}</span>
                         </div>
                       </div>
                       
                       <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2 text-sm text-gray-400">
-                          <Phone className="h-4 w-4" />
+                        <div className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm text-gray-400">
+                          <Phone className="h-3 w-3 sm:h-4 sm:w-4" />
                           <span>{announcement.contact.phone}</span>
                         </div>
                         
@@ -691,10 +692,10 @@ export default function AnnouncementsPage() {
                           size="sm" 
                           variant="ghost"
                           onClick={() => handleViewDetails(announcement)}
-                          className="text-blue-400 hover:text-blue-300"
+                          className="text-blue-400 hover:text-blue-300 text-xs sm:text-sm px-2 sm:px-3 h-7 sm:h-8"
                         >
                           Detalii
-                          <ChevronRight className="h-4 w-4 ml-1" />
+                          <ChevronRight className="h-3 w-3 sm:h-4 sm:w-4 ml-0.5 sm:ml-1" />
                         </Button>
                       </div>
                     </div>
