@@ -16,7 +16,7 @@ import {
   Shield,
   User,
 } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { AdminAuthProvider, useAdminAuth } from '@/contexts/AdminAuthContext';
 
 function AdminNav() {
@@ -28,8 +28,7 @@ function AdminNav() {
     { href: '/admin', label: 'Dashboard', icon: Home },
     { href: '/admin/cereri', label: 'Cereri', icon: FileText },
     { href: '/admin/issues', label: 'Probleme Raportate', icon: AlertTriangle },
-    { href: '/admin/notifications', label: 'Notificări', icon: Bell },
-    { href: '/admin/notification-stats', label: 'Statistici', icon: Bell },
+    { href: '/admin/notificari', label: 'Notificări', icon: Bell },
     { href: '/admin/announcements', label: 'Anunțuri', icon: Newspaper },
     { href: '/admin/jobs', label: 'Joburi', icon: Briefcase },
   ];

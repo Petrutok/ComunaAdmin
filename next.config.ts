@@ -2,20 +2,39 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  // Exclude firebase-messaging-sw.js din procesarea webpack
-  webpack: (config: { externals: any[]; }) => {
-    config.externals = [...(config.externals || []), { 'firebase-messaging-sw.js': 'self.firebase-messaging-sw' }];
+  
+  // ACTIVĂM MODUL CAPACITOR DIRECT
+  output: 'export',  // Export static pentru Capacitor
+  
+  // Dezactivează optimizarea imaginilor pentru Capacitor
+  images: {
+    unoptimized: true,
+  },
+  
+  // Trailing slash pentru navigare corectă în app
+  trailingSlash: true,
+  
+  // Webpack config pentru firebase și alte externals
+  webpack: (config: any) => {
+    config.externals = [...(config.externals || []), { 
+      'firebase-messaging-sw.js': 'self.firebase-messaging-sw' 
+    }];
     return config;
+  },
+  
+  // Environment variables
+  env: {
+    NEXT_PUBLIC_API_URL: 'https://primaria.digital',  // URL-ul tău de producție
+    NEXT_PUBLIC_IS_MOBILE: 'true',  // Pentru Capacitor
+  },
+  
+  // Pentru build-ul Capacitor
+  eslint: {
+    ignoreDuringBuilds: false,  // Păstrăm verificările
+  },
+  typescript: {
+    ignoreBuildErrors: false,
   },
 }
 
 module.exports = nextConfig
-
-// PWA config salvată pentru mai târziu:
-// npm install @ducanh2912/next-pwa
-// const withPWA = require('@ducanh2912/next-pwa').default({
-//   dest: 'public',
-//   register: true,
-//   skipWaiting: true,
-//   disable: process.env.NODE_ENV === 'development'
-// })
