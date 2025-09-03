@@ -4,7 +4,7 @@ import "./globals.css";
 import { NotificationProvider } from "@/components/NotificationProvider";
 import { Toaster } from "@/components/ui/toaster";
 import { PWAInstallPrompt } from '@/components/PWAInstallPrompt';
-import { useEffect } from "react";
+import { ServiceWorkerRegistration } from '@/components/ServiceWorkerRegistration';
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -44,15 +44,6 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  useEffect(() => {
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker
-        .register('/sw.js')
-        .then(reg => console.log('SW registered:', reg))
-        .catch(err => console.error('SW error:', err));
-    }
-  }, []);
-
   return (
     <html lang="ro">
       <head>
@@ -70,6 +61,7 @@ export default function RootLayout({
         <meta name="theme-color" content="#1e293b" />
       </head>
       <body className={inter.className}>
+        <ServiceWorkerRegistration />
         <NotificationProvider>
           {children}
           <PWAInstallPrompt />
