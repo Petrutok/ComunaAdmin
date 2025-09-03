@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Primăria Digitală</string>
+    <string name="title_activity_main">Primăria Digitală</string>
+    <string name="package_name">digital.primaria.app</string>
+    <string name="custom_url_scheme">digital.primaria.app</string>
+</resources>

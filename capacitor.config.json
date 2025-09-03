@@ -1,0 +1,9 @@
+{
+  "appId": "digital.primaria.app",
+  "appName": "Primăria Digitală",
+  "webDir": "public",
+  "server": {
+    "url": "https://primaria.digital",
+    "cleartext": false
+  }
+}

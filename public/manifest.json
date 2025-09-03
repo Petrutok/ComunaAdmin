@@ -1,55 +1,202 @@
 {
+  "id": "digital-primaria-app",
   "name": "Primăria Digitală",
-  "short_name": "Primăria Digitală",
-  "description": "Platformă digitală pentru cetățeni",
+  "short_name": "Primăria",
+  "description": "Platformă digitală pentru cetățeni - Servicii online, plăți, cereri și informații utile",
   "start_url": "/",
   "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone"],
   "theme_color": "#1e293b",
   "background_color": "#1e293b",
-  "orientation": "portrait",
-  "categories": ["government", "utilities"],
+  "orientation": "any",
+  "dir": "ltr",
+  "lang": "ro-RO",
+  "scope": "/",
+  "categories": ["government", "utilities", "productivity"],
+  "prefer_related_applications": false,
+  "iarc_rating_id": "e84b072d-71b3-4d3e-86ae-31a8ce4e53b7",
+  
+  "launch_handler": {
+    "client_mode": ["navigate-existing", "auto"]
+  },
+  
   "icons": [
     {
-      "src": "/favicon-32x32.png",
-      "sizes": "32x32",
-      "type": "image/png"
+      "src": "/icon-72x72.png",
+      "sizes": "72x72",
+      "type": "image/png",
+      "purpose": "any"
     },
     {
-      "src": "/favicon-16x16.png",
-      "sizes": "16x16",
-      "type": "image/png"
+      "src": "/icon-96x96.png",
+      "sizes": "96x96",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-128x128.png",
+      "sizes": "128x128",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-144x144.png",
+      "sizes": "144x144",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-152x152.png",
+      "sizes": "152x152",
+      "type": "image/png",
+      "purpose": "any"
     },
     {
       "src": "/icon-192x192.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-384x384.png",
+      "sizes": "384x384",
+      "type": "image/png",
+      "purpose": "any"
     },
     {
       "src": "/icon-512x512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
     },
     {
-      "src": "/apple-touch-icon.png",
-      "sizes": "180x180",
+      "src": "/icon-maskable-192x192.png",
+      "sizes": "192x192",
       "type": "image/png",
-      "purpose": "apple-touch-icon"
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icon-maskable-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ],
+  
   "screenshots": [
     {
-      "src": "/screen-desktop.png",
-      "sizes": "2930x1436",
+      "src": "/screenshot-desktop-1.png",
+      "sizes": "1920x1080",
       "type": "image/png",
-      "form_factor": "wide"
+      "form_factor": "wide",
+      "label": "Pagina principală"
     },
     {
-      "src": "/screen-mobile.png",
-      "sizes": "796x1260",
+      "src": "/screenshot-desktop-2.png",
+      "sizes": "1920x1080",
       "type": "image/png",
-      "form_factor": "narrow"
+      "form_factor": "wide",
+      "label": "Servicii online"
+    },
+    {
+      "src": "/screenshot-mobile-1.png",
+      "sizes": "1080x1920",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Pagina principală mobil"
+    },
+    {
+      "src": "/screenshot-mobile-2.png",
+      "sizes": "1080x1920",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Servicii online mobil"
+    }
+  ],
+  
+  "shortcuts": [
+    {
+      "name": "Plată Taxe",
+      "short_name": "Taxe",
+      "description": "Plătește taxele online",
+      "url": "/taxes",
+      "icons": [
+        {
+          "src": "/icon-96x96.png",
+          "sizes": "96x96"
+        }
+      ]
+    },
+    {
+      "name": "Cereri Online",
+      "short_name": "Cereri",
+      "description": "Depune cereri online",
+      "url": "/cereri-online",
+      "icons": [
+        {
+          "src": "/icon-96x96.png",
+          "sizes": "96x96"
+        }
+      ]
+    },
+    {
+      "name": "Anunțuri",
+      "short_name": "Anunțuri",
+      "description": "Vezi ultimele anunțuri",
+      "url": "/anunturi",
+      "icons": [
+        {
+          "src": "/icon-96x96.png",
+          "sizes": "96x96"
+        }
+      ]
+    }
+  ],
+  
+  "share_target": {
+    "action": "/share",
+    "method": "POST",
+    "enctype": "multipart/form-data",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "url": "url",
+      "files": [
+        {
+          "name": "file",
+          "accept": ["image/*", "application/pdf"]
+        }
+      ]
+    }
+  },
+  
+  "file_handlers": [
+    {
+      "action": "/open-pdf",
+      "accept": {
+        "application/pdf": [".pdf"]
+      }
+    }
+  ],
+  
+  "handle_links": "preferred",
+  
+  "protocol_handlers": [
+    {
+      "protocol": "web+primaria",
+      "url": "/protocol?url=%s"
+    }
+  ],
+  
+  "edge_side_panel": {
+    "preferred_width": 400
+  },
+  
+  "related_applications": [
+    {
+      "platform": "play",
+      "url": "https://play.google.com/store/apps/details?id=digital.primaria.app",
+      "id": "digital.primaria.app"
     }
   ]
 }
