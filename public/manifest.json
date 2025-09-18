@@ -20,6 +20,63 @@
     "client_mode": ["navigate-existing", "auto"]
   },
   
+  "scope_extensions": [
+    {
+      "origin": "*.primaria.digital"
+    },
+    {
+      "origin": "https://api.primaria.digital"
+    }
+  ],
+  
+  "widgets": [
+    {
+      "name": "Anunțuri Recente",
+      "description": "Vezi ultimele anunțuri ale primăriei",
+      "tag": "announcements",
+      "template": "announcements-widget",
+      "type": "application/json+widget",
+      "data": "/api/widget/announcements",
+      "screenshots": [
+        {
+          "src": "/widget-announcements.png",
+          "sizes": "600x400",
+          "label": "Widget anunțuri"
+        }
+      ]
+    },
+    {
+      "name": "Scadențe Taxe",
+      "description": "Vezi scadențele pentru plata taxelor",
+      "tag": "taxes",
+      "template": "taxes-widget",
+      "type": "application/json+widget",
+      "data": "/api/widget/taxes",
+      "screenshots": [
+        {
+          "src": "/widget-taxes.png",
+          "sizes": "600x400",
+          "label": "Widget taxe"
+        }
+      ]
+    },
+    {
+      "name": "Status Cereri",
+      "description": "Verifică statusul cererilor tale",
+      "tag": "requests",
+      "template": "requests-widget",
+      "type": "application/json+widget",
+      "data": "/api/widget/requests",
+      "screenshots": [
+        {
+          "src": "/widget-requests.png",
+          "sizes": "600x400",
+          "label": "Widget cereri"
+        }
+      ]
+    }
+  ],
+  
   "icons": [
     {
       "src": "/icon-72x72.png",
@@ -196,7 +253,7 @@
     {
       "platform": "play",
       "url": "https://play.google.com/store/apps/details?id=digital.primaria.app",
-      "id": "digital.primaria.app"
+      "id": "primaria-digitala"
     }
   ]
 }

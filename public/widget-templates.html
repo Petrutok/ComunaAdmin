@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Widget Templates - Primăria Digitală</title>
+    <style>
+        /* Stiluri comune pentru widget-uri */
+        .widget-container {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 16px;
+            padding: 20px;
+            color: white;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            max-width: 400px;
+            margin: 20px;
+        }
+        
+        .widget-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 16px;
+        }
+        
+        .widget-title {
+            font-size: 18px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .widget-icon {
+            width: 24px;
+            height: 24px;
+        }
+        
+        .widget-badge {
+            background: rgba(255,255,255,0.3);
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        
+        .widget-content {
+            background: rgba(255,255,255,0.1);
+            border-radius: 12px;
+            padding: 16px;
+            backdrop-filter: blur(10px);
+        }
+        
+        .widget-item {
+            background: rgba(255,255,255,0.15);
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 8px;
+        }
+        
+        .widget-item:last-child {
+            margin-bottom: 0;
+        }
+        
+        .widget-item-title {
+            font-weight: 500;
+            margin-bottom: 4px;
+        }
+        
+        .widget-item-description {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+        
+        .widget-item-date {
+            font-size: 12px;
+            opacity: 0.7;
+            margin-top: 4px;
+        }
+        
+        .widget-action {
+            display: inline-block;
+            background: white;
+            color: #764ba2;
+            padding: 8px 16px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 500;
+            margin-top: 12px;
+            transition: transform 0.2s;
+        }
+        
+        .widget-action:hover {
+            transform: translateY(-2px);
+        }
+        
+        /* Stiluri specifice pentru widget-ul de anunțuri */
+        .announcements-widget {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+        
+        /* Stiluri specifice pentru widget-ul de taxe */
+        .taxes-widget {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        }
+        
+        .tax-deadline {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .tax-amount {
+            font-size: 20px;
+            font-weight: bold;
+        }
+        
+        .tax-urgent {
+            background: #ff4757;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        
+        /* Stiluri specifice pentru widget-ul de cereri */
+        .requests-widget {
+            background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+        }
+        
+        .request-status {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        
+        .status-pending {
+            background: rgba(255,193,7,0.3);
+            color: #fff3cd;
+        }
+        
+        .status-approved {
+            background: rgba(40,167,69,0.3);
+            color: #d4edda;
+        }
+        
+        .status-processing {
+            background: rgba(0,123,255,0.3);
+            color: #d1ecf1;
+        }
+    </style>
+</head>
+<body>
+    <!-- Template Widget Anunțuri -->
+    <div class="widget-container announcements-widget" id="announcements-widget">
+        <div class="widget-header">
+            <div class="widget-title">
+                <svg class="widget-icon" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M18 3a1 1 0 00-1.447-.894L8.763 6H5a3 3 0 000 6h.28l1.771 5.316A1 1 0 008 18h1a1 1 0 001-1v-4.382l6.553 3.276A1 1 0 0018 15V3z"/>
+                </svg>
+                Anunțuri Recente
+            </div>
+            <div class="widget-badge">3 noi</div>
+        </div>
+        
+        <div class="widget-content">
+            <div class="widget-item">
+                <div class="widget-item-title">Întrerupere apă - Zona Centru</div>
+                <div class="widget-item-description">Lucrări de mentenanță în data de 15.03.2024</div>
+                <div class="widget-item-date">Acum 2 ore</div>
+            </div>
+            
+            <div class="widget-item">
+                <div class="widget-item-title">Program special sărbători</div>
+                <div class="widget-item-description">Primăria va fi închisă în perioada 20-27 martie</div>
+                <div class="widget-item-date">Ieri</div>
+            </div>
+            
+            <div class="widget-item">
+                <div class="widget-item-title">Campanie de curățenie</div>
+                <div class="widget-item-description">Participă la acțiunea de ecologizare din 30 martie</div>
+                <div class="widget-item-date">Acum 3 zile</div>
+            </div>
+        </div>
+        
+        <a href="/anunturi" class="widget-action">Vezi toate anunțurile →</a>
+    </div>
+
+    <!-- Template Widget Taxe -->
+    <div class="widget-container taxes-widget" id="taxes-widget">
+        <div class="widget-header">
+            <div class="widget-title">
+                <svg class="widget-icon" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4z"/>
+                    <path fill-rule="evenodd" d="M18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm5-1a1 1 0 100 2h1a1 1 0 100-2H9z"/>
+                </svg>
+                Scadențe Taxe
+            </div>
+        </div>
+        
+        <div class="widget-content">
+            <div class="widget-item">
+                <div class="tax-deadline">
+                    <div>
+                        <div class="widget-item-title">Impozit clădiri</div>
+                        <div class="widget-item-date">Scadență: 31 martie 2024</div>
+                    </div>
+                    <div>
+                        <div class="tax-amount">450 RON</div>
+                        <span class="tax-urgent">Urgent</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="widget-item">
+                <div class="tax-deadline">
+                    <div>
+                        <div class="widget-item-title">Taxa auto</div>
+                        <div class="widget-item-date">Scadență: 15 aprilie 2024</div>
+                    </div>
+                    <div class="tax-amount">280 RON</div>
+                </div>
+            </div>
+            
+            <div class="widget-item">
+                <div class="tax-deadline">
+                    <div>
+                        <div class="widget-item-title">Taxa salubritate</div>
+                        <div class="widget-item-date">Scadență: 30 aprilie 2024</div>
+                    </div>
+                    <div class="tax-amount">120 RON</div>
+                </div>
+            </div>
+        </div>
+        
+        <a href="/taxes" class="widget-action">Plătește online →</a>
+    </div>
+
+    <!-- Template Widget Cereri -->
+    <div class="widget-container requests-widget" id="requests-widget">
+        <div class="widget-header">
+            <div class="widget-title">
+                <svg class="widget-icon" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z"/>
+                    <path fill-rule="evenodd" d="M4 5a2 2 0 012-2 1 1 0 000 2H4v10h12V5h-2a1 1 0 100-2 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 011-1h4a1 1 0 110 2H8a1 1 0 01-1-1zm0 3a1 1 0 011-1h4a1 1 0 110 2H8a1 1 0 01-1-1z"/>
+                </svg>
+                Status Cereri
+            </div>
+        </div>
+        
+        <div class="widget-content">
+            <div class="widget-item">
+                <div class="widget-item-title">Certificat urbanism #2024-156</div>
+                <div class="widget-item-description">Depusă: 10.03.2024</div>
+                <span class="request-status status-approved">Aprobată</span>
+            </div>
+            
+            <div class="widget-item">
+                <div class="widget-item-title">Autorizație construire #2024-089</div>
+                <div class="widget-item-description">Depusă: 05.03.2024</div>
+                <span class="request-status status-processing">În procesare</span>
+            </div>
+            
+            <div class="widget-item">
+                <div class="widget-item-title">Adeverință fiscală #2024-234</div>
+                <div class="widget-item-description">Depusă: 12.03.2024</div>
+                <span class="request-status status-pending">În așteptare</span>
+            </div>
+        </div>
+        
+        <a href="/cereri-online" class="widget-action">Vezi toate cererile →</a>
+    </div>
+
+    <script>
+        // Script pentru actualizare dinamică widget-uri
+        async function updateWidgetData(widgetType) {
+            try {
+                const response = await fetch(`/api/widget/${widgetType}`);
+                if (response.ok) {
+                    const data = await response.json();
+                    updateWidgetUI(widgetType, data);
+                }
+            } catch (error) {
+                console.error(`Error updating ${widgetType} widget:`, error);
+            }
+        }
+
+        function updateWidgetUI(widgetType, data) {
+            const widget = document.getElementById(`${widgetType}-widget`);
+            if (!widget) return;
+
+            // Actualizează conținutul widget-ului bazat pe date
+            // Implementarea specifică pentru fiecare tip de widget
+            console.log(`Updating ${widgetType} with data:`, data);
+        }
+
+        // Auto-refresh widgets every 30 minutes
+        setInterval(() => {
+            updateWidgetData('announcements');
+            updateWidgetData('taxes');
+            updateWidgetData('requests');
+        }, 30 * 60 * 1000);
+
+        // Initial load
+        window.addEventListener('load', () => {
+            updateWidgetData('announcements');
+            updateWidgetData('taxes');
+            updateWidgetData('requests');
+        });
+    </script>
+</body>
+</html>
