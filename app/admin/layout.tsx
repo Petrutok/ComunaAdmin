@@ -15,18 +15,49 @@ import {
   AlertTriangle,
   Shield,
   User,
+  Mail, // ADĂUGAT: Import pentru iconița Mail
 } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { AdminAuthProvider, useAdminAuth } from '@/contexts/AdminAuthContext';
 
 function AdminNav() {
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [newEmailsCount, setNewEmailsCount] = useState(0); // ADĂUGAT: State pentru numărul de email-uri noi
   const { user, logout, isAdmin } = useAdminAuth();
+
+  // ADĂUGAT: Effect pentru a obține numărul de email-uri noi
+  useEffect(() => {
+    const fetchNewEmailsCount = async () => {
+      try {
+        // Aici ar trebui să faci un call la API pentru a obține numărul real
+        // const response = await fetch('/api/registratura/count-new');
+        // const data = await response.json();
+        // setNewEmailsCount(data.count);
+        
+        // Pentru test, setăm o valoare mock
+        setNewEmailsCount(3);
+      } catch (error) {
+        console.error('Error fetching new emails count:', error);
+      }
+    };
+
+    fetchNewEmailsCount();
+    // Refresh la fiecare 30 de secunde
+    const interval = setInterval(fetchNewEmailsCount, 30000);
+    
+    return () => clearInterval(interval);
+  }, []);
 
   const navItems = [
     { href: '/admin', label: 'Dashboard', icon: Home },
     { href: '/admin/cereri', label: 'Cereri', icon: FileText },
+    {
+      href: '/admin/registratura',
+      label: 'Registratură',
+      icon: Mail,
+      badge: newEmailsCount // Badge pentru email-uri noi
+    },
     { href: '/admin/issues', label: 'Probleme Raportate', icon: AlertTriangle },
     { href: '/admin/notificari', label: 'Notificări', icon: Bell },
     { href: '/admin/announcements', label: 'Anunțuri', icon: Newspaper },
@@ -57,7 +88,7 @@ function AdminNav() {
                 <Link
                   key={item.href}
                   href={item.href}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors relative ${
                     isActive
                       ? 'bg-slate-700 text-white'
                       : 'text-gray-300 hover:bg-slate-700 hover:text-white'
@@ -65,6 +96,12 @@ function AdminNav() {
                 >
                   <Icon className="h-4 w-4" />
                   {item.label}
+                  {/* ADĂUGAT: Afișare badge pentru email-uri noi */}
+                  {item.badge && item.badge > 0 && (
+                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center font-bold">
+                      {item.badge > 9 ? '9+' : item.badge}
+                    </span>
+                  )}
                 </Link>
               );
             })}
@@ -113,7 +150,7 @@ function AdminNav() {
                     key={item.href}
                     href={item.href}
                     onClick={() => setMobileMenuOpen(false)}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors relative ${
                       isActive
                         ? 'bg-slate-700 text-white'
                         : 'text-gray-300 hover:bg-slate-700 hover:text-white'
@@ -121,6 +158,12 @@ function AdminNav() {
                   >
                     <Icon className="h-4 w-4" />
                     {item.label}
+                    {/* ADĂUGAT: Badge și pentru mobile */}
+                    {item.badge && item.badge > 0 && (
+                      <span className="ml-auto bg-red-500 text-white text-xs rounded-full px-2 py-0.5 font-bold">
+                        {item.badge}
+                      </span>
+                    )}
                   </Link>
                 );
               })}
@@ -180,11 +223,12 @@ function ProtectedContent({ children }: { children: React.ReactNode }) {
             <p className="text-gray-400 mb-4">
               Nu aveți permisiunea de a accesa această pagină.
             </p>
-            <Link href="/admin/login">
-              <Button className="bg-blue-600 hover:bg-blue-700">
-                Mergi la Login
-              </Button>
-            </Link>
+            <Button
+              className="bg-blue-600 hover:bg-blue-700"
+              onClick={() => window.location.href = '/admin/login'}
+            >
+              Mergi la Login
+            </Button>
           </CardContent>
         </Card>
       </div>

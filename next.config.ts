@@ -2,15 +2,15 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  
-  // Export static pentru PWABuilder
-  output: 'export',
-  
+
+  // REMOVED: output: 'export' - Need API routes for IMAP email fetching
+  // If you need static export for mobile, you can build separately or use ISR
+
   // Dezactivează optimizarea imaginilor
   images: {
     unoptimized: true,
   },
-  
+
   // Trailing slash pentru navigare corectă
   trailingSlash: true,
   
