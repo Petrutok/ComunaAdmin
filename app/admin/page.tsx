@@ -123,9 +123,13 @@ export default function AdminDashboard() {
   }, [isEmployee, userId]);
 
   const loadMyAssignedEmails = async () => {
-    if (!userId) return;
+    if (!userId) {
+      console.log('[EMPLOYEE-DASHBOARD] No userId available');
+      return;
+    }
 
     try {
+      console.log('[EMPLOYEE-DASHBOARD] Loading emails for userId:', userId);
       const emailsQuery = query(
         collection(db, COLLECTIONS.REGISTRATURA_EMAILS),
         where('assignedToUserId', '==', userId),
@@ -133,12 +137,19 @@ export default function AdminDashboard() {
       );
 
       const snapshot = await getDocs(emailsQuery);
-      const emails = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-      })) as RegistraturaEmail[];
+      console.log('[EMPLOYEE-DASHBOARD] Found', snapshot.docs.length, 'assigned emails');
+
+      const emails = snapshot.docs.map(doc => {
+        const data = doc.data();
+        console.log('[EMPLOYEE-DASHBOARD] Email:', doc.id, 'assigned to:', data.assignedToUserId);
+        return {
+          id: doc.id,
+          ...data,
+        };
+      }) as RegistraturaEmail[];
 
       setMyAssignedEmails(emails);
+      console.log('[EMPLOYEE-DASHBOARD] Loaded emails:', emails);
     } catch (error) {
       console.error('Error loading assigned emails:', error);
     }
