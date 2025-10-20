@@ -67,6 +67,8 @@ export const COLLECTIONS = {
   ADMINS: 'admins',
   FCM_TOKENS: 'fcm_tokens',
   REGISTRATURA_EMAILS: 'registratura_emails',
+  DEPARTMENTS: 'departments',
+  USERS: 'users',
 } as const;
 
 // UPDATED Types for Announcements - FĂRĂ 'schimb' și FĂRĂ 'views'

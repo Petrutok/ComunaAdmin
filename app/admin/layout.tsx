@@ -16,6 +16,8 @@ import {
   Shield,
   User,
   Mail, // ADĂUGAT: Import pentru iconița Mail
+  Building2,
+  Users as UsersIcon,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { AdminAuthProvider, useAdminAuth } from '@/contexts/AdminAuthContext';
@@ -58,6 +60,8 @@ function AdminNav() {
       icon: Mail,
       badge: newEmailsCount // Badge pentru email-uri noi
     },
+    { href: '/admin/departments', label: 'Departamente', icon: Building2 },
+    { href: '/admin/users', label: 'Utilizatori', icon: UsersIcon },
     { href: '/admin/issues', label: 'Probleme Raportate', icon: AlertTriangle },
     { href: '/admin/notificari', label: 'Notificări', icon: Bell },
     { href: '/admin/announcements', label: 'Anunțuri', icon: Newspaper },

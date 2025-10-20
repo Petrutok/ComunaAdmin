@@ -17,9 +17,12 @@ import {
   orderBy,
 } from 'firebase/firestore';
 import { db, COLLECTIONS } from '@/lib/firebase';
-import { RegistraturaEmail, EmailStatus } from '@/types/registratura';
+import { RegistraturaEmail, EmailStatus, EmailPriority } from '@/types/registratura';
+import { Department, User } from '@/types/departments';
 import { syncEmailsAction } from '@/app/actions/sync-emails';
 import { formatFileSize, getFileIcon, getFileTypeColor } from '@/lib/utils/formatFileSize';
+import { calculateDeadline, getDaysRemaining, formatDaysRemaining, isOverdue } from '@/lib/utils/deadline-utils';
+import { findDepartmentBySubject, getSuggestedPriority } from '@/lib/utils/auto-assignment';
 import {
   Mail,
   Calendar,
@@ -47,6 +50,10 @@ import {
   CheckCheck,
   Ban,
   Loader2,
+  UserPlus,
+  Building2,
+  Zap,
+  AlertTriangle as AlertTriangleIcon,
 } from 'lucide-react';
 import {
   Dialog,
@@ -73,6 +80,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { AssignmentDialog } from '@/components/admin/registratura/AssignmentDialog';
 
 const statusConfig = {
   'nou': {
@@ -113,6 +121,30 @@ const statusConfig = {
   },
 };
 
+const priorityConfig = {
+  'urgent': {
+    label: 'Urgent',
+    icon: Zap,
+    color: 'bg-rose-600',
+    textColor: 'text-rose-300',
+    bgColor: 'bg-rose-500/20',
+  },
+  'normal': {
+    label: 'Normal',
+    icon: Clock,
+    color: 'bg-amber-600',
+    textColor: 'text-amber-300',
+    bgColor: 'bg-amber-500/20',
+  },
+  'low': {
+    label: 'Scăzută',
+    icon: ArrowUpDown,
+    color: 'bg-gray-600',
+    textColor: 'text-gray-400',
+    bgColor: 'bg-gray-500/20',
+  },
+};
+
 // Helper function to get the appropriate icon component
 const getIconComponent = (iconName: string) => {
   const icons: Record<string, any> = {
@@ -131,10 +163,13 @@ export default function AdminRegistraturaPage() {
   // Force reload - modern styling update
   const [emails, setEmails] = useState<RegistraturaEmail[]>([]);
   const [filteredEmails, setFilteredEmails] = useState<RegistraturaEmail[]>([]);
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState<EmailStatus | 'toate'>('toate');
   const [selectedEmail, setSelectedEmail] = useState<RegistraturaEmail | null>(null);
   const [showDetailsDialog, setShowDetailsDialog] = useState(false);
+  const [showAssignDialog, setShowAssignDialog] = useState(false);
   const [showStatusDialog, setShowStatusDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [newStatus, setNewStatus] = useState<EmailStatus>('nou');
@@ -142,10 +177,19 @@ export default function AdminRegistraturaPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+
+  // Assignment form state
+  const [assignmentData, setAssignmentData] = useState({
+    departmentId: null as string | null,
+    userId: null as string | null,
+    priority: 'normal' as EmailPriority,
+  });
+
   const { toast } = useToast();
 
   useEffect(() => {
     loadEmails();
+    loadDepartmentsAndUsers();
   }, []);
 
   useEffect(() => {
@@ -179,6 +223,37 @@ export default function AdminRegistraturaPage() {
     }
   };
 
+  const loadDepartmentsAndUsers = async () => {
+    try {
+      // Load departments
+      const deptQuery = query(
+        collection(db, COLLECTIONS.DEPARTMENTS),
+        orderBy('name', 'asc')
+      );
+      const deptSnapshot = await getDocs(deptQuery);
+      const deptData = deptSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+      })) as Department[];
+
+      // Load users
+      const usersQuery = query(
+        collection(db, COLLECTIONS.USERS),
+        orderBy('fullName', 'asc')
+      );
+      const usersSnapshot = await getDocs(usersQuery);
+      const usersData = usersSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+      })) as User[];
+
+      setDepartments(deptData);
+      setUsers(usersData);
+    } catch (error) {
+      console.error('Error loading departments and users:', error);
+    }
+  };
+
   const filterEmails = () => {
     let filtered = [...emails];
 
@@ -203,6 +278,53 @@ export default function AdminRegistraturaPage() {
     });
 
     setFilteredEmails(filtered);
+  };
+
+  const handleAssignment = async (
+    departmentId: string | null,
+    userId: string | null,
+    priority: EmailPriority
+  ) => {
+    if (!selectedEmail) return;
+
+    try {
+      const department = departments.find(d => d.id === departmentId);
+      const user = users.find(u => u.id === userId);
+      const deadline = calculateDeadline(priority);
+
+      const updateData: any = {
+        assignedToUserId: userId,
+        assignedToUserName: user?.fullName || null,
+        departmentId: departmentId,
+        departmentName: department?.name || null,
+        priority: priority,
+        deadline: deadline,
+        assignedAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      // If assigning for first time, change status to in_lucru
+      if (!selectedEmail.assignedToUserId && (userId || departmentId)) {
+        updateData.status = 'in_lucru';
+      }
+
+      await updateDoc(doc(db, COLLECTIONS.REGISTRATURA_EMAILS, selectedEmail.id), updateData);
+
+      toast({
+        title: "Document atribuit",
+        description: `Documentul a fost atribuit ${department?.name ? `departamentului ${department.name}` : ''} ${user ? `utilizatorului ${user.fullName}` : ''}`,
+      });
+
+      setShowAssignDialog(false);
+      loadEmails();
+    } catch (error) {
+      console.error('Error assigning document:', error);
+      toast({
+        title: "Eroare",
+        description: "Nu s-a putut atribui documentul",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleStatusChange = async () => {
@@ -464,16 +586,58 @@ export default function AdminRegistraturaPage() {
                 <CardContent className="p-6">
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-3 mb-4">
+                      <div className="flex items-center gap-2 mb-4 flex-wrap">
                         <code className="text-sm font-mono bg-slate-700/70 px-3 py-1.5 rounded-md text-blue-300 border border-slate-600 font-semibold">
                           {email.numarInregistrare}
                         </code>
                         {getStatusBadge(email.status)}
+
+                        {/* Priority Badge */}
+                        {email.priority && (
+                          <Badge className={`${priorityConfig[email.priority].color} text-white flex items-center gap-1.5`}>
+                            {(() => {
+                              const PriorityIcon = priorityConfig[email.priority].icon;
+                              return <PriorityIcon className="h-3.5 w-3.5" />;
+                            })()}
+                            {priorityConfig[email.priority].label.split(' ')[0]}
+                          </Badge>
+                        )}
+
+                        {/* Deadline Badge */}
+                        {email.deadline && (
+                          <Badge className={`${
+                            isOverdue(email.deadline) ? 'bg-rose-600' :
+                            getDaysRemaining(email.deadline) <= 3 ? 'bg-amber-600' :
+                            'bg-emerald-600'
+                          } text-white flex items-center gap-1.5`}>
+                            <Clock className="h-3.5 w-3.5" />
+                            {formatDaysRemaining(email.deadline)}
+                          </Badge>
+                        )}
+
                         <div className="flex items-center gap-2 text-sm text-gray-300 bg-slate-700/50 px-3 py-1 rounded-md">
                           <Calendar className="h-4 w-4 text-gray-400" />
                           {formatShortDate(email.dateReceived)}
                         </div>
                       </div>
+
+                      {/* Assignment Info */}
+                      {(email.departmentName || email.assignedToUserName) && (
+                        <div className="flex items-center gap-3 mb-3 text-sm">
+                          {email.departmentName && (
+                            <div className="flex items-center gap-1.5 bg-purple-500/10 px-2 py-1 rounded border border-purple-500/20">
+                              <Building2 className="h-3.5 w-3.5 text-purple-400" />
+                              <span className="text-purple-300">{email.departmentName}</span>
+                            </div>
+                          )}
+                          {email.assignedToUserName && (
+                            <div className="flex items-center gap-1.5 bg-blue-500/10 px-2 py-1 rounded border border-blue-500/20">
+                              <User className="h-3.5 w-3.5 text-blue-400" />
+                              <span className="text-blue-300">{email.assignedToUserName}</span>
+                            </div>
+                          )}
+                        </div>
+                      )}
 
                       <h3 className="text-lg font-semibold text-white mb-3 line-clamp-1">
                         {email.subject}
@@ -505,6 +669,18 @@ export default function AdminRegistraturaPage() {
                     </div>
 
                     <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => {
+                          setSelectedEmail(email);
+                          setShowAssignDialog(true);
+                        }}
+                        className="hover:bg-purple-600/20 hover:text-purple-300 text-gray-300 border border-transparent hover:border-purple-400/30"
+                        title="Atribuie"
+                      >
+                        <UserPlus className="h-5 w-5" />
+                      </Button>
                       <Button
                         size="sm"
                         variant="ghost"
@@ -779,6 +955,21 @@ export default function AdminRegistraturaPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Assignment Dialog */}
+      <AssignmentDialog
+        open={showAssignDialog}
+        onOpenChange={setShowAssignDialog}
+        emailSubject={selectedEmail?.subject}
+        departments={departments}
+        users={users}
+        currentAssignment={selectedEmail ? {
+          departmentId: selectedEmail.departmentId,
+          userId: selectedEmail.assignedToUserId,
+          priority: selectedEmail.priority || 'normal',
+        } : undefined}
+        onAssign={handleAssignment}
+      />
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>

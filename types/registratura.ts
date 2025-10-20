@@ -1,5 +1,7 @@
 import { Timestamp } from 'firebase/firestore';
 
+export type EmailPriority = 'urgent' | 'normal' | 'low';
+
 export interface RegistraturaEmail {
   id: string;
   numarInregistrare: string; // ex. REG-2025-000123
@@ -11,11 +13,21 @@ export interface RegistraturaEmail {
   dateReceived: Timestamp;
   attachments?: EmailAttachment[];
   status: EmailStatus;
-  assignedTo?: string;
+  assignedTo?: string; // deprecated, use assignedToUserId
   observatii?: string;
   messageId?: string; // pentru a evita duplicatele
   createdAt: Timestamp;
   updatedAt: Timestamp;
+
+  // Assignment fields
+  assignedToUserId: string | null;
+  assignedToUserName: string | null;
+  departmentId: string | null;
+  departmentName: string | null;
+  priority: EmailPriority;
+  deadline: Timestamp | null;
+  assignedAt?: Timestamp;
+  assignedBy?: string; // User ID who made the assignment
 }
 
 export interface EmailAttachment {
