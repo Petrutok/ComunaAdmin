@@ -187,7 +187,7 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      {/* Quick Access Navigation */}
+      {/* Quick Access Navigation Grid */}
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-9 gap-3">
         <Link href="/admin">
           <Card className="bg-gradient-to-br from-blue-600/20 to-blue-800/20 border-blue-500/30 hover:border-blue-400/50 transition-all cursor-pointer group">
