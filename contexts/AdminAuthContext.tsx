@@ -8,9 +8,10 @@ import {
   onAuthStateChanged,
   User 
 } from 'firebase/auth';
-import { auth, db } from '@/lib/firebase';
+import { auth, db, COLLECTIONS } from '@/lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import { useRouter, usePathname } from 'next/navigation';
+import { UserRole } from '@/types/departments';
 
 // LISTA DE ADMINISTRATORI AUTORIZAȚI
 // Poți adăuga/elimina email-uri aici sau le poți muta în Firestore
@@ -22,7 +23,10 @@ const AUTHORIZED_ADMINS = [
 
 interface AdminAuthContextType {
   user: User | null;
+  userRole: UserRole | null; // 'admin' or 'employee'
   isAdmin: boolean;
+  isEmployee: boolean;
+  userId: string | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
@@ -31,7 +35,10 @@ interface AdminAuthContextType {
 
 const AdminAuthContext = createContext<AdminAuthContextType>({
   user: null,
+  userRole: null,
   isAdmin: false,
+  isEmployee: false,
+  userId: null,
   loading: true,
   login: async () => {},
   logout: async () => {},
@@ -48,53 +55,70 @@ export const useAdminAuth = () => {
 
 export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [userRole, setUserRole] = useState<UserRole | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isEmployee, setIsEmployee] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
   const pathname = usePathname();
 
-  // Verifică dacă utilizatorul este admin
-  const checkAdminStatus = async (user: User) => {
-    // Metoda 1: Verifică în lista hardcoded
-    if (AUTHORIZED_ADMINS.includes(user.email || '')) {
-      return true;
-    }
-
-    // Metoda 2: Verifică în Firestore (opțional)
+  // Get user role from users collection in Firestore
+  const getUserRole = async (user: User): Promise<UserRole | null> => {
     try {
+      // Check in users collection for role
+      const userDoc = await getDoc(doc(db, COLLECTIONS.USERS, user.uid));
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        if (userData.active && userData.role) {
+          return userData.role as UserRole;
+        }
+      }
+
+      // Fallback: Check if in hardcoded admin list
+      if (AUTHORIZED_ADMINS.includes(user.email || '')) {
+        return 'admin';
+      }
+
+      // Fallback: Check in admins collection
       const adminDoc = await getDoc(doc(db, 'admins', user.uid));
       if (adminDoc.exists() && adminDoc.data()?.isActive) {
-        return true;
+        return 'admin';
       }
     } catch (error) {
-      console.error('Error checking admin status:', error);
+      console.error('Error getting user role:', error);
     }
 
-    return false;
+    return null;
   };
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
-        // Verifică dacă este admin
-        const adminStatus = await checkAdminStatus(user);
-        if (adminStatus) {
+        // Get user role from Firestore
+        const role = await getUserRole(user);
+        if (role) {
           setUser(user);
-          setIsAdmin(true);
+          setUserRole(role);
+          setIsAdmin(role === 'admin');
+          setIsEmployee(role === 'employee');
         } else {
-          // Nu este admin, deloghează
+          // No role found, user not authorized
           await signOut(auth);
           setUser(null);
+          setUserRole(null);
           setIsAdmin(false);
+          setIsEmployee(false);
           if (pathname?.startsWith('/admin') && pathname !== '/admin/login') {
             router.push('/admin/login');
           }
         }
       } else {
         setUser(null);
+        setUserRole(null);
         setIsAdmin(false);
-        // Redirecționează la login dacă încearcă să acceseze admin
+        setIsEmployee(false);
+        // Redirect to login if trying to access admin pages
         if (pathname?.startsWith('/admin') && pathname !== '/admin/login') {
           router.push('/admin/login');
         }
@@ -108,19 +132,15 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
   const login = async (email: string, password: string) => {
     setError(null);
     try {
-      // Verifică mai întâi dacă email-ul este în lista de admini
-      if (!AUTHORIZED_ADMINS.includes(email)) {
-        throw new Error('Nu aveți permisiunea de a accesa panoul de administrare');
-      }
-
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      const adminStatus = await checkAdminStatus(userCredential.user);
-      
-      if (!adminStatus) {
+      const role = await getUserRole(userCredential.user);
+
+      if (!role) {
         await signOut(auth);
         throw new Error('Nu aveți permisiunea de a accesa panoul de administrare');
       }
 
+      // Both admins and employees can log in
       router.push('/admin');
     } catch (error: any) {
       console.error('Login error:', error);
@@ -149,10 +169,13 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AdminAuthContext.Provider 
+    <AdminAuthContext.Provider
       value={{
         user,
+        userRole,
         isAdmin,
+        isEmployee,
+        userId: user?.uid || null,
         loading,
         login,
         logout,

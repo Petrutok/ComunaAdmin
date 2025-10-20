@@ -190,9 +190,6 @@ export function AssignmentDialog({
                   <SelectItem key={user.id} value={user.id} className="text-gray-300">
                     <div className="flex items-center gap-2">
                       <span>{user.fullName}</span>
-                      {user.role === 'department_head' && (
-                        <Badge className="bg-amber-600 text-xs">Șef</Badge>
-                      )}
                       {user.role === 'admin' && (
                         <Badge className="bg-rose-600 text-xs">Admin</Badge>
                       )}

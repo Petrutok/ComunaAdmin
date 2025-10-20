@@ -1,6 +1,7 @@
 import { Timestamp } from 'firebase/firestore';
 
-export type UserRole = 'admin' | 'department_head' | 'employee';
+// Simplified roles for village hall: admin (mayor/secretary) and employee (all staff)
+export type UserRole = 'admin' | 'employee';
 
 export interface Department {
   id: string;

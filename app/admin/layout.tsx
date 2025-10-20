@@ -25,8 +25,8 @@ import { AdminAuthProvider, useAdminAuth } from '@/contexts/AdminAuthContext';
 function AdminNav() {
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [newEmailsCount, setNewEmailsCount] = useState(0); // ADĂUGAT: State pentru numărul de email-uri noi
-  const { user, logout, isAdmin } = useAdminAuth();
+  const [newEmailsCount, setNewEmailsCount] = useState(0);
+  const { user, logout, isAdmin, isEmployee, userRole } = useAdminAuth();
 
   // ADĂUGAT: Effect pentru a obține numărul de email-uri noi
   useEffect(() => {
@@ -51,25 +51,30 @@ function AdminNav() {
     return () => clearInterval(interval);
   }, []);
 
-  const navItems = [
-    { href: '/admin', label: 'Dashboard', icon: Home },
-    { href: '/admin/cereri', label: 'Cereri', icon: FileText },
+  // Navigation items - different for admin vs employee
+  const allNavItems = [
+    { href: '/admin', label: 'Dashboard', icon: Home, adminOnly: false },
+    { href: '/admin/cereri', label: 'Cereri', icon: FileText, adminOnly: true },
     {
       href: '/admin/registratura',
       label: 'Registratură',
       icon: Mail,
-      badge: newEmailsCount // Badge pentru email-uri noi
+      badge: newEmailsCount,
+      adminOnly: false
     },
-    { href: '/admin/departments', label: 'Departamente', icon: Building2 },
-    { href: '/admin/users', label: 'Utilizatori', icon: UsersIcon },
-    { href: '/admin/issues', label: 'Probleme Raportate', icon: AlertTriangle },
-    { href: '/admin/notificari', label: 'Notificări', icon: Bell },
-    { href: '/admin/announcements', label: 'Anunțuri', icon: Newspaper },
-    { href: '/admin/jobs', label: 'Joburi', icon: Briefcase },
+    { href: '/admin/departments', label: 'Departamente', icon: Building2, adminOnly: true },
+    { href: '/admin/users', label: 'Utilizatori', icon: UsersIcon, adminOnly: true },
+    { href: '/admin/issues', label: 'Probleme Raportate', icon: AlertTriangle, adminOnly: true },
+    { href: '/admin/notificari', label: 'Notificări', icon: Bell, adminOnly: true },
+    { href: '/admin/announcements', label: 'Anunțuri', icon: Newspaper, adminOnly: true },
+    { href: '/admin/jobs', label: 'Joburi', icon: Briefcase, adminOnly: true },
   ];
 
-  // Pentru login page, nu afișa navigația
-  if (pathname === '/admin/login' || !isAdmin) {
+  // Filter nav items based on user role
+  const navItems = allNavItems.filter(item => !item.adminOnly || isAdmin);
+
+  // Don't show navigation on login page or if not authenticated
+  if (pathname === '/admin/login' || !userRole) {
     return null;
   }
 
@@ -197,7 +202,7 @@ function AdminNav() {
 }
 
 function ProtectedContent({ children }: { children: React.ReactNode }) {
-  const { loading, isAdmin } = useAdminAuth();
+  const { loading, isAdmin, isEmployee, userRole } = useAdminAuth();
   const pathname = usePathname();
 
   // Loading state
@@ -214,8 +219,8 @@ function ProtectedContent({ children }: { children: React.ReactNode }) {
     );
   }
 
-  // Dacă nu e admin și nu e pe pagina de login, arată mesaj
-  if (!isAdmin && pathname !== '/admin/login') {
+  // If not authenticated and not on login page, show access denied
+  if (!userRole && pathname !== '/admin/login') {
     return (
       <div className="min-h-screen bg-slate-900 flex items-center justify-center">
         <Card className="bg-slate-800 border-slate-700 max-w-md">

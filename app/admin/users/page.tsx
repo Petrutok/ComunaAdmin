@@ -60,8 +60,7 @@ import {
 } from "@/components/ui/alert-dialog";
 
 const roleConfig = {
-  admin: { label: 'Administrator', icon: Shield, color: 'bg-rose-600' },
-  department_head: { label: 'Șef Departament', icon: Crown, color: 'bg-amber-600' },
+  admin: { label: 'Administrator (Primar/Secretar)', icon: Shield, color: 'bg-rose-600' },
   employee: { label: 'Angajat', icon: Briefcase, color: 'bg-blue-600' },
 };
 
@@ -463,8 +462,7 @@ export default function UsersPage() {
                 </SelectTrigger>
                 <SelectContent className="bg-slate-800 border-slate-700">
                   <SelectItem value="employee" className="text-gray-300">Angajat</SelectItem>
-                  <SelectItem value="department_head" className="text-gray-300">Șef Departament</SelectItem>
-                  <SelectItem value="admin" className="text-gray-300">Administrator</SelectItem>
+                  <SelectItem value="admin" className="text-gray-300">Administrator (Primar/Secretar)</SelectItem>
                 </SelectContent>
               </Select>
             </div>

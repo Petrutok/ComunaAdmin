@@ -3,6 +3,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { useAdminAuth } from '@/contexts/AdminAuthContext';
 import {
   Bell,
   FileText,
@@ -29,6 +30,9 @@ import {
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { db, COLLECTIONS } from '@/lib/firebase';
+import { collection, query, where, getDocs, orderBy, Timestamp } from 'firebase/firestore';
+import { RegistraturaEmail } from '@/types/registratura';
 
 interface PendingItem {
   id: string;
@@ -43,8 +47,10 @@ interface PendingItem {
 }
 
 export default function AdminDashboard() {
+  const { isAdmin, isEmployee, userId } = useAdminAuth();
   const [currentTime, setCurrentTime] = useState(new Date());
   const [pendingItems, setPendingItems] = useState<PendingItem[]>([]);
+  const [myAssignedEmails, setMyAssignedEmails] = useState<RegistraturaEmail[]>([]);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -109,6 +115,35 @@ export default function AdminDashboard() {
     return () => clearInterval(timer);
   }, []);
 
+  // Load assigned emails for employees
+  useEffect(() => {
+    if (isEmployee && userId) {
+      loadMyAssignedEmails();
+    }
+  }, [isEmployee, userId]);
+
+  const loadMyAssignedEmails = async () => {
+    if (!userId) return;
+
+    try {
+      const emailsQuery = query(
+        collection(db, COLLECTIONS.REGISTRATURA_EMAILS),
+        where('assignedToUserId', '==', userId),
+        orderBy('createdAt', 'desc')
+      );
+
+      const snapshot = await getDocs(emailsQuery);
+      const emails = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+      })) as RegistraturaEmail[];
+
+      setMyAssignedEmails(emails);
+    } catch (error) {
+      console.error('Error loading assigned emails:', error);
+    }
+  };
+
   const getTimeAgo = (date: Date) => {
     const seconds = Math.floor((new Date().getTime() - date.getTime()) / 1000);
     if (seconds < 60) return 'Acum câteva secunde';
@@ -164,6 +199,163 @@ export default function AdminDashboard() {
   const inReviewCount = pendingItems.filter(item => item.status === 'in_review').length;
   const urgentCount = pendingItems.filter(item => item.priority === 'urgent').length;
 
+  // Show employee dashboard if user is employee
+  if (isEmployee) {
+    const myNewEmails = myAssignedEmails.filter(e => e.status === 'nou');
+    const myInProgressEmails = myAssignedEmails.filter(e => e.status === 'in_lucru');
+    const myResolvedEmails = myAssignedEmails.filter(e => e.status === 'rezolvat');
+
+    return (
+      <div className="space-y-6">
+        {/* Employee Header */}
+        <div className="flex justify-between items-start">
+          <div>
+            <h1 className="text-3xl font-bold text-white mb-2">Lucrările Mele</h1>
+            <p className="text-gray-400">Documente atribuite mie</p>
+          </div>
+          <div className="text-right">
+            <div className="text-sm text-gray-400">
+              {currentTime.toLocaleDateString('ro-RO', {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+              })}
+            </div>
+            <div className="text-2xl font-mono text-white">
+              {currentTime.toLocaleTimeString('ro-RO')}
+            </div>
+          </div>
+        </div>
+
+        {/* Employee Stats */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Card className="bg-slate-800 border-slate-700">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-2xl font-bold text-white">{myNewEmails.length}</p>
+                  <p className="text-sm text-gray-400">Noi</p>
+                </div>
+                <div className="bg-blue-500/20 rounded-lg p-2">
+                  <Mail className="h-5 w-5 text-blue-400" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-slate-800 border-slate-700">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-2xl font-bold text-white">{myInProgressEmails.length}</p>
+                  <p className="text-sm text-gray-400">În lucru</p>
+                </div>
+                <div className="bg-amber-500/20 rounded-lg p-2">
+                  <Clock className="h-5 w-5 text-amber-400" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-slate-800 border-slate-700">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-2xl font-bold text-white">{myResolvedEmails.length}</p>
+                  <p className="text-sm text-gray-400">Rezolvate</p>
+                </div>
+                <div className="bg-emerald-500/20 rounded-lg p-2">
+                  <CheckCircle className="h-5 w-5 text-emerald-400" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* My Assigned Documents */}
+        <Card className="bg-slate-800 border-slate-700">
+          <CardHeader>
+            <CardTitle className="text-white">Documente Atribuite Mie</CardTitle>
+            <CardDescription className="text-gray-400">
+              Toate documentele pe care trebuie să le procesez
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {myAssignedEmails.length === 0 ? (
+              <div className="text-center py-12">
+                <div className="inline-flex items-center justify-center w-16 h-16 bg-slate-700 rounded-full mb-4">
+                  <Mail className="h-8 w-8 text-gray-400" />
+                </div>
+                <p className="text-gray-400 text-lg font-medium">Nu ai documente atribuite</p>
+                <p className="text-gray-500 text-sm mt-1">Documentele tale vor apărea aici</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {myAssignedEmails.map((email) => (
+                  <Link key={email.id} href={`/admin/registratura`}>
+                    <div className="bg-slate-700/50 rounded-lg p-4 hover:bg-slate-700 transition-all border border-slate-600/50 hover:border-slate-500 cursor-pointer">
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-2">
+                            <h4 className="font-medium text-white">{email.subject || 'Fără subiect'}</h4>
+                            <Badge className={`text-xs ${
+                              email.status === 'nou' ? 'bg-blue-600' :
+                              email.status === 'in_lucru' ? 'bg-amber-600' :
+                              email.status === 'rezolvat' ? 'bg-emerald-600' :
+                              'bg-gray-600'
+                            }`}>
+                              {email.status === 'nou' ? 'Nou' :
+                               email.status === 'in_lucru' ? 'În lucru' :
+                               email.status === 'rezolvat' ? 'Rezolvat' : 'Respins'}
+                            </Badge>
+                            {email.priority && (
+                              <Badge className={`text-xs ${
+                                email.priority === 'urgent' ? 'bg-rose-600' :
+                                email.priority === 'normal' ? 'bg-amber-600' :
+                                'bg-gray-600'
+                              }`}>
+                                {email.priority === 'urgent' ? 'Urgent' :
+                                 email.priority === 'normal' ? 'Normal' : 'Scăzută'}
+                              </Badge>
+                            )}
+                          </div>
+                          <p className="text-sm text-gray-400">
+                            De la: {email.senderName || email.senderEmail}
+                          </p>
+                          <p className="text-xs text-gray-500 mt-1">
+                            Nr. înregistrare: {email.registrationNumber}
+                          </p>
+                        </div>
+                        <ChevronRight className="h-5 w-5 text-gray-400" />
+                      </div>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Quick Access */}
+        <Card className="bg-slate-800 border-slate-700">
+          <CardContent className="p-6">
+            <Link href="/admin/registratura">
+              <div className="flex items-center justify-between cursor-pointer hover:bg-slate-700/50 p-4 rounded-lg transition-all">
+                <div>
+                  <p className="text-white font-medium">Vezi toate în Registratură</p>
+                  <p className="text-sm text-gray-400 mt-1">Gestionează documentele tale</p>
+                </div>
+                <ChevronRight className="h-5 w-5 text-gray-400" />
+              </div>
+            </Link>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Admin dashboard (original)
   return (
     <div className="space-y-6">
       {/* Header */}
