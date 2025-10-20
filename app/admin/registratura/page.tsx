@@ -389,7 +389,14 @@ export default function AdminRegistraturaPage() {
   const handleRefreshEmails = async () => {
     try {
       setRefreshing(true);
+      console.log('[REGISTRATURA] Starting email refresh...');
       const result = await syncEmailsAction();
+      console.log('[REGISTRATURA] Sync result:', result);
+
+      // Check if result is valid
+      if (!result || typeof result.success === 'undefined') {
+        throw new Error('Server action returned invalid response');
+      }
 
       if (result.success) {
         toast({

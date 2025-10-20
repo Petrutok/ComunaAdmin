@@ -24,13 +24,21 @@ interface SyncEmailsResult {
  * This runs server-side and has admin privileges
  */
 export async function syncEmailsAction(): Promise<SyncEmailsResult> {
-  const emailService = new EmailService();
-  const registraturaService = new RegistraturaService();
+  console.log('[SYNC-EMAILS] Server action called');
+
+  let emailService: EmailService | null = null;
+  let registraturaService: RegistraturaService | null = null;
 
   try {
+    console.log('[SYNC-EMAILS] Initializing services...');
+    emailService = new EmailService();
+    registraturaService = new RegistraturaService();
+    console.log('[SYNC-EMAILS] Services initialized');
+
     console.log('[SYNC-EMAILS] Starting email sync via server action...');
 
     // Connect to email server
+    console.log('[SYNC-EMAILS] Attempting to connect to email server...');
     await emailService.connect();
     console.log('[SYNC-EMAILS] Connected to email server');
 
@@ -117,10 +125,13 @@ export async function syncEmailsAction(): Promise<SyncEmailsResult> {
     }
 
     // Disconnect from email server
-    await emailService.disconnect();
-    console.log('[SYNC-EMAILS] Disconnected from email server');
+    if (emailService) {
+      await emailService.disconnect();
+      console.log('[SYNC-EMAILS] Disconnected from email server');
+    }
 
     // Return results
+    console.log('[SYNC-EMAILS] Returning success result');
     return {
       success: true,
       message: `Processed ${results.processed} emails successfully`,
@@ -134,10 +145,21 @@ export async function syncEmailsAction(): Promise<SyncEmailsResult> {
   } catch (error) {
     console.error('[SYNC-EMAILS] Email sync error:', error);
 
+    // Ensure we disconnect even on error
+    try {
+      if (emailService) {
+        await emailService.disconnect();
+        console.log('[SYNC-EMAILS] Disconnected from email server after error');
+      }
+    } catch (disconnectError) {
+      console.error('[SYNC-EMAILS] Error disconnecting:', disconnectError);
+    }
+
     const errorMessage = error instanceof Error
       ? error.message
       : 'Failed to sync emails';
 
+    console.log('[SYNC-EMAILS] Returning error result:', errorMessage);
     return {
       success: false,
       message: errorMessage,
