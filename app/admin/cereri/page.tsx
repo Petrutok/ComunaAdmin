@@ -147,16 +147,7 @@ export default function AdminCereriPage() {
   const [observatii, setObservatii] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('toate');
-  const [currentTime, setCurrentTime] = useState(new Date());
   const { toast } = useToast();
-
-  // Update clock every second
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentTime(new Date());
-    }, 1000);
-    return () => clearInterval(timer);
-  }, []);
 
   useEffect(() => {
     loadCereri();
@@ -357,25 +348,10 @@ export default function AdminCereriPage() {
             <span className="font-semibold text-amber-300"> {cereri.filter(c => c.status === 'în așteptare').length}</span> în așteptare
           </p>
         </div>
-        <div className="flex items-center gap-6">
-          <div className="text-right">
-            <div className="text-sm text-gray-400">
-              {currentTime.toLocaleDateString('ro-RO', {
-                weekday: 'long',
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric',
-              })}
-            </div>
-            <div className="text-2xl font-mono text-white">
-              {currentTime.toLocaleTimeString('ro-RO')}
-            </div>
-          </div>
-          <Button onClick={loadCereri} className="bg-purple-600 hover:bg-purple-500 text-white font-medium shadow-lg hover:shadow-xl transition-all">
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Reîncarcă
-          </Button>
-        </div>
+        <Button onClick={loadCereri} className="bg-purple-600 hover:bg-purple-500 text-white font-medium shadow-lg hover:shadow-xl transition-all">
+          <RefreshCw className="h-4 w-4 mr-2" />
+          Reîncarcă
+        </Button>
       </div>
 
       {/* Filtre și căutare */}

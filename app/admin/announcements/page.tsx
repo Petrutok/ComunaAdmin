@@ -62,17 +62,7 @@ export default function AdminAnnouncementsPage() {
   const [showRejectDialog, setShowRejectDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [announcementToDelete, setAnnouncementToDelete] = useState<Announcement | null>(null);
-  const [currentTime, setCurrentTime] = useState(new Date());
   const { toast } = useToast();
-
-  // Update clock every second
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentTime(new Date());
-    }, 1000);
-    return () => clearInterval(timer);
-  }, []);
-
   useEffect(() => {
     loadAnnouncements();
   }, [activeTab]);
@@ -279,21 +269,6 @@ export default function AdminAnnouncementsPage() {
           <p className="text-gray-300 mt-2 text-lg">
             Total: {announcements.length} anunțuri
           </p>
-        </div>
-        <div className="flex items-center gap-6">
-          <div className="text-right">
-            <div className="text-sm text-gray-400">
-              {currentTime.toLocaleDateString('ro-RO', {
-                weekday: 'long',
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric',
-              })}
-            </div>
-            <div className="text-2xl font-mono text-white">
-              {currentTime.toLocaleTimeString('ro-RO')}
-            </div>
-          </div>
         </div>
       </div>
 

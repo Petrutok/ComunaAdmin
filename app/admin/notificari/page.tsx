@@ -96,7 +96,6 @@ export default function NotificationsPage() {
   const [showSuccess, setShowSuccess] = useState(false);
   const [showError, setShowError] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
-  const [currentTime, setCurrentTime] = useState(new Date());
   const [notificationHistory, setNotificationHistory] = useState<Array<{
     id: string;
     title: string;
@@ -104,15 +103,6 @@ export default function NotificationsPage() {
     sentAt: Date;
     status: 'sent' | 'failed';
   }>>([]);
-
-  // Update clock every second
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentTime(new Date());
-    }, 1000);
-    return () => clearInterval(timer);
-  }, []);
-
   const handleSelectPreset = (preset: NotificationPreset) => {
     setTitle(preset.title);
     setBody(preset.body);
@@ -202,21 +192,6 @@ export default function NotificationsPage() {
           <p className="text-gray-300 mt-2 text-lg">
             Trimite notificări către cetățenii abonați
           </p>
-        </div>
-        <div className="flex items-center gap-6">
-          <div className="text-right">
-            <div className="text-sm text-gray-400">
-              {currentTime.toLocaleDateString('ro-RO', {
-                weekday: 'long',
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric',
-              })}
-            </div>
-            <div className="text-2xl font-mono text-white">
-              {currentTime.toLocaleTimeString('ro-RO')}
-            </div>
-          </div>
         </div>
       </div>
 

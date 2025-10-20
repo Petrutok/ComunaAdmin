@@ -56,18 +56,7 @@ export default function AdminJobsPage() {
   const [rejectReason, setRejectReason] = useState('');
   const [showRejectDialog, setShowRejectDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [jobToDelete, setJobToDelete] = useState<Job | null>(null);
-  const [currentTime, setCurrentTime] = useState(new Date());
-  const { toast } = useToast();
-
-  // Update clock every second
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentTime(new Date());
-    }, 1000);
-    return () => clearInterval(timer);
-  }, []);
-
+  const [jobToDelete, setJobToDelete] = useState<Job | null>(null);  const { toast } = useToast();
   useEffect(() => {
     loadJobs();
   }, [activeTab]);
@@ -229,21 +218,6 @@ export default function AdminJobsPage() {
           <p className="text-gray-300 mt-2 text-lg">
             Gestionează ofertele de muncă publicate
           </p>
-        </div>
-        <div className="flex items-center gap-6">
-          <div className="text-right">
-            <div className="text-sm text-gray-400">
-              {currentTime.toLocaleDateString('ro-RO', {
-                weekday: 'long',
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric',
-              })}
-            </div>
-            <div className="text-2xl font-mono text-white">
-              {currentTime.toLocaleTimeString('ro-RO')}
-            </div>
-          </div>
         </div>
       </div>
 

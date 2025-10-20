@@ -1,211 +1,10 @@
 'use client';
 
-import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import {
-  Bell,
-  Briefcase,
-  Home,
-  LogOut,
-  Menu,
-  Newspaper,
-  X,
-  FileText,
-  AlertTriangle,
-  Shield,
-  User,
-  Mail, // ADĂUGAT: Import pentru iconița Mail
-  Building2,
-  Users as UsersIcon,
-} from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { AlertTriangle } from 'lucide-react';
 import { AdminAuthProvider, useAdminAuth } from '@/contexts/AdminAuthContext';
-
-function AdminNav() {
-  const pathname = usePathname();
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [newEmailsCount, setNewEmailsCount] = useState(0);
-  const { user, logout, isAdmin, isEmployee, userRole } = useAdminAuth();
-
-  // ADĂUGAT: Effect pentru a obține numărul de email-uri noi
-  useEffect(() => {
-    const fetchNewEmailsCount = async () => {
-      try {
-        // Aici ar trebui să faci un call la API pentru a obține numărul real
-        // const response = await fetch('/api/registratura/count-new');
-        // const data = await response.json();
-        // setNewEmailsCount(data.count);
-        
-        // Pentru test, setăm o valoare mock
-        setNewEmailsCount(3);
-      } catch (error) {
-        console.error('Error fetching new emails count:', error);
-      }
-    };
-
-    fetchNewEmailsCount();
-    // Refresh la fiecare 30 de secunde
-    const interval = setInterval(fetchNewEmailsCount, 30000);
-    
-    return () => clearInterval(interval);
-  }, []);
-
-  // Navigation items - different for admin vs employee
-  const allNavItems = [
-    { href: '/admin', label: 'Dashboard', icon: Home, adminOnly: false },
-    { href: '/admin/cereri', label: 'Cereri', icon: FileText, adminOnly: true },
-    {
-      href: '/admin/registratura',
-      label: 'Registratură',
-      icon: Mail,
-      badge: newEmailsCount,
-      adminOnly: false
-    },
-    { href: '/admin/departments', label: 'Departamente', icon: Building2, adminOnly: true },
-    { href: '/admin/users', label: 'Utilizatori', icon: UsersIcon, adminOnly: true },
-    { href: '/admin/issues', label: 'Probleme Raportate', icon: AlertTriangle, adminOnly: true },
-    { href: '/admin/notificari', label: 'Notificări', icon: Bell, adminOnly: true },
-    { href: '/admin/announcements', label: 'Anunțuri', icon: Newspaper, adminOnly: true },
-    { href: '/admin/jobs', label: 'Joburi', icon: Briefcase, adminOnly: true },
-  ];
-
-  // Filter nav items based on user role
-  const navItems = allNavItems.filter(item => !item.adminOnly || isAdmin);
-
-  // Don't show navigation on login page or if not authenticated
-  if (pathname === '/admin/login' || !userRole) {
-    return null;
-  }
-
-  // Hide navigation on main dashboard for admins (they have Control Center)
-  // But keep it for employees everywhere and for admins on sub-pages
-  if (isAdmin && (pathname === '/admin' || pathname === '/admin/')) {
-    return null;
-  }
-
-  return (
-    <div className="bg-slate-800 border-b border-slate-700">
-      <div className="max-w-7xl mx-auto px-4">
-        <div className="flex items-center justify-between h-16">
-          <div className="flex items-center gap-3">
-            <div className="bg-blue-600/20 rounded-lg p-2">
-              <Shield className="h-5 w-5 text-blue-400" />
-            </div>
-            <h1 className="text-xl font-bold text-white">Admin Panel</h1>
-          </div>
-
-          <nav className="hidden md:flex items-center space-x-1">
-            {navItems.map((item) => {
-              const Icon = item.icon;
-              const isActive = pathname === item.href;
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors relative ${
-                    isActive
-                      ? 'bg-slate-700 text-white'
-                      : 'text-gray-300 hover:bg-slate-700 hover:text-white'
-                  }`}
-                >
-                  <Icon className="h-4 w-4" />
-                  {item.label}
-                  {/* ADĂUGAT: Afișare badge pentru email-uri noi */}
-                  {item.badge && item.badge > 0 && (
-                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center font-bold">
-                      {item.badge > 9 ? '9+' : item.badge}
-                    </span>
-                  )}
-                </Link>
-              );
-            })}
-          </nav>
-
-          <div className="flex items-center gap-4">
-            {user && (
-              <div className="hidden md:flex items-center gap-3">
-                <div className="bg-slate-700/50 rounded-lg px-3 py-1.5 flex items-center gap-2">
-                  <User className="h-4 w-4 text-gray-400" />
-                  <span className="text-sm text-gray-300">{user.email}</span>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="text-gray-300 hover:text-white"
-                  onClick={logout}
-                >
-                  <LogOut className="h-4 w-4 mr-2" />
-                  Logout
-                </Button>
-              </div>
-            )}
-
-            <button
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="md:hidden text-gray-300 hover:text-white"
-            >
-              {mobileMenuOpen ? (
-                <X className="h-6 w-6" />
-              ) : (
-                <Menu className="h-6 w-6" />
-              )}
-            </button>
-          </div>
-        </div>
-
-        {mobileMenuOpen && (
-          <div className="md:hidden py-4 border-t border-slate-700">
-            <nav className="flex flex-col space-y-2">
-              {navItems.map((item) => {
-                const Icon = item.icon;
-                const isActive = pathname === item.href;
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    onClick={() => setMobileMenuOpen(false)}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors relative ${
-                      isActive
-                        ? 'bg-slate-700 text-white'
-                        : 'text-gray-300 hover:bg-slate-700 hover:text-white'
-                    }`}
-                  >
-                    <Icon className="h-4 w-4" />
-                    {item.label}
-                    {/* ADĂUGAT: Badge și pentru mobile */}
-                    {item.badge && item.badge > 0 && (
-                      <span className="ml-auto bg-red-500 text-white text-xs rounded-full px-2 py-0.5 font-bold">
-                        {item.badge}
-                      </span>
-                    )}
-                  </Link>
-                );
-              })}
-            </nav>
-            {user && (
-              <div className="mt-4 pt-4 border-t border-slate-700 px-4">
-                <div className="flex items-center gap-3 mb-3">
-                  <User className="h-4 w-4 text-gray-400" />
-                  <span className="text-sm text-gray-300">{user.email}</span>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="w-full text-gray-300 hover:text-white"
-                  onClick={logout}
-                >
-                  <LogOut className="h-4 w-4 mr-2" />
-                  Logout
-                </Button>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
+import { ControlCenterNav } from '@/components/admin/ControlCenterNav';
 
 function ProtectedContent({ children }: { children: React.ReactNode }) {
   const { loading, isAdmin, isEmployee, userRole } = useAdminAuth();
@@ -264,8 +63,8 @@ export default function AdminLayout({
   return (
     <AdminAuthProvider>
       <div className="min-h-screen bg-slate-900">
-        {pathname !== '/admin/login' && <AdminNav />}
         <main className="max-w-7xl mx-auto px-4 py-8">
+          {pathname !== '/admin/login' && pathname !== '/admin/login/' && <ControlCenterNav />}
           <ProtectedContent>{children}</ProtectedContent>
         </main>
       </div>
@@ -273,7 +72,7 @@ export default function AdminLayout({
   );
 }
 
-// Import Card dacă nu există
+// Helper Card components
 function Card({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
     <div className={`rounded-lg border ${className}`}>

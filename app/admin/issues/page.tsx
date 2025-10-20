@@ -82,8 +82,6 @@ export default function AdminIssuesPage() {
   const [showDetailsDialog, setShowDetailsDialog] = useState(false);
   const [newNote, setNewNote] = useState('');
   const [updatingStatus, setUpdatingStatus] = useState(false);
-  const [currentTime, setCurrentTime] = useState(new Date());
-
   // Statistici
   const [stats, setStats] = useState({
     total: 0,
@@ -91,15 +89,6 @@ export default function AdminIssuesPage() {
     inProgress: 0,
     resolved: 0
   });
-
-  // Update clock every second
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentTime(new Date());
-    }, 1000);
-    return () => clearInterval(timer);
-  }, []);
-
   useEffect(() => {
     loadIssues();
   }, []);
@@ -286,28 +275,13 @@ export default function AdminIssuesPage() {
             Gestionează problemele raportate de cetățeni
           </p>
         </div>
-        <div className="flex items-center gap-6">
-          <div className="text-right">
-            <div className="text-sm text-gray-400">
-              {currentTime.toLocaleDateString('ro-RO', {
-                weekday: 'long',
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric',
-              })}
-            </div>
-            <div className="text-2xl font-mono text-white">
-              {currentTime.toLocaleTimeString('ro-RO')}
-            </div>
-          </div>
-          <Button
-            onClick={loadIssues}
-            className="bg-red-500 hover:bg-red-500 text-white font-medium shadow-lg hover:shadow-xl transition-all"
-          >
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Reîncarcă
-          </Button>
-        </div>
+        <Button
+          onClick={loadIssues}
+          className="bg-red-500 hover:bg-red-500 text-white font-medium shadow-lg hover:shadow-xl transition-all"
+        >
+          <RefreshCw className="h-4 w-4 mr-2" />
+          Reîncarcă
+        </Button>
       </div>
 
       {/* Statistici */}

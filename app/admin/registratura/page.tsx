@@ -177,8 +177,6 @@ export default function AdminRegistraturaPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
-  const [currentTime, setCurrentTime] = useState(new Date());
-
   // Assignment form state
   const [assignmentData, setAssignmentData] = useState({
     departmentId: null as string | null,
@@ -187,15 +185,6 @@ export default function AdminRegistraturaPage() {
   });
 
   const { toast } = useToast();
-
-  // Update clock every second
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentTime(new Date());
-    }, 1000);
-    return () => clearInterval(timer);
-  }, []);
-
   useEffect(() => {
     loadEmails();
     loadDepartmentsAndUsers();
@@ -487,39 +476,6 @@ export default function AdminRegistraturaPage() {
             <span className="font-semibold text-blue-300"> {getStatusCount('nou')}</span> noi •
             <span className="font-semibold text-amber-300"> {getStatusCount('in_lucru')}</span> în lucru
           </p>
-        </div>
-        <div className="flex items-center gap-6">
-          <div className="text-right">
-            <div className="text-sm text-gray-400">
-              {currentTime.toLocaleDateString('ro-RO', {
-                weekday: 'long',
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric',
-              })}
-            </div>
-            <div className="text-2xl font-mono text-white">
-              {currentTime.toLocaleTimeString('ro-RO')}
-            </div>
-          </div>
-          <div className="flex gap-3">
-            <Button
-              onClick={handleRefreshEmails}
-              disabled={refreshing}
-              className="bg-blue-600 hover:bg-blue-500 text-white font-medium shadow-lg hover:shadow-xl transition-all"
-            >
-              <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
-              Verifică Email-uri
-            </Button>
-            <Button
-              onClick={loadEmails}
-              variant="outline"
-              className="border-slate-600 bg-slate-700/50 hover:bg-slate-700 text-white font-medium"
-            >
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Reîncarcă
-            </Button>
-          </div>
         </div>
       </div>
 

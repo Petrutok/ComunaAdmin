@@ -21,7 +21,6 @@ import {
   MapPin,
   ChevronRight,
   AlertCircle,
-  Timer,
   Mail,
   Building2,
   Users,
@@ -48,14 +47,10 @@ interface PendingItem {
 
 export default function AdminDashboard() {
   const { isAdmin, isEmployee, userId } = useAdminAuth();
-  const [currentTime, setCurrentTime] = useState(new Date());
   const [pendingItems, setPendingItems] = useState<PendingItem[]>([]);
   const [myAssignedEmails, setMyAssignedEmails] = useState<RegistraturaEmail[]>([]);
 
   useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentTime(new Date());
-    }, 1000);
 
     // Simulare date - în producție acestea ar veni din API
     setPendingItems([
@@ -111,8 +106,6 @@ export default function AdminDashboard() {
         priority: 'urgent'
       }
     ]);
-
-    return () => clearInterval(timer);
   }, []);
 
   // Load assigned emails for employees
@@ -378,122 +371,8 @@ export default function AdminDashboard() {
           <h1 className="text-3xl font-bold text-white mb-2">Control Center</h1>
           <p className="text-gray-400">Monitorizează și gestionează activitatea în timp real</p>
         </div>
-        <div className="text-right">
-          <div className="text-sm text-gray-400">
-            {currentTime.toLocaleDateString('ro-RO', { 
-              weekday: 'long', 
-              year: 'numeric', 
-              month: 'long', 
-              day: 'numeric' 
-            })}
-          </div>
-          <div className="text-2xl font-mono text-white">
-            {currentTime.toLocaleTimeString('ro-RO')}
-          </div>
-        </div>
       </div>
 
-      {/* Quick Access Navigation Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-9 gap-3">
-        <Link href="/admin">
-          <Card className="bg-gradient-to-br from-blue-600/20 to-blue-800/20 border-blue-500/30 hover:border-blue-400/50 transition-all cursor-pointer group">
-            <CardContent className="p-4 flex flex-col items-center text-center">
-              <div className="bg-blue-500/20 rounded-lg p-3 mb-2 group-hover:scale-110 transition-transform">
-                <Home className="h-6 w-6 text-blue-400" />
-              </div>
-              <p className="text-sm font-medium text-white">Dashboard</p>
-            </CardContent>
-          </Card>
-        </Link>
-
-        <Link href="/admin/cereri">
-          <Card className="bg-gradient-to-br from-cyan-600/20 to-cyan-800/20 border-cyan-500/30 hover:border-cyan-400/50 transition-all cursor-pointer group">
-            <CardContent className="p-4 flex flex-col items-center text-center">
-              <div className="bg-cyan-500/20 rounded-lg p-3 mb-2 group-hover:scale-110 transition-transform">
-                <FileText className="h-6 w-6 text-cyan-400" />
-              </div>
-              <p className="text-sm font-medium text-white">Cereri</p>
-            </CardContent>
-          </Card>
-        </Link>
-
-        <Link href="/admin/registratura">
-          <Card className="bg-gradient-to-br from-purple-600/20 to-purple-800/20 border-purple-500/30 hover:border-purple-400/50 transition-all cursor-pointer group">
-            <CardContent className="p-4 flex flex-col items-center text-center">
-              <div className="bg-purple-500/20 rounded-lg p-3 mb-2 group-hover:scale-110 transition-transform">
-                <Mail className="h-6 w-6 text-purple-400" />
-              </div>
-              <p className="text-sm font-medium text-white">Registratură</p>
-            </CardContent>
-          </Card>
-        </Link>
-
-        <Link href="/admin/departments">
-          <Card className="bg-gradient-to-br from-violet-600/20 to-violet-800/20 border-violet-500/30 hover:border-violet-400/50 transition-all cursor-pointer group">
-            <CardContent className="p-4 flex flex-col items-center text-center">
-              <div className="bg-violet-500/20 rounded-lg p-3 mb-2 group-hover:scale-110 transition-transform">
-                <Building2 className="h-6 w-6 text-violet-400" />
-              </div>
-              <p className="text-sm font-medium text-white">Departamente</p>
-            </CardContent>
-          </Card>
-        </Link>
-
-        <Link href="/admin/users">
-          <Card className="bg-gradient-to-br from-emerald-600/20 to-emerald-800/20 border-emerald-500/30 hover:border-emerald-400/50 transition-all cursor-pointer group">
-            <CardContent className="p-4 flex flex-col items-center text-center">
-              <div className="bg-emerald-500/20 rounded-lg p-3 mb-2 group-hover:scale-110 transition-transform">
-                <Users className="h-6 w-6 text-emerald-400" />
-              </div>
-              <p className="text-sm font-medium text-white">Utilizatori</p>
-            </CardContent>
-          </Card>
-        </Link>
-
-        <Link href="/admin/issues">
-          <Card className="bg-gradient-to-br from-orange-600/20 to-orange-800/20 border-orange-500/30 hover:border-orange-400/50 transition-all cursor-pointer group">
-            <CardContent className="p-4 flex flex-col items-center text-center">
-              <div className="bg-orange-500/20 rounded-lg p-3 mb-2 group-hover:scale-110 transition-transform">
-                <AlertTriangle className="h-6 w-6 text-orange-400" />
-              </div>
-              <p className="text-sm font-medium text-white">Probleme</p>
-            </CardContent>
-          </Card>
-        </Link>
-
-        <Link href="/admin/notificari">
-          <Card className="bg-gradient-to-br from-amber-600/20 to-amber-800/20 border-amber-500/30 hover:border-amber-400/50 transition-all cursor-pointer group">
-            <CardContent className="p-4 flex flex-col items-center text-center">
-              <div className="bg-amber-500/20 rounded-lg p-3 mb-2 group-hover:scale-110 transition-transform">
-                <Bell className="h-6 w-6 text-amber-400" />
-              </div>
-              <p className="text-sm font-medium text-white">Notificări</p>
-            </CardContent>
-          </Card>
-        </Link>
-
-        <Link href="/admin/announcements">
-          <Card className="bg-gradient-to-br from-pink-600/20 to-pink-800/20 border-pink-500/30 hover:border-pink-400/50 transition-all cursor-pointer group">
-            <CardContent className="p-4 flex flex-col items-center text-center">
-              <div className="bg-pink-500/20 rounded-lg p-3 mb-2 group-hover:scale-110 transition-transform">
-                <Newspaper className="h-6 w-6 text-pink-400" />
-              </div>
-              <p className="text-sm font-medium text-white">Anunțuri</p>
-            </CardContent>
-          </Card>
-        </Link>
-
-        <Link href="/admin/jobs">
-          <Card className="bg-gradient-to-br from-teal-600/20 to-teal-800/20 border-teal-500/30 hover:border-teal-400/50 transition-all cursor-pointer group">
-            <CardContent className="p-4 flex flex-col items-center text-center">
-              <div className="bg-teal-500/20 rounded-lg p-3 mb-2 group-hover:scale-110 transition-transform">
-                <Briefcase className="h-6 w-6 text-teal-400" />
-              </div>
-              <p className="text-sm font-medium text-white">Joburi</p>
-            </CardContent>
-          </Card>
-        </Link>
-      </div>
 
       {/* Alert Banner pentru urgențe */}
       {urgentCount > 0 && (
@@ -529,7 +408,7 @@ export default function AdminDashboard() {
                 <p className="text-sm text-gray-400">În așteptare</p>
               </div>
               <div className="bg-yellow-500/20 rounded-lg p-2">
-                <Timer className="h-5 w-5 text-yellow-400" />
+                <Calendar className="h-5 w-5 text-yellow-400" />
               </div>
             </div>
           </CardContent>

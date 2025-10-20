@@ -79,18 +79,7 @@ export default function UsersPage() {
     role: 'employee',
     departmentId: null,
     active: true,
-  });
-  const [currentTime, setCurrentTime] = useState(new Date());
-  const { toast } = useToast();
-
-  // Update clock every second
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentTime(new Date());
-    }, 1000);
-    return () => clearInterval(timer);
-  }, []);
-
+  });  const { toast } = useToast();
   useEffect(() => {
     loadData();
   }, []);
@@ -293,31 +282,6 @@ export default function UsersPage() {
           <p className="text-gray-300 mt-2 text-lg">
             <span className="font-semibold text-white">{activeCount}</span> utilizatori activi din <span className="font-semibold text-white">{users.length}</span> total
           </p>
-        </div>
-        <div className="flex items-center gap-6">
-          <div className="text-right">
-            <div className="text-sm text-gray-400">
-              {currentTime.toLocaleDateString('ro-RO', {
-                weekday: 'long',
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric',
-              })}
-            </div>
-            <div className="text-2xl font-mono text-white">
-              {currentTime.toLocaleTimeString('ro-RO')}
-            </div>
-          </div>
-          <Button
-            onClick={() => {
-              resetForm();
-              setShowDialog(true);
-            }}
-            className="bg-green-500 hover:bg-green-500 text-white font-medium shadow-lg hover:shadow-xl transition-all"
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Utilizator Nou
-          </Button>
         </div>
       </div>
 
