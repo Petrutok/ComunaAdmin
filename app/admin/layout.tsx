@@ -220,7 +220,8 @@ function ProtectedContent({ children }: { children: React.ReactNode }) {
   }
 
   // If not authenticated and not on login page, show access denied
-  if (!userRole && pathname !== '/admin/login') {
+  const isLoginPage = pathname === '/admin/login' || pathname === '/admin/login/';
+  if (!userRole && !isLoginPage) {
     return (
       <div className="min-h-screen bg-slate-900 flex items-center justify-center">
         <Card className="bg-slate-800 border-slate-700 max-w-md">
