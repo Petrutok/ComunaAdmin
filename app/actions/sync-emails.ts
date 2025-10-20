@@ -25,6 +25,10 @@ interface SyncEmailsResult {
  */
 export async function syncEmailsAction(): Promise<SyncEmailsResult> {
   console.log('[SYNC-EMAILS] Server action called');
+  console.log('[SYNC-EMAILS] EMAIL_HOST:', process.env.EMAIL_HOST);
+  console.log('[SYNC-EMAILS] EMAIL_PORT:', process.env.EMAIL_PORT);
+  console.log('[SYNC-EMAILS] EMAIL_USER:', process.env.EMAIL_USER ? 'SET' : 'NOT SET');
+  console.log('[SYNC-EMAILS] EMAIL_PASSWORD:', process.env.EMAIL_PASSWORD ? 'SET' : 'NOT SET');
 
   let emailService: EmailService | null = null;
   let registraturaService: RegistraturaService | null = null;
