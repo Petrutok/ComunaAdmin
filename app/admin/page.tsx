@@ -118,7 +118,10 @@ export default function AdminDashboard() {
   // Load assigned emails for employees
   useEffect(() => {
     if (isEmployee && userId) {
+      console.log('[EMPLOYEE-DASHBOARD] Effect triggered - isEmployee:', isEmployee, 'userId:', userId);
       loadMyAssignedEmails();
+    } else {
+      console.log('[EMPLOYEE-DASHBOARD] Effect skipped - isEmployee:', isEmployee, 'userId:', userId);
     }
   }, [isEmployee, userId]);
 
