@@ -57,7 +57,16 @@ export default function AdminJobsPage() {
   const [showRejectDialog, setShowRejectDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [jobToDelete, setJobToDelete] = useState<Job | null>(null);
+  const [currentTime, setCurrentTime] = useState(new Date());
   const { toast } = useToast();
+
+  // Update clock every second
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     loadJobs();
@@ -207,9 +216,35 @@ export default function AdminJobsPage() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold text-white">Moderare Joburi</h1>
+    <div className="space-y-6 p-6 bg-slate-900 min-h-screen">
+      {/* Header */}
+      <div className="flex items-center justify-between bg-gradient-to-r from-slate-800 to-slate-800/50 p-6 rounded-xl border border-slate-700/50 shadow-lg">
+        <div>
+          <h1 className="text-3xl font-bold text-white flex items-center gap-3">
+            <div className="bg-amber-500/30 rounded-xl p-3 border border-amber-500/20">
+              <Briefcase className="h-8 w-8 text-amber-500" />
+            </div>
+            Moderare Joburi
+          </h1>
+          <p className="text-gray-300 mt-2 text-lg">
+            Gestionează ofertele de muncă publicate
+          </p>
+        </div>
+        <div className="flex items-center gap-6">
+          <div className="text-right">
+            <div className="text-sm text-gray-400">
+              {currentTime.toLocaleDateString('ro-RO', {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+              })}
+            </div>
+            <div className="text-2xl font-mono text-white">
+              {currentTime.toLocaleTimeString('ro-RO')}
+            </div>
+          </div>
+        </div>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>

@@ -80,7 +80,16 @@ export default function UsersPage() {
     departmentId: null,
     active: true,
   });
+  const [currentTime, setCurrentTime] = useState(new Date());
   const { toast } = useToast();
+
+  // Update clock every second
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     loadData();
@@ -276,8 +285,8 @@ export default function UsersPage() {
       <div className="flex items-center justify-between bg-gradient-to-r from-slate-800 to-slate-800/50 p-6 rounded-xl border border-slate-700/50 shadow-lg">
         <div>
           <h1 className="text-3xl font-bold text-white flex items-center gap-3">
-            <div className="bg-emerald-500/30 rounded-xl p-3 border border-emerald-400/20">
-              <UsersIcon className="h-8 w-8 text-emerald-300" />
+            <div className="bg-green-500/30 rounded-xl p-3 border border-green-500/20">
+              <UsersIcon className="h-8 w-8 text-green-500" />
             </div>
             Utilizatori
           </h1>
@@ -285,16 +294,31 @@ export default function UsersPage() {
             <span className="font-semibold text-white">{activeCount}</span> utilizatori activi din <span className="font-semibold text-white">{users.length}</span> total
           </p>
         </div>
-        <Button
-          onClick={() => {
-            resetForm();
-            setShowDialog(true);
-          }}
-          className="bg-emerald-600 hover:bg-emerald-500 text-white font-medium shadow-lg"
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          Utilizator Nou
-        </Button>
+        <div className="flex items-center gap-6">
+          <div className="text-right">
+            <div className="text-sm text-gray-400">
+              {currentTime.toLocaleDateString('ro-RO', {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+              })}
+            </div>
+            <div className="text-2xl font-mono text-white">
+              {currentTime.toLocaleTimeString('ro-RO')}
+            </div>
+          </div>
+          <Button
+            onClick={() => {
+              resetForm();
+              setShowDialog(true);
+            }}
+            className="bg-green-500 hover:bg-green-500 text-white font-medium shadow-lg hover:shadow-xl transition-all"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Utilizator Nou
+          </Button>
+        </div>
       </div>
 
       {/* Search */}

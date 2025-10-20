@@ -70,7 +70,16 @@ export default function DepartmentsPage() {
     description: '',
     responsibleUserId: null,
   });
+  const [currentTime, setCurrentTime] = useState(new Date());
   const { toast } = useToast();
+
+  // Update clock every second
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     loadData();
@@ -242,16 +251,31 @@ export default function DepartmentsPage() {
             <span className="font-semibold text-white">{departments.length}</span> departamente înregistrate
           </p>
         </div>
-        <Button
-          onClick={() => {
-            resetForm();
-            setShowDialog(true);
-          }}
-          className="bg-purple-600 hover:bg-purple-500 text-white font-medium shadow-lg"
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          Departament Nou
-        </Button>
+        <div className="flex items-center gap-6">
+          <div className="text-right">
+            <div className="text-sm text-gray-400">
+              {currentTime.toLocaleDateString('ro-RO', {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+              })}
+            </div>
+            <div className="text-2xl font-mono text-white">
+              {currentTime.toLocaleTimeString('ro-RO')}
+            </div>
+          </div>
+          <Button
+            onClick={() => {
+              resetForm();
+              setShowDialog(true);
+            }}
+            className="bg-purple-600 hover:bg-purple-500 text-white font-medium shadow-lg hover:shadow-xl transition-all"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Departament Nou
+          </Button>
+        </div>
       </div>
 
       {/* Search */}

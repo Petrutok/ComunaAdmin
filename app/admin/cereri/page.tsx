@@ -147,7 +147,16 @@ export default function AdminCereriPage() {
   const [observatii, setObservatii] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('toate');
+  const [currentTime, setCurrentTime] = useState(new Date());
   const { toast } = useToast();
+
+  // Update clock every second
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     loadCereri();
@@ -333,18 +342,40 @@ export default function AdminCereriPage() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-6 p-6 bg-slate-900 min-h-screen">
+      {/* Header */}
+      <div className="flex items-center justify-between bg-gradient-to-r from-slate-800 to-slate-800/50 p-6 rounded-xl border border-slate-700/50 shadow-lg">
         <div>
-          <h1 className="text-3xl font-bold text-white">Gestiune Cereri</h1>
-          <p className="text-gray-400 mt-1">
-            Total: {cereri.length} cereri | {cereri.filter(c => c.status === 'în așteptare').length} în așteptare
+          <h1 className="text-3xl font-bold text-white flex items-center gap-3">
+            <div className="bg-purple-500/30 rounded-xl p-3 border border-purple-400/20">
+              <FileText className="h-8 w-8 text-purple-300" />
+            </div>
+            Gestiune Cereri
+          </h1>
+          <p className="text-gray-300 mt-2 text-lg">
+            <span className="font-semibold text-white">{cereri.length}</span> cereri totale •
+            <span className="font-semibold text-amber-300"> {cereri.filter(c => c.status === 'în așteptare').length}</span> în așteptare
           </p>
         </div>
-        <Button onClick={loadCereri} variant="outline">
-          <RefreshCw className="h-4 w-4 mr-2" />
-          Reîncarcă
-        </Button>
+        <div className="flex items-center gap-6">
+          <div className="text-right">
+            <div className="text-sm text-gray-400">
+              {currentTime.toLocaleDateString('ro-RO', {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+              })}
+            </div>
+            <div className="text-2xl font-mono text-white">
+              {currentTime.toLocaleTimeString('ro-RO')}
+            </div>
+          </div>
+          <Button onClick={loadCereri} className="bg-purple-600 hover:bg-purple-500 text-white font-medium shadow-lg hover:shadow-xl transition-all">
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Reîncarcă
+          </Button>
+        </div>
       </div>
 
       {/* Filtre și căutare */}

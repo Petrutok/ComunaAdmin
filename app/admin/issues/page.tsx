@@ -82,6 +82,7 @@ export default function AdminIssuesPage() {
   const [showDetailsDialog, setShowDetailsDialog] = useState(false);
   const [newNote, setNewNote] = useState('');
   const [updatingStatus, setUpdatingStatus] = useState(false);
+  const [currentTime, setCurrentTime] = useState(new Date());
 
   // Statistici
   const [stats, setStats] = useState({
@@ -90,6 +91,14 @@ export default function AdminIssuesPage() {
     inProgress: 0,
     resolved: 0
   });
+
+  // Update clock every second
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     loadIssues();
@@ -263,19 +272,42 @@ export default function AdminIssuesPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
+    <div className="space-y-6 p-6 bg-slate-900 min-h-screen">
+      {/* Header */}
+      <div className="flex items-center justify-between bg-gradient-to-r from-slate-800 to-slate-800/50 p-6 rounded-xl border border-slate-700/50 shadow-lg">
         <div>
-          <h1 className="text-3xl font-bold text-white mb-2">Probleme Raportate</h1>
-          <p className="text-gray-400">Gestionează problemele raportate de cetățeni</p>
+          <h1 className="text-3xl font-bold text-white flex items-center gap-3">
+            <div className="bg-red-500/30 rounded-xl p-3 border border-red-500/20">
+              <AlertTriangle className="h-8 w-8 text-red-500" />
+            </div>
+            Probleme Raportate
+          </h1>
+          <p className="text-gray-300 mt-2 text-lg">
+            Gestionează problemele raportate de cetățeni
+          </p>
         </div>
-        <Button 
-          onClick={loadIssues}
-          className="bg-blue-500 hover:bg-blue-600 text-white"
-        >
-          <RefreshCw className="h-4 w-4 mr-2" />
-          Reîncarcă
-        </Button>
+        <div className="flex items-center gap-6">
+          <div className="text-right">
+            <div className="text-sm text-gray-400">
+              {currentTime.toLocaleDateString('ro-RO', {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+              })}
+            </div>
+            <div className="text-2xl font-mono text-white">
+              {currentTime.toLocaleTimeString('ro-RO')}
+            </div>
+          </div>
+          <Button
+            onClick={loadIssues}
+            className="bg-red-500 hover:bg-red-500 text-white font-medium shadow-lg hover:shadow-xl transition-all"
+          >
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Reîncarcă
+          </Button>
+        </div>
       </div>
 
       {/* Statistici */}

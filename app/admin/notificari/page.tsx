@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -96,6 +96,7 @@ export default function NotificationsPage() {
   const [showSuccess, setShowSuccess] = useState(false);
   const [showError, setShowError] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [currentTime, setCurrentTime] = useState(new Date());
   const [notificationHistory, setNotificationHistory] = useState<Array<{
     id: string;
     title: string;
@@ -103,6 +104,14 @@ export default function NotificationsPage() {
     sentAt: Date;
     status: 'sent' | 'failed';
   }>>([]);
+
+  // Update clock every second
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   const handleSelectPreset = (preset: NotificationPreset) => {
     setTitle(preset.title);
@@ -180,10 +189,35 @@ export default function NotificationsPage() {
   }, {} as Record<string, NotificationPreset[]>);
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-white mb-2">Notificări</h1>
-        <p className="text-gray-400">Trimite notificări către cetățenii abonați</p>
+    <div className="space-y-6 p-6 bg-slate-900 min-h-screen">
+      {/* Header */}
+      <div className="flex items-center justify-between bg-gradient-to-r from-slate-800 to-slate-800/50 p-6 rounded-xl border border-slate-700/50 shadow-lg">
+        <div>
+          <h1 className="text-3xl font-bold text-white flex items-center gap-3">
+            <div className="bg-indigo-500/30 rounded-xl p-3 border border-indigo-500/20">
+              <Bell className="h-8 w-8 text-indigo-500" />
+            </div>
+            Notificări
+          </h1>
+          <p className="text-gray-300 mt-2 text-lg">
+            Trimite notificări către cetățenii abonați
+          </p>
+        </div>
+        <div className="flex items-center gap-6">
+          <div className="text-right">
+            <div className="text-sm text-gray-400">
+              {currentTime.toLocaleDateString('ro-RO', {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+              })}
+            </div>
+            <div className="text-2xl font-mono text-white">
+              {currentTime.toLocaleTimeString('ro-RO')}
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Notificări Toast */}
