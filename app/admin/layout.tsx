@@ -78,6 +78,12 @@ function AdminNav() {
     return null;
   }
 
+  // Hide navigation on main dashboard for admins (they have Control Center)
+  // But keep it for employees everywhere and for admins on sub-pages
+  if (isAdmin && (pathname === '/admin' || pathname === '/admin/')) {
+    return null;
+  }
+
   return (
     <div className="bg-slate-800 border-b border-slate-700">
       <div className="max-w-7xl mx-auto px-4">
