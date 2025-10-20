@@ -26,13 +26,29 @@ export class EmailService {
   }
 
   async connect(): Promise<void> {
+    const host = process.env.EMAIL_HOST || 'imap.gmail.com';
+    const port = parseInt(process.env.EMAIL_PORT || '993', 10);
+    const secure = process.env.EMAIL_TLS === 'true';
+    const user = process.env.EMAIL_USER;
+    const pass = process.env.EMAIL_PASSWORD;
+
+    console.log('[EMAIL-SERVICE] Connecting to IMAP server...');
+    console.log('[EMAIL-SERVICE] Host:', host);
+    console.log('[EMAIL-SERVICE] Port:', port);
+    console.log('[EMAIL-SERVICE] Secure:', secure);
+    console.log('[EMAIL-SERVICE] User:', user ? `${user.substring(0, 5)}...` : 'NOT SET');
+
+    if (!user || !pass) {
+      throw new Error('EMAIL_USER or EMAIL_PASSWORD environment variables not set');
+    }
+
     this.client = new ImapFlow({
-      host: process.env.EMAIL_HOST!,
-      port: parseInt(process.env.EMAIL_PORT!, 10),
-      secure: process.env.EMAIL_TLS === 'true',
+      host: host,
+      port: port,
+      secure: secure,
       auth: {
-        user: process.env.EMAIL_USER!,
-        pass: process.env.EMAIL_PASSWORD!,
+        user: user,
+        pass: pass,
       },
       logger: false, // Set to console for debugging
       tls: {
@@ -41,6 +57,7 @@ export class EmailService {
     });
 
     await this.client.connect();
+    console.log('[EMAIL-SERVICE] Successfully connected to IMAP server');
   }
 
   async disconnect(): Promise<void> {
