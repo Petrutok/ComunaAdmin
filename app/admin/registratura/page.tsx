@@ -78,34 +78,38 @@ const statusConfig = {
   'nou': {
     label: 'Nou',
     icon: Mail,
-    color: 'bg-blue-500',
-    textColor: 'text-blue-400',
-    bgColor: 'bg-blue-500/10',
-    borderColor: 'border-blue-500/20',
+    color: 'bg-blue-600',
+    textColor: 'text-blue-300',
+    bgColor: 'bg-blue-500/20',
+    borderColor: 'border-blue-400/30',
+    hoverColor: 'hover:bg-blue-500/30',
   },
   'in_lucru': {
     label: 'În lucru',
     icon: Loader2,
-    color: 'bg-yellow-500',
-    textColor: 'text-yellow-400',
-    bgColor: 'bg-yellow-500/10',
-    borderColor: 'border-yellow-500/20',
+    color: 'bg-amber-500',
+    textColor: 'text-amber-300',
+    bgColor: 'bg-amber-500/20',
+    borderColor: 'border-amber-400/30',
+    hoverColor: 'hover:bg-amber-500/30',
   },
   'rezolvat': {
     label: 'Rezolvat',
     icon: CheckCircle,
-    color: 'bg-green-500',
-    textColor: 'text-green-400',
-    bgColor: 'bg-green-500/10',
-    borderColor: 'border-green-500/20',
+    color: 'bg-emerald-600',
+    textColor: 'text-emerald-300',
+    bgColor: 'bg-emerald-500/20',
+    borderColor: 'border-emerald-400/30',
+    hoverColor: 'hover:bg-emerald-500/30',
   },
   'respins': {
     label: 'Respins',
     icon: XCircle,
-    color: 'bg-red-500',
-    textColor: 'text-red-400',
-    bgColor: 'bg-red-500/10',
-    borderColor: 'border-red-500/20',
+    color: 'bg-rose-600',
+    textColor: 'text-rose-300',
+    bgColor: 'bg-rose-500/20',
+    borderColor: 'border-rose-400/30',
+    hoverColor: 'hover:bg-rose-500/30',
   },
 };
 
@@ -318,8 +322,8 @@ export default function AdminRegistraturaPage() {
     const config = statusConfig[status];
     const Icon = config.icon;
     return (
-      <Badge className={`${config.color} text-white flex items-center gap-1.5 px-2.5 py-1`}>
-        <Icon className="h-3.5 w-3.5" />
+      <Badge className={`${config.color} text-white flex items-center gap-2 px-4 py-2 text-sm font-semibold shadow-sm`}>
+        <Icon className="h-4 w-4" />
         {config.label}
       </Badge>
     );
@@ -330,30 +334,36 @@ export default function AdminRegistraturaPage() {
   };
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6 p-6 bg-slate-900 min-h-screen">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between bg-gradient-to-r from-slate-800 to-slate-800/50 p-6 rounded-xl border border-slate-700/50 shadow-lg">
         <div>
           <h1 className="text-3xl font-bold text-white flex items-center gap-3">
-            <div className="bg-blue-600/20 rounded-lg p-2">
-              <Inbox className="h-7 w-7 text-blue-400" />
+            <div className="bg-blue-500/30 rounded-xl p-3 border border-blue-400/20">
+              <Inbox className="h-8 w-8 text-blue-300" />
             </div>
             Registratură Electronică
           </h1>
-          <p className="text-gray-400 mt-2">
-            {emails.length} documente totale • {getStatusCount('nou')} noi • {getStatusCount('in_lucru')} în lucru
+          <p className="text-gray-300 mt-2 text-lg">
+            <span className="font-semibold text-white">{emails.length}</span> documente totale •
+            <span className="font-semibold text-blue-300"> {getStatusCount('nou')}</span> noi •
+            <span className="font-semibold text-amber-300"> {getStatusCount('in_lucru')}</span> în lucru
           </p>
         </div>
         <div className="flex gap-3">
           <Button
             onClick={handleRefreshEmails}
             disabled={refreshing}
-            className="bg-blue-600 hover:bg-blue-700"
+            className="bg-blue-600 hover:bg-blue-500 text-white font-medium shadow-lg hover:shadow-xl transition-all"
           >
             <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
             Verifică Email-uri
           </Button>
-          <Button onClick={loadEmails} variant="outline" className="border-slate-600">
+          <Button
+            onClick={loadEmails}
+            variant="outline"
+            className="border-slate-600 bg-slate-700/50 hover:bg-slate-700 text-white font-medium"
+          >
             <RefreshCw className="h-4 w-4 mr-2" />
             Reîncarcă
           </Button>
@@ -361,24 +371,24 @@ export default function AdminRegistraturaPage() {
       </div>
 
       {/* Search and Filters */}
-      <Card className="bg-slate-800 border-slate-700">
-        <CardContent className="p-4">
+      <Card className="bg-slate-800/80 border-slate-600/50 shadow-md">
+        <CardContent className="p-5">
           <div className="flex flex-col md:flex-row gap-4">
             <div className="flex-1">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-300" />
                 <Input
                   placeholder="Caută după expeditor, subiect, număr înregistrare..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 bg-slate-900 border-slate-600 text-white"
+                  className="pl-11 bg-slate-700/50 border-slate-500 text-white placeholder:text-gray-400 focus:border-blue-400 focus:ring-2 focus:ring-blue-400/20 h-11"
                 />
               </div>
             </div>
             <Button
               variant="outline"
               onClick={() => setSortOrder(sortOrder === 'desc' ? 'asc' : 'desc')}
-              className="bg-slate-900 border-slate-600 text-white"
+              className="bg-slate-700/50 border-slate-500 text-white hover:bg-slate-600 font-medium h-11"
             >
               <ArrowUpDown className="h-4 w-4 mr-2" />
               {sortOrder === 'desc' ? 'Nou → Vechi' : 'Vechi → Nou'}
@@ -388,14 +398,18 @@ export default function AdminRegistraturaPage() {
       </Card>
 
       {/* Status Filters */}
-      <div className="flex gap-2 overflow-x-auto pb-2">
+      <div className="flex gap-3 overflow-x-auto pb-2">
         <Button
           variant={activeFilter === 'toate' ? 'default' : 'outline'}
           onClick={() => setActiveFilter('toate')}
-          className={activeFilter === 'toate' ? 'bg-slate-700' : 'border-slate-600'}
+          className={`${
+            activeFilter === 'toate'
+              ? 'bg-slate-700 text-white border-slate-600'
+              : 'border-slate-500 text-gray-300 bg-slate-800/50 hover:bg-slate-700/50'
+          } font-medium px-5 py-2.5 shadow-sm`}
         >
           Toate
-          <Badge className="ml-2 bg-slate-600">{emails.length}</Badge>
+          <Badge className="ml-2 bg-slate-600 text-white font-semibold px-2 py-0.5">{emails.length}</Badge>
         </Button>
         {(Object.keys(statusConfig) as EmailStatus[]).map((status) => {
           const config = statusConfig[status];
@@ -407,12 +421,18 @@ export default function AdminRegistraturaPage() {
               key={status}
               variant={activeFilter === status ? 'default' : 'outline'}
               onClick={() => setActiveFilter(status)}
-              className={activeFilter === status ? config.color : 'border-slate-600'}
+              className={`${
+                activeFilter === status
+                  ? `${config.color} text-white border-transparent shadow-md`
+                  : `border-slate-500 ${config.textColor} bg-slate-800/50 hover:${config.bgColor} hover:border-${status === 'nou' ? 'blue' : status === 'in_lucru' ? 'amber' : status === 'rezolvat' ? 'emerald' : 'rose'}-400/50`
+              } font-medium px-5 py-2.5`}
             >
-              <Icon className="h-4 w-4 mr-2" />
+              <Icon className={`h-4 w-4 mr-2 ${activeFilter === status ? 'animate-pulse' : ''}`} />
               {config.label}
               {count > 0 && (
-                <Badge className={`ml-2 ${config.color}`}>{count}</Badge>
+                <Badge className={`ml-2 ${activeFilter === status ? 'bg-white/20' : config.bgColor} font-semibold px-2 py-0.5`}>
+                  {count}
+                </Badge>
               )}
             </Button>
           );
@@ -440,37 +460,37 @@ export default function AdminRegistraturaPage() {
             const Icon = config.icon;
 
             return (
-              <Card key={email.id} className={`bg-slate-800 border-slate-700 hover:border-slate-600 transition-all`}>
-                <CardContent className="p-5">
+              <Card key={email.id} className={`bg-slate-800/90 border-slate-600/50 hover:border-slate-500 hover:shadow-lg transition-all duration-200 hover:scale-[1.01]`}>
+                <CardContent className="p-6">
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-3 mb-3">
-                        <code className="text-sm font-mono bg-slate-900 px-3 py-1 rounded text-blue-400 border border-slate-700">
+                      <div className="flex items-center gap-3 mb-4">
+                        <code className="text-sm font-mono bg-slate-700/70 px-3 py-1.5 rounded-md text-blue-300 border border-slate-600 font-semibold">
                           {email.numarInregistrare}
                         </code>
                         {getStatusBadge(email.status)}
-                        <div className="flex items-center gap-2 text-sm text-gray-400">
-                          <Calendar className="h-4 w-4" />
+                        <div className="flex items-center gap-2 text-sm text-gray-300 bg-slate-700/50 px-3 py-1 rounded-md">
+                          <Calendar className="h-4 w-4 text-gray-400" />
                           {formatShortDate(email.dateReceived)}
                         </div>
                       </div>
 
-                      <h3 className="text-lg font-semibold text-white mb-2 line-clamp-1">
+                      <h3 className="text-lg font-semibold text-white mb-3 line-clamp-1">
                         {email.subject}
                       </h3>
 
-                      <div className="flex items-center gap-4 text-sm text-gray-400 mb-3">
+                      <div className="flex items-center gap-4 text-sm text-gray-300 mb-3">
                         <div className="flex items-center gap-2">
-                          <User className="h-4 w-4" />
+                          <User className="h-4 w-4 text-gray-400" />
                           <span className="truncate max-w-xs">{email.from}</span>
                         </div>
                         {email.attachments && email.attachments.length > 0 && (
-                          <div className="flex items-center gap-1.5 text-blue-400">
+                          <div className="flex items-center gap-1.5 text-blue-300 bg-blue-500/10 px-3 py-1 rounded-md border border-blue-500/20">
                             <Paperclip className="h-4 w-4" />
                             <span className="font-medium">
                               {email.attachments.length} fișier{email.attachments.length !== 1 ? 'e' : ''}
                             </span>
-                            <span className="text-gray-500">
+                            <span className="text-gray-400">
                               ({formatFileSize(email.attachments.reduce((sum, att) => sum + att.fileSize, 0))})
                             </span>
                           </div>
@@ -478,7 +498,7 @@ export default function AdminRegistraturaPage() {
                       </div>
 
                       {email.body && (
-                        <p className="text-gray-400 text-sm line-clamp-2">
+                        <p className="text-gray-300 text-sm line-clamp-2 bg-slate-700/30 p-3 rounded-md border border-slate-600/30">
                           {email.body}
                         </p>
                       )}
@@ -492,9 +512,10 @@ export default function AdminRegistraturaPage() {
                           setSelectedEmail(email);
                           setShowDetailsDialog(true);
                         }}
-                        className="hover:bg-slate-700"
+                        className="hover:bg-blue-600/20 hover:text-blue-300 text-gray-300 border border-transparent hover:border-blue-400/30"
+                        title="Vezi detalii"
                       >
-                        <Eye className="h-4 w-4" />
+                        <Eye className="h-5 w-5" />
                       </Button>
                       <Button
                         size="sm"
@@ -505,21 +526,23 @@ export default function AdminRegistraturaPage() {
                           setObservatii(email.observatii || '');
                           setShowStatusDialog(true);
                         }}
-                        className="hover:bg-slate-700"
+                        className="hover:bg-amber-600/20 hover:text-amber-300 text-gray-300 border border-transparent hover:border-amber-400/30"
+                        title="Modifică status"
                       >
-                        <AlertCircle className="h-4 w-4" />
+                        <AlertCircle className="h-5 w-5" />
                       </Button>
                       {(email.status === 'rezolvat' || email.status === 'respins') && (
                         <Button
                           size="sm"
                           variant="ghost"
-                          className="text-red-400 hover:text-red-300 hover:bg-red-950"
+                          className="text-rose-300 hover:text-rose-200 hover:bg-rose-600/20 border border-transparent hover:border-rose-400/30"
                           onClick={() => {
                             setSelectedEmail(email);
                             setShowDeleteDialog(true);
                           }}
+                          title="Șterge document"
                         >
-                          <Trash2 className="h-4 w-4" />
+                          <Trash2 className="h-5 w-5" />
                         </Button>
                       )}
                     </div>
