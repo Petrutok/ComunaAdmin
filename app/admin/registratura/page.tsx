@@ -36,7 +36,7 @@ import {
   Search,
   Download,
   Paperclip,
-  User,
+  User as UserIcon,
   FileText,
   ArrowUpDown,
   File,
@@ -632,7 +632,7 @@ export default function AdminRegistraturaPage() {
                           )}
                           {email.assignedToUserName && (
                             <div className="flex items-center gap-1.5 bg-blue-500/10 px-2 py-1 rounded border border-blue-500/20">
-                              <User className="h-3.5 w-3.5 text-blue-400" />
+                              <UserIcon className="h-3.5 w-3.5 text-blue-400" />
                               <span className="text-blue-300">{email.assignedToUserName}</span>
                             </div>
                           )}
@@ -645,7 +645,7 @@ export default function AdminRegistraturaPage() {
 
                       <div className="flex items-center gap-4 text-sm text-gray-300 mb-3">
                         <div className="flex items-center gap-2">
-                          <User className="h-4 w-4 text-gray-400" />
+                          <UserIcon className="h-4 w-4 text-gray-400" />
                           <span className="truncate max-w-xs">{email.from}</span>
                         </div>
                         {email.attachments && email.attachments.length > 0 && (
