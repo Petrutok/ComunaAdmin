@@ -16,6 +16,7 @@ import { db, storage } from '@/lib/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { RegistraturaEmail, EmailStatus } from '@/types/registratura';
 import { generateRegistrationNumber } from '@/lib/generateRegistrationNumber';
+import { processAndMergeDocuments, generateTrackingUrl } from '@/lib/services/document-processor';
 
 const COLLECTION_NAME = 'registratura_emails';
 
@@ -152,5 +153,136 @@ export class RegistraturaService {
   // Șterge email
   async deleteEmail(emailId: string): Promise<void> {
     await deleteDoc(doc(db, COLLECTION_NAME, emailId));
+  }
+
+  // Process email attachments - creates a single merged and stamped official document
+  async processEmailAttachments(
+    emailId: string,
+    registrationNumber: string,
+    dateReceived: Date,
+    senderName: string,
+    senderEmail: string,
+    departmentName?: string
+  ): Promise<{
+    success: boolean;
+    processedCount: number;
+    totalCount: number;
+    errors: string[];
+    downloadURL?: string;
+  }> {
+    try {
+      // Get email document
+      const emailDoc = await getDoc(doc(db, COLLECTION_NAME, emailId));
+      if (!emailDoc.exists()) {
+        return {
+          success: false,
+          processedCount: 0,
+          totalCount: 0,
+          errors: ['Email not found'],
+        };
+      }
+
+      const email = { id: emailDoc.id, ...emailDoc.data() } as RegistraturaEmail;
+
+      if (!email.attachments || email.attachments.length === 0) {
+        console.log(`[REGISTRATURA] No attachments to process for ${registrationNumber}`);
+        return {
+          success: true,
+          processedCount: 0,
+          totalCount: 0,
+          errors: [],
+        };
+      }
+
+      console.log(`[REGISTRATURA] Processing ${email.attachments.length} attachments for ${registrationNumber}`);
+
+      // Fetch all attachment buffers from Firebase Storage
+      const files: Array<{ buffer: Buffer; fileName: string; fileType: string }> = [];
+
+      for (const attachment of email.attachments) {
+        try {
+          console.log(`[REGISTRATURA] Fetching ${attachment.fileName} from Storage`);
+          const response = await fetch(attachment.downloadURL);
+          if (!response.ok) {
+            console.error(`[REGISTRATURA] Failed to fetch ${attachment.fileName}: ${response.statusText}`);
+            continue;
+          }
+
+          const arrayBuffer = await response.arrayBuffer();
+          files.push({
+            buffer: Buffer.from(arrayBuffer),
+            fileName: attachment.fileName,
+            fileType: attachment.fileType,
+          });
+        } catch (error) {
+          console.error(`[REGISTRATURA] Error fetching ${attachment.fileName}:`, error);
+        }
+      }
+
+      if (files.length === 0) {
+        return {
+          success: false,
+          processedCount: 0,
+          totalCount: email.attachments.length,
+          errors: ['Failed to fetch any attachments from storage'],
+        };
+      }
+
+      console.log(`[REGISTRATURA] Successfully fetched ${files.length}/${email.attachments.length} files`);
+
+      // Process and merge all documents into a single official PDF
+      const result = await processAndMergeDocuments(files, {
+        registrationNumber,
+        dateReceived,
+        organizationName: 'PRIMĂRIA DIGITALĂ',
+        departmentName,
+        senderName,
+        senderEmail,
+        trackingUrl: undefined, // No QR code
+        uploadToStorage: true,
+      });
+
+      if (!result.success) {
+        return {
+          success: false,
+          processedCount: 0,
+          totalCount: email.attachments.length,
+          errors: [result.error || 'Unknown processing error'],
+        };
+      }
+
+      // Update Firestore document with official document
+      await updateDoc(doc(db, COLLECTION_NAME, emailId), {
+        officialDocument: {
+          fileName: 'document-oficial.pdf',
+          downloadURL: result.downloadURL!,
+          fileSize: result.fileSize!,
+          pageCount: result.pageCount,
+          sourceFileCount: files.length,
+          processedAt: Timestamp.now(),
+          storagePath: result.storagePath,
+        },
+        lastProcessed: Timestamp.now(),
+        updatedAt: Timestamp.now(),
+      });
+
+      console.log(`[REGISTRATURA] ✓ Created official document for ${registrationNumber}`);
+
+      return {
+        success: true,
+        processedCount: files.length,
+        totalCount: email.attachments.length,
+        errors: [],
+        downloadURL: result.downloadURL,
+      };
+    } catch (error) {
+      console.error('[REGISTRATURA] Error in processEmailAttachments:', error);
+      return {
+        success: false,
+        processedCount: 0,
+        totalCount: 0,
+        errors: [error instanceof Error ? error.message : 'Unknown error'],
+      };
+    }
   }
 }

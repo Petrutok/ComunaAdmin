@@ -54,6 +54,7 @@ import {
   Building2,
   Zap,
   AlertTriangle as AlertTriangleIcon,
+  Award,
 } from 'lucide-react';
 import {
   Dialog,
@@ -177,6 +178,7 @@ export default function AdminRegistraturaPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [processing, setProcessing] = useState(false);
   // Assignment form state
   const [assignmentData, setAssignmentData] = useState({
     departmentId: null as string | null,
@@ -423,6 +425,61 @@ export default function AdminRegistraturaPage() {
     }
   };
 
+  const handleProcessDocuments = async (email: RegistraturaEmail) => {
+    if (!email.attachments || email.attachments.length === 0) {
+      toast({
+        title: 'Info',
+        description: 'Nu există atașamente de procesat',
+      });
+      return;
+    }
+
+    try {
+      setProcessing(true);
+      console.log('[REGISTRATURA] Processing documents for', email.numarInregistrare);
+
+      // Extract sender name and email from the "from" field
+      // Format can be: "Name <email@example.com>" or just "email@example.com"
+      const senderName = email.from.replace(/<.*>/, '').trim() || 'Expeditor Necunoscut';
+      const emailMatch = email.from.match(/<(.+)>/);
+      const senderEmail = emailMatch ? emailMatch[1] : email.from;
+
+      const { processDocumentsAction } = await import('@/app/actions/process-documents');
+
+      const result = await processDocumentsAction(
+        email.id,
+        email.numarInregistrare,
+        email.dateReceived.toDate().toISOString(),
+        senderName,
+        senderEmail,
+        email.departmentName || undefined
+      );
+
+      if (result.success) {
+        toast({
+          title: 'Succes',
+          description: `Document oficial creat cu ${result.processedCount} atașamente`,
+        });
+        await loadEmails(); // Reload to show official document
+      } else {
+        toast({
+          title: 'Eroare',
+          description: result.errors.join(', '),
+          variant: 'destructive',
+        });
+      }
+    } catch (error) {
+      console.error('Error processing documents:', error);
+      toast({
+        title: 'Eroare',
+        description: error instanceof Error ? error.message : 'Nu s-au putut procesa documentele',
+        variant: 'destructive',
+      });
+    } finally {
+      setProcessing(false);
+    }
+  };
+
   const formatDate = (timestamp: any) => {
     if (!timestamp) return 'N/A';
     const date = timestamp.toDate?.() || new Date(timestamp);
@@ -442,6 +499,8 @@ export default function AdminRegistraturaPage() {
       day: '2-digit',
       month: '2-digit',
       year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
     });
   };
 
@@ -477,6 +536,14 @@ export default function AdminRegistraturaPage() {
             <span className="font-semibold text-amber-300"> {getStatusCount('in_lucru')}</span> în lucru
           </p>
         </div>
+        <Button
+          onClick={handleRefreshEmails}
+          disabled={refreshing}
+          className="bg-blue-600 hover:bg-blue-500 text-white font-medium shadow-lg hover:shadow-xl transition-all"
+        >
+          <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+          {refreshing ? 'Sincronizare...' : 'Sincronizează'}
+        </Button>
       </div>
 
       {/* Search and Filters */}
@@ -793,10 +860,30 @@ export default function AdminRegistraturaPage() {
                 {selectedEmail.attachments && selectedEmail.attachments.length > 0 && (
                   <Card className="bg-slate-900 border-slate-700">
                     <CardHeader>
-                      <CardTitle className="text-white text-lg flex items-center gap-2">
-                        <Paperclip className="h-5 w-5" />
-                        Atașamente ({selectedEmail.attachments.length})
-                      </CardTitle>
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="text-white text-lg flex items-center gap-2">
+                          <Paperclip className="h-5 w-5" />
+                          Atașamente Originale ({selectedEmail.attachments.length})
+                        </CardTitle>
+                        <Button
+                          onClick={() => handleProcessDocuments(selectedEmail)}
+                          disabled={processing}
+                          size="sm"
+                          className="bg-purple-600 hover:bg-purple-700 text-white"
+                        >
+                          {processing ? (
+                            <>
+                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                              Procesare...
+                            </>
+                          ) : (
+                            <>
+                              <Zap className="h-4 w-4 mr-2" />
+                              Procesează Documente
+                            </>
+                          )}
+                        </Button>
+                      </div>
                     </CardHeader>
                     <CardContent>
                       <div className="space-y-2">
@@ -840,6 +927,141 @@ export default function AdminRegistraturaPage() {
                           );
                         })}
                       </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Official Document - Merged and Stamped */}
+                {selectedEmail.officialDocument && (
+                  <Card className="bg-gradient-to-br from-green-900/30 to-emerald-900/30 border-green-600/50 border-2">
+                    <CardHeader>
+                      <CardTitle className="text-green-300 text-xl flex items-center gap-2">
+                        <Award className="h-6 w-6" />
+                        Document Oficial Certificat
+                      </CardTitle>
+                      <p className="text-green-400/70 text-sm mt-1">
+                        Document îmbinat și timbrat cu ștampilă oficială
+                      </p>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="bg-green-950/40 rounded-lg p-6 border border-green-600/30">
+                        <div className="flex items-center justify-between mb-6">
+                          <div className="flex items-center gap-4">
+                            <div className="bg-green-600 rounded-full p-4">
+                              <FileText className="h-8 w-8 text-white" />
+                            </div>
+                            <div>
+                              <p className="text-white font-bold text-lg">
+                                {selectedEmail.officialDocument.fileName}
+                              </p>
+                              <div className="flex items-center gap-4 text-green-300 text-sm mt-1">
+                                <span>{selectedEmail.officialDocument.pageCount} pagini</span>
+                                <span>•</span>
+                                <span>{selectedEmail.officialDocument.sourceFileCount} atașamente îmbinate</span>
+                                <span>•</span>
+                                <span>{(selectedEmail.officialDocument.fileSize / 1024 / 1024).toFixed(2)} MB</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex gap-3">
+                          <a
+                            href={selectedEmail.officialDocument.downloadURL}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex-1 flex items-center justify-center gap-2 px-6 py-4 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition-colors shadow-lg hover:shadow-xl"
+                          >
+                            <Download className="h-5 w-5" />
+                            Descarcă Document Oficial
+                          </a>
+
+                          <a
+                            href={`/registratura/track/${encodeURIComponent(selectedEmail.numarInregistrare)}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center justify-center gap-2 px-6 py-4 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors shadow-lg hover:shadow-xl"
+                          >
+                            <ExternalLink className="h-5 w-5" />
+                            Pagină Verificare
+                          </a>
+                        </div>
+
+                        <div className="mt-4 pt-4 border-t border-green-700/30">
+                          <p className="text-green-300/70 text-xs">
+                            Procesat: {selectedEmail.officialDocument.processedAt.toDate().toLocaleString('ro-RO')}
+                          </p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Processed Attachments (Legacy - Individual Files) */}
+                {selectedEmail.processedAttachments && selectedEmail.processedAttachments.length > 0 && (
+                  <Card className="bg-green-950/20 border-green-700/30">
+                    <CardHeader>
+                      <CardTitle className="text-green-400 text-lg flex items-center gap-2">
+                        <CheckCheck className="h-5 w-5" />
+                        Documente Procesate ({selectedEmail.processedAttachments.length})
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-2">
+                        {selectedEmail.processedAttachments.map((attachment, idx) => (
+                          <div
+                            key={idx}
+                            className="flex items-center justify-between bg-green-950/30 rounded-lg p-4 hover:bg-green-950/40 transition-colors group border border-green-700/20"
+                          >
+                            <div className="flex items-center gap-3 flex-1 min-w-0">
+                              <div className="text-green-400">
+                                <FileText className="h-6 w-6" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="text-white font-medium truncate flex items-center gap-2">
+                                  {attachment.fileName}
+                                  {attachment.wasConverted && (
+                                    <Badge variant="outline" className="text-xs bg-blue-500/20 text-blue-300 border-blue-500/30">
+                                      Convertit
+                                    </Badge>
+                                  )}
+                                  {attachment.wasStamped && (
+                                    <Badge variant="outline" className="text-xs bg-purple-500/20 text-purple-300 border-purple-500/30">
+                                      Timbrat
+                                    </Badge>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-2 text-xs text-gray-400">
+                                  <span>{formatFileSize(attachment.fileSize)}</span>
+                                  {attachment.pageCount && (
+                                    <>
+                                      <span>•</span>
+                                      <span>{attachment.pageCount} pagini</span>
+                                    </>
+                                  )}
+                                  <span>•</span>
+                                  <span>PDF</span>
+                                </div>
+                              </div>
+                            </div>
+
+                            <a
+                              href={attachment.downloadURL}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
+                            >
+                              <Download className="h-4 w-4" />
+                              Descarcă
+                            </a>
+                          </div>
+                        ))}
+                      </div>
+                      {selectedEmail.lastProcessed && (
+                        <p className="text-xs text-gray-400 mt-3">
+                          Ultima procesare: {formatDate(selectedEmail.lastProcessed)}
+                        </p>
+                      )}
                     </CardContent>
                   </Card>
                 )}

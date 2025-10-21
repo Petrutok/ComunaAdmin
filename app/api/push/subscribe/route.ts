@@ -5,9 +5,12 @@ import { collection, addDoc, deleteDoc, query, where, getDocs, Timestamp } from 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { subscription, action } = body;
+    const { subscription, action, deviceInfo } = body;
 
-    if (action === 'subscribe') {
+    // If no action is specified, default to 'subscribe'
+    const effectiveAction = action || 'subscribe';
+
+    if (effectiveAction === 'subscribe') {
       // Save subscription to Firestore
       const subscriptionsRef = collection(db, 'push_subscriptions');
 
@@ -18,34 +21,29 @@ export async function POST(request: NextRequest) {
       );
       const existingDocs = await getDocs(q);
 
+      const subscriptionData = {
+        ...subscription,
+        deviceInfo: deviceInfo || null,
+        createdAt: Timestamp.now(),
+        lastActive: Timestamp.now(),
+      };
+
       if (existingDocs.empty) {
         // Add new subscription
-        await addDoc(subscriptionsRef, {
-          ...subscription,
-          createdAt: Timestamp.now(),
-          lastActive: Timestamp.now(),
-        });
-
-        return NextResponse.json({
-          success: true,
-          message: 'Subscription saved successfully'
-        });
+        await addDoc(subscriptionsRef, subscriptionData);
       } else {
         // Update existing subscription
         const docRef = existingDocs.docs[0].ref;
         await deleteDoc(docRef);
-        await addDoc(subscriptionsRef, {
-          ...subscription,
-          createdAt: Timestamp.now(),
-          lastActive: Timestamp.now(),
-        });
-
-        return NextResponse.json({
-          success: true,
-          message: 'Subscription updated successfully'
-        });
+        await addDoc(subscriptionsRef, subscriptionData);
       }
-    } else if (action === 'unsubscribe') {
+
+      return NextResponse.json({
+        success: true,
+        message: 'Subscription saved successfully'
+      });
+
+    } else if (effectiveAction === 'unsubscribe') {
       // Remove subscription from Firestore
       const subscriptionsRef = collection(db, 'push_subscriptions');
       const q = query(
@@ -66,14 +64,14 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: false,
-      message: 'Invalid action'
+      error: 'Invalid action'
     }, { status: 400 });
 
   } catch (error) {
     console.error('[API] Push subscribe error:', error);
     return NextResponse.json({
       success: false,
-      message: error instanceof Error ? error.message : 'Internal server error'
+      error: error instanceof Error ? error.message : 'Internal server error'
     }, { status: 500 });
   }
 }

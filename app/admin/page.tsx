@@ -220,19 +220,6 @@ export default function AdminDashboard() {
             <h1 className="text-3xl font-bold text-white mb-2">Lucrările Mele</h1>
             <p className="text-gray-400">Documente atribuite mie</p>
           </div>
-          <div className="text-right">
-            <div className="text-sm text-gray-400">
-              {currentTime.toLocaleDateString('ro-RO', {
-                weekday: 'long',
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric'
-              })}
-            </div>
-            <div className="text-2xl font-mono text-white">
-              {currentTime.toLocaleTimeString('ro-RO')}
-            </div>
-          </div>
         </div>
 
         {/* Employee Stats */}

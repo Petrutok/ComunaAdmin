@@ -28,6 +28,11 @@ export interface RegistraturaEmail {
   deadline: Timestamp | null;
   assignedAt?: Timestamp;
   assignedBy?: string; // User ID who made the assignment
+
+  // Processed documents
+  processedAttachments?: ProcessedAttachment[]; // Individual processed files (legacy)
+  officialDocument?: OfficialDocument; // Single merged and stamped official document
+  lastProcessed?: Timestamp;
 }
 
 export interface EmailAttachment {
@@ -36,6 +41,32 @@ export interface EmailAttachment {
   fileSize: number; // Size in bytes
   fileType: string; // MIME type (e.g., 'application/pdf')
   uploadedAt: Timestamp; // Upload timestamp
+}
+
+export interface ProcessedAttachment {
+  fileName: string; // Processed filename (usually .pdf)
+  downloadURL: string; // Firebase Storage URL for processed file
+  fileSize: number; // Size in bytes
+  fileType: string; // MIME type (usually 'application/pdf')
+  pageCount?: number; // Number of pages in PDF
+  wasConverted: boolean; // True if converted from another format
+  wasStamped: boolean; // True if registration stamp was applied
+  processedAt: Timestamp; // Processing timestamp
+  storagePath?: string; // Firebase Storage path
+}
+
+/**
+ * Official merged and stamped document
+ * Represents the single PDF with all attachments merged and stamped
+ */
+export interface OfficialDocument {
+  fileName: string; // Usually 'document-oficial.pdf'
+  downloadURL: string; // Firebase Storage URL
+  fileSize: number; // Size in bytes
+  pageCount?: number; // Total pages in merged PDF
+  sourceFileCount: number; // Number of original attachments merged
+  processedAt: Timestamp; // When the document was created
+  storagePath?: string; // Firebase Storage path
 }
 
 export type EmailStatus = 'nou' | 'in_lucru' | 'rezolvat' | 'respins';

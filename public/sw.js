@@ -1,7 +1,7 @@
 console.log('[SW] Service Worker loading...', new Date().toISOString());
 
-// Cache configuration  
-const CACHE_NAME = 'primaria-v4';
+// Cache configuration
+const CACHE_NAME = 'primaria-v5';
 const urlsToCache = [
   '/',
   '/offline.html',
@@ -64,10 +64,21 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   // Skip non-GET requests
   if (event.request.method !== 'GET') return;
-  
+
   // Skip chrome-extension și alte protocoale non-http
   if (!event.request.url.startsWith('http')) return;
-  
+
+  // Skip Firebase Storage URLs - don't cache, always fetch from network
+  if (event.request.url.includes('firebasestorage.googleapis.com')) {
+    console.log('[SW] Bypassing cache for Firebase Storage:', event.request.url);
+    return; // Let browser handle it normally without service worker intervention
+  }
+
+  // Skip Firestore URLs
+  if (event.request.url.includes('firestore.googleapis.com')) {
+    return; // Let browser handle it normally
+  }
+
   // Network First pentru API calls
   if (event.request.url.includes('/api/')) {
     event.respondWith(
