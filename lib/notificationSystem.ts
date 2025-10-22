@@ -67,10 +67,24 @@ export async function sendNotificationToAll(
     );
     const snapshot = await getDocs(q);
     
-    const subscriptions = snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data().subscription
-    }));
+    const subscriptions = snapshot.docs.map(doc => {
+      const data = doc.data();
+      // Handle both old and new subscription formats
+      if (data.subscription) {
+        // Old format with nested subscription object
+        return {
+          id: doc.id,
+          ...data.subscription
+        };
+      } else {
+        // New format with flat structure
+        return {
+          id: doc.id,
+          endpoint: data.endpoint,
+          keys: data.keys
+        };
+      }
+    });
     
     console.log(`Trimit notificări la ${subscriptions.length} utilizatori...`);
     
@@ -146,7 +160,18 @@ export async function sendNotificationToGroup(
     }
     
     const snapshot = await getDocs(q);
-    const subscriptions = snapshot.docs.map(doc => doc.data().subscription);
+    const subscriptions = snapshot.docs.map(doc => {
+      const data = doc.data();
+      // Handle both old and new subscription formats
+      if (data.subscription) {
+        return data.subscription;
+      } else {
+        return {
+          endpoint: data.endpoint,
+          keys: data.keys
+        };
+      }
+    });
     
     // Similar cu sendNotificationToAll dar cu filtre
     console.log(`Trimit la ${subscriptions.length} utilizatori din grupul selectat`);

@@ -22,10 +22,12 @@ export async function POST(request: NextRequest) {
       const existingDocs = await getDocs(q);
 
       const subscriptionData = {
-        ...subscription,
+        endpoint: subscription.endpoint,
+        keys: subscription.keys,
         deviceInfo: deviceInfo || null,
         createdAt: Timestamp.now(),
         lastActive: Timestamp.now(),
+        active: true,
       };
 
       if (existingDocs.empty) {
@@ -46,9 +48,12 @@ export async function POST(request: NextRequest) {
     } else if (effectiveAction === 'unsubscribe') {
       // Remove subscription from Firestore
       const subscriptionsRef = collection(db, 'push_subscriptions');
+      // For unsubscribe, endpoint comes from body directly
+      const endpoint = body.endpoint || subscription.endpoint;
+
       const q = query(
         subscriptionsRef,
-        where('endpoint', '==', subscription.endpoint)
+        where('endpoint', '==', endpoint)
       );
       const existingDocs = await getDocs(q);
 
