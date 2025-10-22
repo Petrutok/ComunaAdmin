@@ -10,21 +10,93 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
-import { 
-  Bell, 
-  Send, 
-  Users, 
-  AlertCircle, 
+import {
+  Bell,
+  Send,
+  Users,
+  AlertCircle,
   CheckCircle,
   Clock,
   BarChart,
   Megaphone,
   Calendar,
-  MapPin
+  MapPin,
+  Trash2,
+  AlertTriangle,
+  Info,
+  Zap,
+  Package
 } from 'lucide-react';
 import { sendNotificationToAll, sendNotificationToGroup } from '@/lib/notificationSystem';
 import { collection, getDocs, query, where, orderBy, limit } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+
+interface NotificationPreset {
+  id: string;
+  title: string;
+  body: string;
+  icon: React.ReactNode;
+  category: string;
+}
+
+const notificationPresets: NotificationPreset[] = [
+  {
+    id: 'colectare-deseuri',
+    title: 'Colectare deșeuri',
+    body: 'Mâine este ziua de colectare a deșeurilor menajere în cartierul dumneavoastră. Vă rugăm să scoateți gunoiul până la ora 7:00.',
+    icon: <Trash2 className="h-4 w-4" />,
+    category: 'Servicii publice'
+  },
+  {
+    id: 'intrerupere-apa',
+    title: 'Întrerupere apă',
+    body: 'Mâine între orele 09:00-14:00 se va întrerupe furnizarea apei potabile pentru lucrări de mentenanță în zona [specificați zona].',
+    icon: <AlertTriangle className="h-4 w-4" />,
+    category: 'Urgențe'
+  },
+  {
+    id: 'eveniment-cultural',
+    title: 'Eveniment cultural',
+    body: 'Vă invităm sâmbătă, ora 18:00, la Casa de Cultură pentru spectacolul [nume eveniment]. Intrarea este liberă!',
+    icon: <Calendar className="h-4 w-4" />,
+    category: 'Evenimente'
+  },
+  {
+    id: 'sedinta-consiliu',
+    title: 'Ședință Consiliu Local',
+    body: 'Joi, ora 14:00, va avea loc ședința ordinară a Consiliului Local. Ordinea de zi este disponibilă pe site-ul primăriei.',
+    icon: <Users className="h-4 w-4" />,
+    category: 'Administrație'
+  },
+  {
+    id: 'taxa-impozit',
+    title: 'Termen plată impozite',
+    body: 'Vă reamintim că termenul pentru plata impozitelor locale este 31 martie. Beneficiați de 10% reducere pentru plata integrală.',
+    icon: <Info className="h-4 w-4" />,
+    category: 'Taxe și impozite'
+  },
+  {
+    id: 'lucrari-strada',
+    title: 'Lucrări modernizare',
+    body: 'Începând de luni se vor demara lucrări de modernizare pe strada [nume stradă]. Vă rugăm să folosiți rute alternative.',
+    icon: <AlertCircle className="h-4 w-4" />,
+    category: 'Infrastructură'
+  },
+  {
+    id: 'intrerupere-curent',
+    title: 'Întrerupere curent electric',
+    body: 'Marți, între orele 10:00-15:00, se va întrerupe furnizarea energiei electrice în zona [specificați zona] pentru lucrări programate.',
+    icon: <Zap className="h-4 w-4" />,
+    category: 'Urgențe'
+  },
+  {
+    id: 'distributie-ajutoare',
+    title: 'Distribuție pachete sociale',
+    body: 'Începând de mâine se vor distribui pachetele cu ajutoare sociale la sediul primăriei, între orele 09:00-16:00.',
+    icon: <Package className="h-4 w-4" />,
+    category: 'Social'
+  }
+];
 
 export default function AdminNotificationPanel() {
   const [title, setTitle] = useState('');
@@ -33,12 +105,27 @@ export default function AdminNotificationPanel() {
   const [category, setCategory] = useState<'urgent' | 'event' | 'info' | 'general'>('general');
   const [targetAudience, setTargetAudience] = useState<'all' | 'group'>('all');
   const [sending, setSending] = useState(false);
+  const [selectedPreset, setSelectedPreset] = useState<string | null>(null);
   const [stats, setStats] = useState({
     totalSubscriptions: 0,
     activeToday: 0,
     lastNotification: null as any
   });
   const { toast } = useToast();
+
+  const handleSelectPreset = (preset: NotificationPreset) => {
+    setTitle(preset.title);
+    setMessage(preset.body);
+    setSelectedPreset(preset.id);
+  };
+
+  const groupedPresets = notificationPresets.reduce((acc, preset) => {
+    if (!acc[preset.category]) {
+      acc[preset.category] = [];
+    }
+    acc[preset.category].push(preset);
+    return acc;
+  }, {} as Record<string, NotificationPreset[]>);
 
   useEffect(() => {
     loadStats();
@@ -231,6 +318,61 @@ export default function AdminNotificationPanel() {
             </div>
           </CardContent>
         </Card>
+      </div>
+
+      {/* Notification Presets */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+            <div className="bg-purple-500/20 rounded-lg p-2">
+              <Megaphone className="h-6 w-6 text-purple-400" />
+            </div>
+            Șabloane Rapide
+          </h2>
+          {selectedPreset && (
+            <Badge className="bg-purple-500/20 text-purple-300 border border-purple-500/50">
+              ✓ Template selectat
+            </Badge>
+          )}
+        </div>
+
+        <div className="space-y-4">
+          {Object.entries(groupedPresets).map(([category, presets]) => (
+            <div key={category} className="space-y-3">
+              <h3 className="text-sm font-semibold text-gray-300 uppercase tracking-wider px-2">
+                {category}
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+                {presets.map((preset) => (
+                  <button
+                    key={preset.id}
+                    onClick={() => handleSelectPreset(preset)}
+                    className={`text-left p-4 rounded-lg border-2 transition-all transform hover:scale-105 ${
+                      selectedPreset === preset.id
+                        ? 'bg-gradient-to-br from-purple-600/30 to-purple-800/30 border-purple-400 ring-2 ring-purple-500/50 shadow-lg shadow-purple-500/20'
+                        : 'bg-gradient-to-br from-slate-800 to-slate-900 border-slate-600 hover:border-slate-500 hover:bg-slate-700/50'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between mb-2">
+                      <div className="bg-slate-700/50 p-2 rounded-lg">
+                        {preset.icon}
+                      </div>
+                      {selectedPreset === preset.id && (
+                        <CheckCircle className="h-5 w-5 text-purple-400" />
+                      )}
+                    </div>
+                    <p className="font-semibold text-white text-sm line-clamp-2">
+                      {preset.title}
+                    </p>
+                    <p className="text-xs text-gray-400 mt-1 line-clamp-2">
+                      {preset.body}
+                    </p>
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* Notification Form */}
