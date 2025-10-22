@@ -201,6 +201,55 @@ export default function DebugNotificationsPage() {
     }
   };
 
+  const testSendNotification = async () => {
+    try {
+      addLog('Testing full send notification flow...');
+
+      // Get current subscription
+      const registration = await navigator.serviceWorker.ready;
+      const subscription = await registration.pushManager.getSubscription();
+
+      if (!subscription) {
+        addLog('ERROR: No subscription found');
+        return;
+      }
+
+      addLog(`Found subscription with endpoint: ${subscription.endpoint.substring(0, 50)}...`);
+      addLog(`Subscription object: ${JSON.stringify(subscription.toJSON())}`);
+
+      // Try to send to this subscription
+      const subscriptionData = subscription.toJSON();
+
+      addLog('Sending test notification to current subscription...');
+      const response = await fetch('/api/push-send/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          subscriptionsList: [subscriptionData],
+          title: 'Test Notification',
+          message: 'This is a test notification',
+          url: '/',
+          icon: '/icon-192x192.png',
+          badge: '/icon-192x192.png'
+        }),
+      });
+
+      addLog(`Send Response: ${response.status} ${response.statusText}`);
+      const result = await response.json();
+      addLog(`Send Result: ${JSON.stringify(result)}`);
+
+      if (result.success) {
+        addLog(`✓ Notification sent! Sent: ${result.sent}, Failed: ${result.failed}`);
+      } else {
+        addLog(`✗ Failed: ${result.error}`);
+      }
+    } catch (error) {
+      addLog(`ERROR in testSendNotification: ${error}`);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-slate-900 p-8">
       <div className="max-w-4xl mx-auto space-y-6">
@@ -239,6 +288,12 @@ export default function DebugNotificationsPage() {
               className="w-full bg-orange-600 hover:bg-orange-700 text-white"
             >
               Test API Endpoint
+            </Button>
+            <Button
+              onClick={testSendNotification}
+              className="w-full bg-red-600 hover:bg-red-700 text-white font-bold"
+            >
+              🔥 Test Send Notification (Full Flow)
             </Button>
             <Button
               onClick={() => setLogs([])}
