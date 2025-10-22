@@ -95,7 +95,7 @@ export async function sendNotificationToAll(
     for (let i = 0; i < subscriptions.length; i += batchSize) {
       const batch = subscriptions.slice(i, i + batchSize);
       
-      const response = await fetch('/api/push-send', {
+      const response = await fetch('/api/push-send/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
