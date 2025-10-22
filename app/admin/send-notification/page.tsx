@@ -320,61 +320,6 @@ export default function AdminNotificationPanel() {
         </Card>
       </div>
 
-      {/* Notification Presets */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-2xl font-bold text-white flex items-center gap-2">
-            <div className="bg-purple-500/20 rounded-lg p-2">
-              <Megaphone className="h-6 w-6 text-purple-400" />
-            </div>
-            Șabloane Rapide
-          </h2>
-          {selectedPreset && (
-            <Badge className="bg-purple-500/20 text-purple-300 border border-purple-500/50">
-              ✓ Template selectat
-            </Badge>
-          )}
-        </div>
-
-        <div className="space-y-4">
-          {Object.entries(groupedPresets).map(([category, presets]) => (
-            <div key={category} className="space-y-3">
-              <h3 className="text-sm font-semibold text-gray-300 uppercase tracking-wider px-2">
-                {category}
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-                {presets.map((preset) => (
-                  <button
-                    key={preset.id}
-                    onClick={() => handleSelectPreset(preset)}
-                    className={`text-left p-4 rounded-lg border-2 transition-all transform hover:scale-105 ${
-                      selectedPreset === preset.id
-                        ? 'bg-gradient-to-br from-purple-600/30 to-purple-800/30 border-purple-400 ring-2 ring-purple-500/50 shadow-lg shadow-purple-500/20'
-                        : 'bg-gradient-to-br from-slate-800 to-slate-900 border-slate-600 hover:border-slate-500 hover:bg-slate-700/50'
-                    }`}
-                  >
-                    <div className="flex items-start justify-between mb-2">
-                      <div className="bg-slate-700/50 p-2 rounded-lg">
-                        {preset.icon}
-                      </div>
-                      {selectedPreset === preset.id && (
-                        <CheckCircle className="h-5 w-5 text-purple-400" />
-                      )}
-                    </div>
-                    <p className="font-semibold text-white text-sm line-clamp-2">
-                      {preset.title}
-                    </p>
-                    <p className="text-xs text-gray-400 mt-1 line-clamp-2">
-                      {preset.body}
-                    </p>
-                  </button>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
       {/* Notification Form */}
       <Card className="bg-gradient-to-br from-slate-800 to-slate-900 border border-slate-700/50 shadow-2xl">
         <CardHeader className="bg-gradient-to-r from-amber-600/5 to-orange-600/5 border-b border-slate-700/50">
@@ -417,30 +362,6 @@ export default function AdminNotificationPanel() {
                   <div className="flex items-center gap-2">
                     <Megaphone className="h-4 w-4 text-green-500" />
                     Informare
-                  </div>
-                </SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Target Audience */}
-          <div className="space-y-2">
-            <Label className="text-gray-200">Destinatari</Label>
-            <Select value={targetAudience} onValueChange={(v: any) => setTargetAudience(v)}>
-              <SelectTrigger className="bg-slate-900 border-slate-600 text-white">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">
-                  <div className="flex items-center gap-2">
-                    <Users className="h-4 w-4" />
-                    Toți cetățenii ({stats.totalSubscriptions})
-                  </div>
-                </SelectItem>
-                <SelectItem value="group" disabled>
-                  <div className="flex items-center gap-2">
-                    <MapPin className="h-4 w-4" />
-                    Grup specific (în dezvoltare)
                   </div>
                 </SelectItem>
               </SelectContent>
@@ -596,6 +517,61 @@ export default function AdminNotificationPanel() {
           </CardContent>
         </Card>
       )}
+
+      {/* Notification Presets */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+            <div className="bg-purple-500/20 rounded-lg p-2">
+              <Megaphone className="h-6 w-6 text-purple-400" />
+            </div>
+            Șabloane Rapide
+          </h2>
+          {selectedPreset && (
+            <Badge className="bg-purple-500/20 text-purple-300 border border-purple-500/50">
+              ✓ Template selectat
+            </Badge>
+          )}
+        </div>
+
+        <div className="space-y-4">
+          {Object.entries(groupedPresets).map(([category, presets]) => (
+            <div key={category} className="space-y-3">
+              <h3 className="text-sm font-semibold text-gray-300 uppercase tracking-wider px-2">
+                {category}
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+                {presets.map((preset) => (
+                  <button
+                    key={preset.id}
+                    onClick={() => handleSelectPreset(preset)}
+                    className={`text-left p-4 rounded-lg border-2 transition-all transform hover:scale-105 ${
+                      selectedPreset === preset.id
+                        ? 'bg-gradient-to-br from-purple-600/30 to-purple-800/30 border-purple-400 ring-2 ring-purple-500/50 shadow-lg shadow-purple-500/20'
+                        : 'bg-gradient-to-br from-slate-800 to-slate-900 border-slate-600 hover:border-slate-500 hover:bg-slate-700/50'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between mb-2">
+                      <div className="bg-slate-700/50 p-2 rounded-lg">
+                        {preset.icon}
+                      </div>
+                      {selectedPreset === preset.id && (
+                        <CheckCircle className="h-5 w-5 text-purple-400" />
+                      )}
+                    </div>
+                    <p className="font-semibold text-white text-sm line-clamp-2">
+                      {preset.title}
+                    </p>
+                    <p className="text-xs text-gray-400 mt-1 line-clamp-2">
+                      {preset.body}
+                    </p>
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
