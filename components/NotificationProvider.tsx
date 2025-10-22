@@ -66,62 +66,84 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   const waitForServiceWorker = async (timeout = 10000): Promise<ServiceWorkerRegistration | null> => {
     console.log('[NotificationProvider] Waiting for Service Worker...');
     const startTime = Date.now();
-    
+
     while (Date.now() - startTime < timeout) {
       try {
         // Verifică dacă există deja
         let registration = await navigator.serviceWorker.getRegistration();
-        
+
         if (!registration) {
           console.log('[NotificationProvider] Registering new SW...');
-          registration = await navigator.serviceWorker.register('/sw.js', {
-            scope: '/',
-            updateViaCache: 'none'
-          });
-          console.log('[NotificationProvider] SW registered');
+          try {
+            registration = await navigator.serviceWorker.register('/sw.js', {
+              scope: '/',
+              updateViaCache: 'none'
+            });
+            console.log('[NotificationProvider] SW registered successfully');
+          } catch (regError) {
+            console.error('[NotificationProvider] Failed to register SW:', regError);
+            return null;
+          }
         }
-        
-        // Pentru iOS - forțează skip waiting
+
+        // Unregister old waiting SWs to avoid conflicts
         if (registration?.waiting) {
-          console.log('[NotificationProvider] SW is waiting, sending skipWaiting...');
-          registration.waiting.postMessage('skipWaiting');
+          console.log('[NotificationProvider] SW is waiting, unregistering old version...');
+          // Don't send skipWaiting - instead just wait for it to become active
         }
-        
+
+        // Wait for installation to complete
         if (registration?.installing) {
-          console.log('[NotificationProvider] SW is installing, waiting...');
-          await new Promise(resolve => {
+          console.log('[NotificationProvider] SW is installing, waiting for activation...');
+          await new Promise<void>(resolve => {
             const installer = registration?.installing;
             if (installer) {
-              installer.addEventListener('statechange', function() {
+              const onStateChange = function(this: ServiceWorker) {
+                console.log('[NotificationProvider] SW state changed to:', this.state);
                 if (this.state === 'activated') {
-                  console.log('[NotificationProvider] SW activated via statechange');
-                  resolve(true);
+                  installer.removeEventListener('statechange', onStateChange);
+                  resolve();
                 }
-              });
+              };
+              installer.addEventListener('statechange', onStateChange);
+            } else {
+              resolve();
             }
-            // Timeout după 3 secunde pentru event listener
-            setTimeout(() => resolve(false), 3000);
+            // Timeout after 5 seconds
+            setTimeout(() => resolve(), 5000);
           });
         }
-        
-        // Verifică din nou după wait
+
+        // Get fresh registration
         registration = await navigator.serviceWorker.getRegistration();
+
         if (registration?.active) {
-          console.log('[NotificationProvider] SW is active!');
-          await navigator.serviceWorker.ready;
-          return registration;
+          console.log('[NotificationProvider] SW is active! State:', registration.active.state);
+          try {
+            await navigator.serviceWorker.ready;
+            console.log('[NotificationProvider] navigator.serviceWorker.ready confirmed');
+            return registration;
+          } catch (readyError) {
+            console.error('[NotificationProvider] Error waiting for ready:', readyError);
+          }
+        } else {
+          console.log('[NotificationProvider] SW not active yet, retrying...');
+          if (registration?.controller) {
+            console.log('[NotificationProvider] But controller exists, might be okay');
+            return registration;
+          }
         }
-        
+
         // Așteaptă puțin înainte de următoarea încercare
         await new Promise(resolve => setTimeout(resolve, 500));
-        
+
       } catch (error) {
         console.error('[NotificationProvider] SW registration error:', error);
-        return null;
+        // Don't return null, keep retrying
       }
     }
-    
-    console.error('[NotificationProvider] SW registration timeout');
+
+    console.error('[NotificationProvider] SW registration timeout after', timeout, 'ms');
     return null;
   };
 

@@ -4,7 +4,6 @@ console.log('[SW] Service Worker loading...', new Date().toISOString());
 const CACHE_NAME = 'primaria-v5';
 const urlsToCache = [
   '/',
-  '/offline.html',
   '/icon-192x192.png',
   '/icon-512x512.png'
 ];
@@ -15,18 +14,20 @@ const urlsToCache = [
 self.addEventListener('install', (event) => {
   console.log('[SW] Install event', new Date().toISOString());
   self.skipWaiting();
-  
+
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then((cache) => {
         console.log('[SW] Cache opened');
+        // Only cache files that definitely exist, skip offline.html
         return cache.addAll(urlsToCache);
       })
       .then(() => {
         console.log('[SW] Cache populated');
       })
       .catch((error) => {
-        console.error('[SW] Cache error:', error);
+        console.error('[SW] Cache error (non-critical):', error);
+        // Don't fail installation if caching fails
       })
   );
 });
