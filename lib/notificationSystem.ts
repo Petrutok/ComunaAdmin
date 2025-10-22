@@ -95,22 +95,35 @@ export async function sendNotificationToAll(
     for (let i = 0; i < subscriptions.length; i += batchSize) {
       const batch = subscriptions.slice(i, i + batchSize);
       
-      const response = await fetch('/api/push-send/', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title,
-          message,
-          url: options?.url || '/',
-          icon: options?.icon,
-          badge: options?.badge,
-          subscriptionsList: batch
-        })
-      });
-      
-      const result = await response.json();
-      results.success += result.sent || 0;
-      results.failed += result.failed || 0;
+      try {
+        const response = await fetch('/api/push-send/', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title,
+            message,
+            url: options?.url || '/',
+            icon: options?.icon,
+            badge: options?.badge,
+            subscriptionsList: batch
+          })
+        });
+
+        if (!response.ok) {
+          console.error(`[notificationSystem] API returned ${response.status}: ${response.statusText}`);
+          const text = await response.text();
+          console.error(`[notificationSystem] Response body: ${text}`);
+          results.failed += batch.length;
+          continue;
+        }
+
+        const result = await response.json();
+        results.success += result.sent || 0;
+        results.failed += result.failed || 0;
+      } catch (batchError) {
+        console.error(`[notificationSystem] Batch send error:`, batchError);
+        results.failed += batch.length;
+      }
       
       // Așteaptă puțin între batch-uri
       if (i + batchSize < subscriptions.length) {
