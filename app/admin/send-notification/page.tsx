@@ -154,67 +154,95 @@ export default function AdminNotificationPanel() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-white mb-2">
-          Trimite Notificare către Cetățeni
-        </h1>
-        <p className="text-gray-400">
-          Notifică toți cetățenii despre evenimente importante, urgențe sau informări
-        </p>
+      {/* Header */}
+      <div className="bg-gradient-to-r from-amber-600/10 to-orange-600/10 border border-amber-500/20 rounded-lg p-6">
+        <div className="flex items-start justify-between">
+          <div>
+            <h1 className="text-4xl font-bold text-white mb-2 flex items-center gap-3">
+              <div className="bg-amber-500/20 rounded-lg p-3">
+                <Bell className="h-8 w-8 text-amber-400" />
+              </div>
+              Trimite Notificare
+            </h1>
+            <p className="text-gray-300">
+              Comunică direct cu cetățenii despre evenimente importante, urgențe sau informări
+            </p>
+          </div>
+        </div>
       </div>
 
-      {/* Statistics */}
+      {/* Statistics Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="bg-slate-800 border-slate-700">
-          <CardHeader className="pb-2">
-            <CardDescription className="text-gray-400">Total Abonați</CardDescription>
+        <Card className="bg-gradient-to-br from-blue-600/10 to-blue-800/10 border border-blue-500/20 hover:border-blue-500/40 transition-all">
+          <CardHeader className="pb-3">
+            <CardDescription className="text-blue-200 font-semibold">Total Abonați</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="flex items-center justify-between">
-              <span className="text-3xl font-bold text-white">
-                {stats.totalSubscriptions}
-              </span>
-              <Users className="h-8 w-8 text-blue-400" />
+              <div>
+                <span className="text-4xl font-bold text-blue-400">
+                  {stats.totalSubscriptions}
+                </span>
+                <p className="text-xs text-blue-300 mt-1">utilizatori activi</p>
+              </div>
+              <div className="bg-blue-500/20 rounded-full p-3">
+                <Users className="h-6 w-6 text-blue-400" />
+              </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="bg-slate-800 border-slate-700">
-          <CardHeader className="pb-2">
-            <CardDescription className="text-gray-400">Activi Azi</CardDescription>
+        <Card className="bg-gradient-to-br from-green-600/10 to-green-800/10 border border-green-500/20 hover:border-green-500/40 transition-all">
+          <CardHeader className="pb-3">
+            <CardDescription className="text-green-200 font-semibold">Activi Azi</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="flex items-center justify-between">
-              <span className="text-3xl font-bold text-white">
-                {stats.activeToday}
-              </span>
-              <BarChart className="h-8 w-8 text-green-400" />
+              <div>
+                <span className="text-4xl font-bold text-green-400">
+                  {stats.activeToday}
+                </span>
+                <p className="text-xs text-green-300 mt-1">conectați astazi</p>
+              </div>
+              <div className="bg-green-500/20 rounded-full p-3">
+                <BarChart className="h-6 w-6 text-green-400" />
+              </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="bg-slate-800 border-slate-700">
-          <CardHeader className="pb-2">
-            <CardDescription className="text-gray-400">Ultima Notificare</CardDescription>
+        <Card className="bg-gradient-to-br from-orange-600/10 to-orange-800/10 border border-orange-500/20 hover:border-orange-500/40 transition-all">
+          <CardHeader className="pb-3">
+            <CardDescription className="text-orange-200 font-semibold">Ultima Notificare</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="flex items-center justify-between">
-              <span className="text-sm text-white">
-                {stats.lastNotification?.sentAt?.toDate?.()?.toLocaleDateString('ro-RO') || 'Niciuna'}
-              </span>
-              <Clock className="h-8 w-8 text-orange-400" />
+              <div>
+                <span className="text-lg font-semibold text-orange-400">
+                  {stats.lastNotification?.sentAt?.toDate?.()?.toLocaleDateString('ro-RO') || '—'}
+                </span>
+                <p className="text-xs text-orange-300 mt-1">
+                  {stats.lastNotification ? 'ultima trimitere' : 'nicio notificare'}
+                </p>
+              </div>
+              <div className="bg-orange-500/20 rounded-full p-3">
+                <Clock className="h-6 w-6 text-orange-400" />
+              </div>
             </div>
           </CardContent>
         </Card>
       </div>
 
       {/* Notification Form */}
-      <Card className="bg-slate-800 border-slate-700">
-        <CardHeader>
-          <CardTitle className="text-white flex items-center gap-2">
-            <Bell className="h-5 w-5" />
+      <Card className="bg-gradient-to-br from-slate-800 to-slate-900 border border-slate-700/50 shadow-2xl">
+        <CardHeader className="bg-gradient-to-r from-amber-600/5 to-orange-600/5 border-b border-slate-700/50">
+          <CardTitle className="text-white flex items-center gap-2 text-2xl">
+            <div className="bg-amber-500/20 rounded-lg p-2">
+              <Bell className="h-5 w-5 text-amber-400" />
+            </div>
             Compune Notificare
           </CardTitle>
+          <p className="text-gray-400 text-sm mt-2">Personalizează și trimite mesajul tău către toți cetățenii</p>
         </CardHeader>
         <CardContent className="space-y-6">
           {/* Category Selection */}
@@ -350,54 +378,74 @@ export default function AdminNotificationPanel() {
             </div>
           )}
 
-          {/* Send Button */}
-          <div className="flex items-center justify-between">
-            <Alert className="flex-1 mr-4 bg-blue-900/20 border-blue-700">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription className="text-sm">
-                Notificarea va fi trimisă instant la {stats.totalSubscriptions} utilizatori
+          {/* Send Button Section */}
+          <div className="space-y-4 pt-4 border-t border-slate-700">
+            <Alert className="bg-gradient-to-r from-blue-900/30 to-cyan-900/30 border border-blue-700/50">
+              <AlertCircle className="h-5 w-5 text-blue-400" />
+              <AlertDescription className="text-blue-100 ml-2">
+                <span className="font-semibold text-blue-300">{stats.totalSubscriptions}</span> utilizatori vor primi această notificare instant
               </AlertDescription>
             </Alert>
-            
+
             <Button
               onClick={handleSendNotification}
               disabled={sending || !title || !message}
               size="lg"
-              className="bg-blue-500 hover:bg-blue-600"
+              className={`w-full h-12 text-base font-semibold transition-all ${
+                sending || !title || !message
+                  ? 'bg-gray-600 cursor-not-allowed'
+                  : 'bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white shadow-lg hover:shadow-xl'
+              }`}
             >
               {sending ? (
                 <>
-                  <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                  Se trimite...
+                  <div className="mr-2 h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                  Se trimite notificarea...
                 </>
               ) : (
                 <>
-                  <Send className="mr-2 h-4 w-4" />
-                  Trimite Notificare
+                  <Send className="mr-2 h-5 w-5" />
+                  Trimite Notificare la Toți
                 </>
               )}
             </Button>
+
+            {!title || !message ? (
+              <p className="text-xs text-gray-400 text-center">
+                Completează titlul și mesajul pentru a putea trimite
+              </p>
+            ) : null}
           </div>
         </CardContent>
       </Card>
 
       {/* Recent Notifications */}
       {stats.lastNotification && (
-        <Card className="bg-slate-800 border-slate-700">
-          <CardHeader>
-            <CardTitle className="text-white text-lg">Ultima notificare trimisă</CardTitle>
+        <Card className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 border border-slate-700/50">
+          <CardHeader className="bg-gradient-to-r from-green-600/5 to-emerald-600/5 border-b border-slate-700/50">
+            <CardTitle className="text-white text-lg flex items-center gap-2">
+              <CheckCircle className="h-5 w-5 text-green-400" />
+              Ultima notificare trimisă
+            </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="flex items-center justify-between">
+          <CardContent className="pt-4">
+            <div className="space-y-3">
               <div>
-                <p className="font-medium text-white">{stats.lastNotification.title}</p>
-                <p className="text-sm text-gray-400">{stats.lastNotification.message}</p>
+                <p className="font-semibold text-white text-lg">{stats.lastNotification.title}</p>
+                <p className="text-sm text-gray-300 mt-1">{stats.lastNotification.message}</p>
               </div>
-              <div className="text-right">
-                <Badge variant="outline" className="mb-1">
-                  <CheckCircle className="h-3 w-3 mr-1" />
-                  {stats.lastNotification.success} trimise
-                </Badge>
+              <div className="flex items-center justify-between pt-3 border-t border-slate-700/30">
+                <div className="flex gap-4">
+                  <Badge className="bg-green-500/20 text-green-300 border border-green-500/50">
+                    <CheckCircle className="h-3 w-3 mr-1" />
+                    {stats.lastNotification.success} trimise
+                  </Badge>
+                  {stats.lastNotification.failed > 0 && (
+                    <Badge className="bg-red-500/20 text-red-300 border border-red-500/50">
+                      {stats.lastNotification.failed} eșuate
+                    </Badge>
+                  )}
+                </div>
                 <p className="text-xs text-gray-400">
                   {stats.lastNotification.sentAt?.toDate?.()?.toLocaleString('ro-RO')}
                 </p>
