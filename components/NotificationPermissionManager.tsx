@@ -91,25 +91,32 @@ export function NotificationPermissionManager() {
 
       // Check for existing subscription
       let subscription = await registration.pushManager.getSubscription();
-      
+
       if (!subscription) {
         // Create new subscription
         const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
-        
+
         if (!vapidKey) {
-          console.error('VAPID key not found');
+          console.error('[NotificationPermissionManager] VAPID key not found');
           return;
         }
 
+        console.log('[NotificationPermissionManager] Converting VAPID key...');
         // Convert VAPID key
         const applicationServerKey = urlBase64ToUint8Array(vapidKey);
-        
-        subscription = await registration.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey: applicationServerKey
-        });
-        
-        console.log('New subscription created:', subscription);
+        console.log('[NotificationPermissionManager] VAPID key converted, length:', applicationServerKey.length);
+
+        try {
+          subscription = await registration.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: applicationServerKey
+          });
+
+          console.log('[NotificationPermissionManager] New subscription created:', subscription);
+        } catch (subscriptionError) {
+          console.error('[NotificationPermissionManager] Subscription error:', subscriptionError);
+          throw subscriptionError;
+        }
       }
 
       // Save subscription to server

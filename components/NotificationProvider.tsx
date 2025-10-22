@@ -346,32 +346,54 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   };
 
   const urlBase64ToUint8Array = (base64String: string) => {
-    const padding = '='.repeat((4 - base64String.length % 4) % 4);
-    const base64 = (base64String + padding)
-      .replace(/\-/g, '+')
-      .replace(/_/g, '/');
+    try {
+      if (!base64String || base64String.length === 0) {
+        throw new Error('VAPID key is empty');
+      }
 
-    const rawData = window.atob(base64);
-    const outputArray = new Uint8Array(rawData.length);
+      const padding = '='.repeat((4 - base64String.length % 4) % 4);
+      const base64 = (base64String + padding)
+        .replace(/\-/g, '+')
+        .replace(/_/g, '/');
 
-    for (let i = 0; i < rawData.length; ++i) {
-      outputArray[i] = rawData.charCodeAt(i);
+      console.log('[NotificationProvider] Converting base64 VAPID key, length:', base64String.length);
+
+      const rawData = window.atob(base64);
+      const outputArray = new Uint8Array(rawData.length);
+
+      for (let i = 0; i < rawData.length; ++i) {
+        outputArray[i] = rawData.charCodeAt(i);
+      }
+
+      console.log('[NotificationProvider] Uint8Array created, length:', outputArray.length);
+      return outputArray;
+    } catch (error) {
+      console.error('[NotificationProvider] Error converting VAPID key:', error);
+      throw error;
     }
-    return outputArray;
   };
 
   const subscribeToNotifications = async () => {
     try {
       console.log('[NotificationProvider] Starting subscription...');
-      
+
+      const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+      console.log('[NotificationProvider] VAPID Key available:', !!vapidKey);
+
+      if (!vapidKey) {
+        throw new Error('VAPID public key is not configured');
+      }
+
       const registration = await navigator.serviceWorker.ready;
-      
+
+      console.log('[NotificationProvider] Converting VAPID key...');
+      const applicationServerKey = urlBase64ToUint8Array(vapidKey);
+      console.log('[NotificationProvider] VAPID key converted, length:', applicationServerKey.length);
+
       // Subscribe to push notifications
       const subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(
-          process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!
-        )
+        applicationServerKey: applicationServerKey
       });
 
       console.log('[NotificationProvider] Push subscription created:', subscription);
