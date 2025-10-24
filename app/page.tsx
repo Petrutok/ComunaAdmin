@@ -129,17 +129,17 @@ export default function HomePage() {
           <div className="absolute top-0 right-0 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl"></div>
           <div className="absolute bottom-0 left-0 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl"></div>
         </div>
-        
+
         {/* Main Header Content */}
         <div className="relative max-w-7xl mx-auto px-4 py-8 md:py-10">
           <div className="flex justify-center">
             {/* Logo Section - Centrat */}
             <div className="flex items-center gap-4">
-              <div className="relative">
-                <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-purple-500 rounded-2xl blur-xl opacity-30"></div>
-                <div className="relative bg-slate-900/50 backdrop-blur-sm p-1 rounded-2xl border border-white/10">
-                  <Image 
-                    src="/logo.jpg" 
+              <div className="relative group">
+                <div className="absolute inset-0 bg-gradient-to-r from-cyan-500 to-blue-500 rounded-2xl blur-xl opacity-40 group-hover:opacity-60 transition-opacity duration-300"></div>
+                <div className="relative bg-slate-900/60 backdrop-blur-md p-1 rounded-2xl border border-white/20 hover:border-white/40 transition-colors duration-300 shadow-2xl">
+                  <Image
+                    src="/logo.jpg"
                     alt="Logo Primăria Filipești"
                     width={100}
                     height={100}
@@ -148,33 +148,23 @@ export default function HomePage() {
                   />
                 </div>
               </div>
-              
+
               {/* Title and Subtitle */}
               <div>
-                <h1 className="text-3xl md:text-4xl font-bold text-white mb-1">
+                <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-white via-blue-100 to-cyan-100 bg-clip-text text-transparent mb-1">
                   Primăria Digitală
                 </h1>
-                <p className="text-base md:text-lg text-gray-300">
+                <p className="text-base md:text-lg text-gray-200 font-medium">
                   Comuna Filipești
                 </p>
-                <p className="text-xs md:text-sm text-gray-500 mt-1">
+                <p className="text-xs md:text-sm text-gray-400 mt-1">
                   Servicii publice moderne • Online 24/7
                 </p>
               </div>
             </div>
           </div>
-
-          {/* Key Features - mic și discret */}
-          <div className="flex items-center justify-center gap-3 mt-6 text-xs md:text-sm">
-            <span className="text-gray-400">Digitalizare</span>
-            <span className="text-gray-600">•</span>
-            <span className="text-gray-400">Accesibilitate</span>
-            <span className="text-gray-600">•</span>
-            <span className="text-gray-400">Transparență</span>
-            <span className="text-gray-600 hidden md:inline">•</span>
-            <span className="text-gray-400 hidden md:inline">Servicii fără drumuri inutile</span>
-          </div>
         </div>
+
       </header>
 
       {/* Info Bar */}

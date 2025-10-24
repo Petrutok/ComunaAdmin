@@ -327,7 +327,7 @@ export default function ColectareSelectivaPage() {
         </div>
 
         {/* Tips Section */}
-        <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-6">
+        <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-6 mb-12">
           <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
             <Info className="h-5 w-5 text-blue-400" />
             Sfaturi pentru o reciclare eficientă
@@ -356,6 +356,126 @@ export default function ColectareSelectivaPage() {
               <p className="text-gray-300 text-sm">
                 Nu amestecați deșeurile - păstrați-le separate pe categorii
               </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Waste Collection Calendar Section */}
+        <div className="bg-gradient-to-br from-slate-950 via-slate-900 to-blue-950 rounded-xl overflow-hidden border border-slate-800 mb-12">
+          {/* Calendar Header */}
+          <div className="relative bg-gradient-to-r from-green-600 to-emerald-600 px-6 py-8 text-center overflow-hidden">
+            {/* Background blur effect */}
+            <div className="absolute inset-0 bg-green-500/20 blur-2xl"></div>
+            <div className="relative z-10">
+              <div className="inline-flex items-center justify-center mb-4">
+                <Calendar className="h-8 w-8 text-white" />
+              </div>
+              <h2 className="text-3xl md:text-4xl font-bold text-white mb-2">
+                📅 Calendar Colectare Deșeuri 2025
+              </h2>
+              <p className="text-green-100 text-lg">
+                Respectă culorile și colectează separat!
+              </p>
+            </div>
+          </div>
+
+          {/* Legend */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 px-6 py-6 bg-slate-800/50 border-b border-slate-700">
+            <div className="flex items-center gap-3 group">
+              <div className="w-6 h-6 bg-gray-700 rounded group-hover:scale-110 transition-transform"></div>
+              <span className="text-gray-300">Reziduale (neagră)</span>
+            </div>
+            <div className="flex items-center gap-3 group">
+              <div className="w-6 h-6 bg-yellow-400 rounded group-hover:scale-110 transition-transform"></div>
+              <span className="text-gray-300">Reciclabile (galbenă)</span>
+            </div>
+            <div className="flex items-center gap-3 group">
+              <div className="w-6 h-6 bg-green-500 rounded group-hover:scale-110 transition-transform"></div>
+              <span className="text-gray-300">Vegetale (verde)</span>
+            </div>
+          </div>
+
+          {/* Calendar Table */}
+          <div className="overflow-x-auto px-6 py-8">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b-2 border-slate-700">
+                  <th className="text-left py-3 px-2 text-white font-semibold">Luna</th>
+                  <th className="text-left py-3 px-2 text-white font-semibold">Pubela Neagră</th>
+                  <th className="text-left py-3 px-2 text-white font-semibold">Pubela Galbenă</th>
+                  <th className="text-left py-3 px-2 text-white font-semibold">Pubela Verde</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[
+                  { month: 'Ianuarie', black: '10', yellow: '3', green: '15, 25' },
+                  { month: 'Februarie', black: '7', yellow: '1', green: '12, 22' },
+                  { month: 'Martie', black: '7', yellow: '1', green: '12, 22, 29' },
+                  { month: 'Aprilie', black: '11', yellow: '5', green: '9, 19, 26' },
+                  { month: 'Mai', black: '9', yellow: '3', green: '14, 24, 30' },
+                  { month: 'Iunie', black: '6', yellow: '1', green: '11, 21, 28' },
+                  { month: 'Iulie', black: '4', yellow: '-', green: '9, 25' },
+                  { month: 'August', black: '8', yellow: '2', green: '13, 30' },
+                  { month: 'Septembrie', black: '5', yellow: '-', green: '10, 27' },
+                  { month: 'Octombrie', black: '10', yellow: '3', green: '15, 22' },
+                  { month: 'Noiembrie', black: '7', yellow: '1', green: '12' },
+                  { month: 'Decembrie', black: '10', yellow: '5', green: '13, 20' },
+                ].map((row, index) => (
+                  <tr key={index} className="border-b border-slate-700 hover:bg-slate-800/50 transition-colors">
+                    <td className="py-4 px-2 text-white font-semibold">{row.month}</td>
+                    <td className="py-4 px-2">
+                      <div className="flex flex-wrap gap-1">
+                        {row.black.split(', ').map((date, i) => (
+                          <span key={i} className="inline-block bg-gray-700 text-white px-3 py-1 rounded-lg text-xs font-semibold">
+                            {date}
+                          </span>
+                        ))}
+                      </div>
+                    </td>
+                    <td className="py-4 px-2">
+                      <div className="flex flex-wrap gap-1">
+                        {row.yellow !== '-' && row.yellow.split(', ').map((date, i) => (
+                          <span key={i} className="inline-block bg-yellow-400 text-gray-900 px-3 py-1 rounded-lg text-xs font-semibold">
+                            {date}
+                          </span>
+                        ))}
+                        {row.yellow === '-' && <span className="text-gray-500 text-xs">-</span>}
+                      </div>
+                    </td>
+                    <td className="py-4 px-2">
+                      <div className="flex flex-wrap gap-1">
+                        {row.green.split(', ').map((date, i) => (
+                          <span key={i} className="inline-block bg-green-600 text-white px-3 py-1 rounded-lg text-xs font-semibold">
+                            {date}
+                          </span>
+                        ))}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Info Section */}
+          <div className="px-6 py-6 bg-slate-800/30 border-t border-slate-700">
+            <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+              <Info className="h-5 w-5 text-green-400" />
+              Informații despre colectare
+            </h3>
+            <div className="grid md:grid-cols-3 gap-4">
+              <div>
+                <p className="text-sm text-gray-300 font-semibold text-gray-400 mb-1">Pubela Neagră</p>
+                <p className="text-sm text-gray-400">Deșeuri reziduale - colectare săptămânală</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-300 font-semibold text-gray-400 mb-1">Pubela Galbenă</p>
+                <p className="text-sm text-gray-400">Hârtie, carton, plastic, metal - colectare lunară</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-300 font-semibold text-gray-400 mb-1">Pubela Verde</p>
+                <p className="text-sm text-gray-400">Deșeuri vegetale - colectare periodică</p>
+              </div>
             </div>
           </div>
         </div>
