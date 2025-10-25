@@ -18,25 +18,148 @@ interface PageProps {
 
 // Metadata pentru fiecare tip de formular
 const formMetadata: Record<string, { title: string; description: string }> = {
+  // Solicitări Generale
+  'cerere-generala': {
+    title: 'Cerere Generală',
+    description: 'Trimite o cerere către orice compartiment de specialitate din instituție'
+  },
+  'permis-foc': {
+    title: 'Permis de Lucru cu Foc',
+    description: 'Solicită permis pentru lucrări care implică foc deschis'
+  },
+
+  // Urbanism
   'certificat-urbanism': {
     title: 'Certificat de Urbanism',
     description: 'Solicită certificat de urbanism online'
   },
   'autorizatie-construire': {
     title: 'Autorizație de Construire',
-    description: 'Depune cerere pentru autorizație de construire'
+    description: 'Depune cerere pentru autorizație de construire/desființare'
   },
-  'adeverinta-fiscala': {
-    title: 'Adeverință Fiscală',
-    description: 'Obține adeverință fiscală online'
+  'prelungire-autorizatie': {
+    title: 'Prelungire Autorizație',
+    description: 'Solicită prelungirea valabilității autorizației de construire'
+  },
+  'prelungire-certificat': {
+    title: 'Prelungire Certificat',
+    description: 'Solicită prelungirea valabilității certificatului de urbanism'
+  },
+  'incepere-lucrari': {
+    title: 'Comunicare Începere Lucrări',
+    description: 'Notificare privind începerea execuției lucrărilor'
+  },
+  'incheiere-lucrari': {
+    title: 'Comunicare Încheierea Lucrări',
+    description: 'Notificare privind încheierea execuției lucrărilor'
+  },
+
+  // Asistență Socială
+  'lemne-foc': {
+    title: 'Cerere Lemne Foc',
+    description: 'Ajutor pentru încălzirea locuinței'
+  },
+  'indemnizatie-copil': {
+    title: 'Adeverință Indemnizație Creștere Copil',
+    description: 'Pentru părinți cu copii mici'
+  },
+  'indemnizatie-somaj': {
+    title: 'Adeverință Indemnizație de Șomaj',
+    description: 'Pentru persoane fără loc de muncă'
+  },
+  'consiliere': {
+    title: 'Cerere Informare și Consiliere',
+    description: 'Asistență și îndrumare socială'
+  },
+  'modificare-beneficii': {
+    title: 'Cerere Modificare Beneficii Sociale',
+    description: 'Actualizare beneficii existente (ASF, VMG, etc)'
+  },
+  'alocatie-copii': {
+    title: 'Cerere Alocație de Stat',
+    description: 'Solicită alocația de stat pentru copii'
+  },
+  'indemnizatie-crestere': {
+    title: 'Cerere Indemnizație Creștere Copil',
+    description: 'Solicită indemnizație/stimulent de inserție'
+  },
+
+  // Registru Agricol
+  'adeverinta-rol': {
+    title: 'Cerere Adeverință de Rol',
+    description: 'Confirmare proprietăți înregistrate'
+  },
+  'apia-pf': {
+    title: 'Cerere Adeverință APIA - Persoană Fizică',
+    description: 'Pentru subvenții agricole persoane fizice'
+  },
+  'apia-pj': {
+    title: 'Cerere Adeverință APIA - Persoană Juridică',
+    description: 'Pentru subvenții agricole persoane juridice'
+  },
+  'declaratie-registru': {
+    title: 'Declarație Registru Agricol',
+    description: 'Actualizare date registru agricol'
+  },
+  'nomenclatura-stradala': {
+    title: 'Cerere Certificat Nomenclatură Stradală',
+    description: 'Certificat denumire stradă'
+  },
+
+  // Taxe și Impozite
+  'certificat-fiscal-pf': {
+    title: 'Certificat Fiscal - Persoană Fizică',
+    description: 'Situație fiscală persoane fizice'
+  },
+  'certificat-fiscal-pj': {
+    title: 'Certificat Fiscal - Persoană Juridică',
+    description: 'Situație fiscală persoane juridice'
+  },
+  'radiere-imobile': {
+    title: 'Cerere Radiere Imobile',
+    description: 'Scoaterea din evidențele fiscale a clădirilor/terenurilor'
+  },
+  'radiere-auto': {
+    title: 'Cerere Radiere Vehicule',
+    description: 'Scoaterea din evidență a mijloacelor de transport'
+  },
+  'declaratie-auto': {
+    title: 'Declarație Fiscală Auto',
+    description: 'Pentru stabilirea impozitului pe mijloace de transport'
+  },
+  'declaratie-marfa': {
+    title: 'Declarație Fiscală Auto Marfă',
+    description: 'Pentru vehicule de mare tonaj peste 12 tone'
+  },
+  'declaratie-teren-pf': {
+    title: 'Declarație Impozit Teren - PF',
+    description: 'Impozit pe teren pentru persoane fizice (ITL-003)'
+  },
+  'declaratie-cladire-pf': {
+    title: 'Declarație Impozit Clădire - PF',
+    description: 'Impozit clădiri rezidențiale pentru persoane fizice'
+  },
+
+  // SPCLEP (Stare Civilă)
+  'act-identitate': {
+    title: 'Cerere Act de Identitate',
+    description: 'CI/Buletin nou sau duplicat'
+  },
+  'stabilire-resedinta': {
+    title: 'Cerere Stabilire Reședința',
+    description: 'Viză de reședință'
+  },
+  'transcriere-nastere': {
+    title: 'Cerere Transcriere Certificat Naștere',
+    description: 'Pentru acte emise în străinătate'
+  },
+  'certificat-nastere': {
+    title: 'Certificat de Naștere',
+    description: 'Solicită certificat de naștere original sau duplicat'
   },
   'certificat-deces': {
     title: 'Certificat de Deces',
     description: 'Solicită certificat de deces'
-  },
-  'certificat-nastere': {
-    title: 'Certificat de Naștere',
-    description: 'Solicită certificat de naștere'
   },
   'certificat-casatorie': {
     title: 'Certificat de Căsătorie',
@@ -49,6 +172,10 @@ const formMetadata: Record<string, { title: string; description: string }> = {
   'certificat-proprietate': {
     title: 'Certificat de Proprietate',
     description: 'Solicită certificat de atestare a dreptului de proprietate'
+  },
+  'adeverinta-fiscala': {
+    title: 'Adeverință Fiscală',
+    description: 'Obține adeverință fiscală online'
   }
 };
 

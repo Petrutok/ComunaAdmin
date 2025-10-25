@@ -134,7 +134,25 @@ export default function ReportIssuePage() {
 
       // Get problem type label for title
       const typeLabel = problemTypes.find(t => t.value === problemType)?.label || 'General';
-      
+
+      // Parse coordinates safely if present
+      let coordinates = null;
+      if (location.includes('Lat:')) {
+        try {
+          const latMatch = location.match(/Lat:\s*([-\d.]+)/);
+          const lngMatch = location.match(/Lng:\s*([-\d.]+)/);
+          if (latMatch && lngMatch) {
+            const lat = parseFloat(latMatch[1]);
+            const lng = parseFloat(lngMatch[1]);
+            if (!isNaN(lat) && !isNaN(lng)) {
+              coordinates = { lat, lng };
+            }
+          }
+        } catch (e) {
+          console.warn('Failed to parse coordinates:', e);
+        }
+      }
+
       // Prepare data for API
       const reportData = {
         name,
@@ -145,11 +163,7 @@ export default function ReportIssuePage() {
         priority,
         title: `Problemă ${typeLabel} - ${location.substring(0, 50)}`,
         imageUrl: uploadedImageUrl,
-        // Add coordinates if using geolocation
-        coordinates: location.includes('Lat:') ? {
-          lat: parseFloat(location.split('Lat: ')[1].split(',')[0]),
-          lng: parseFloat(location.split('Lng: ')[1])
-        } : null
+        coordinates
       };
 
       // Send to API
@@ -536,16 +550,16 @@ export default function ReportIssuePage() {
               </DialogTitle>
               <DialogDescription className="text-center text-base leading-relaxed px-4 text-gray-300">
                 Am primit raportul tău și echipa noastră va analiza problema cât mai repede.
-                {reportId && (
-                  <div className="mt-3 p-3 bg-slate-700 rounded-lg">
-                    <p className="text-sm text-gray-400">Număr înregistrare:</p>
-                    <p className="text-lg font-semibold text-white">{reportId}</p>
-                  </div>
-                )}
-                <span className="block mt-3 text-gray-400">
-                  Vei primi o confirmare pe email și te vom contacta dacă avem nevoie de mai multe detalii.
-                </span>
               </DialogDescription>
+              {reportId && (
+                <div className="mt-3 p-3 bg-slate-700 rounded-lg mx-4">
+                  <p className="text-sm text-gray-400">Număr înregistrare:</p>
+                  <p className="text-lg font-semibold text-white">{reportId}</p>
+                </div>
+              )}
+              <p className="mt-3 text-gray-400 text-sm px-4">
+                Te vom contacta dacă avem nevoie de mai multe detalii.
+              </p>
             </DialogHeader>
             <DialogFooter className="flex-col sm:flex-row gap-2 pt-6">
               <Button

@@ -51,62 +51,102 @@ export default function AdminDashboard() {
   const [myAssignedEmails, setMyAssignedEmails] = useState<RegistraturaEmail[]>([]);
 
   useEffect(() => {
-
-    // Simulare date - în producție acestea ar veni din API
-    setPendingItems([
-      {
-        id: '1',
-        type: 'cerere',
-        title: 'Certificat de urbanism',
-        description: 'Cerere pentru eliberare certificat de urbanism pentru construcție locuință',
-        author: 'Ion Popescu',
-        createdAt: new Date(Date.now() - 1000 * 60 * 30),
-        status: 'pending',
-        priority: 'medium'
-      },
-      {
-        id: '2',
-        type: 'problema',
-        title: 'Iluminat public defect',
-        description: 'Bec ars pe strada Mihai Eminescu, nr. 45',
-        author: 'Maria Ionescu',
-        location: 'Strada Mihai Eminescu, nr. 45',
-        createdAt: new Date(Date.now() - 1000 * 60 * 45),
-        status: 'pending',
-        priority: 'high'
-      },
-      {
-        id: '3',
-        type: 'anunt',
-        title: 'Întrerupere furnizare apă',
-        description: 'Lucrări de mentenanță în zona Centru, marți 09:00-14:00',
-        createdAt: new Date(Date.now() - 1000 * 60 * 60),
-        status: 'in_review',
-        priority: 'urgent'
-      },
-      {
-        id: '4',
-        type: 'cerere',
-        title: 'Autorizație de funcționare',
-        description: 'Cerere autorizație pentru magazin alimentar',
-        author: 'SC Example SRL',
-        createdAt: new Date(Date.now() - 1000 * 60 * 120),
-        status: 'pending',
-        priority: 'low'
-      },
-      {
-        id: '5',
-        type: 'problema',
-        title: 'Groapă în asfalt',
-        description: 'Groapă periculoasă pe strada Libertății, intersecție cu strada Victoriei',
-        author: 'Andrei Marinescu',
-        location: 'Strada Libertății',
-        createdAt: new Date(Date.now() - 1000 * 60 * 180),
-        status: 'pending',
-        priority: 'urgent'
-      }
-    ]);
+    loadRealData();
   }, []);
+
+  const loadRealData = async () => {
+    try {
+      const items: PendingItem[] = [];
+
+      // Load latest form submissions (cereri)
+      try {
+        const cereriQuery = query(
+          collection(db, 'form_submissions'),
+          orderBy('createdAt', 'desc'),
+        );
+        const cereriDocs = await getDocs(cereriQuery);
+        const cereriItems = cereriDocs.docs.slice(0, 5).map(doc => {
+          const data = doc.data();
+          return {
+            id: doc.id,
+            type: 'cerere' as const,
+            title: data.formType || 'Cerere nouă',
+            description: data.description || `Cerere ${data.formType || 'nouă'}`,
+            author: data.applicantName || data.fullName || 'Utilizator',
+            createdAt: data.createdAt?.toDate?.() || new Date(),
+            status: 'pending' as const,
+            priority: 'medium' as const
+          };
+        });
+        items.push(...cereriItems);
+      } catch (error) {
+        console.log('Note: form_submissions collection not available yet');
+      }
+
+      // Load latest reported issues (probleme)
+      try {
+        const problemsQuery = query(
+          collection(db, 'reported_issues'),
+          orderBy('createdAt', 'desc'),
+        );
+        const problemsDocs = await getDocs(problemsQuery);
+        const problemItems = problemsDocs.docs.slice(0, 5).map(doc => {
+          const data = doc.data();
+          const priorityMap: Record<string, 'low' | 'medium' | 'high' | 'urgent'> = {
+            'low': 'low',
+            'medium': 'medium',
+            'high': 'high',
+            'urgent': 'urgent'
+          };
+          return {
+            id: doc.id,
+            type: 'problema' as const,
+            title: data.title || 'Problemă raportată',
+            description: data.description || '',
+            author: data.reporterName || 'Utilizator',
+            location: data.location || '',
+            createdAt: data.createdAt?.toDate?.() || new Date(),
+            status: 'pending' as const,
+            priority: priorityMap[data.priority] || 'medium' as const
+          };
+        });
+        items.push(...problemItems);
+      } catch (error) {
+        console.log('Note: reported_issues collection not available yet');
+      }
+
+      // Load latest announcements (anunturi)
+      try {
+        const announcementsQuery = query(
+          collection(db, 'announcements'),
+          orderBy('createdAt', 'desc'),
+        );
+        const announcementsDocs = await getDocs(announcementsQuery);
+        const announcementItems = announcementsDocs.docs.slice(0, 5).map(doc => {
+          const data = doc.data();
+          return {
+            id: doc.id,
+            type: 'anunt' as const,
+            title: data.title || 'Anunț',
+            description: data.description || data.content || '',
+            author: 'Administrator',
+            createdAt: data.createdAt?.toDate?.() || new Date(),
+            status: data.published ? ('approved' as const) : ('pending' as const),
+            priority: 'medium' as const
+          };
+        });
+        items.push(...announcementItems);
+      } catch (error) {
+        console.log('Note: announcements collection not available yet');
+      }
+
+      // Sort by date and take top 10
+      items.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+      setPendingItems(items.slice(0, 10));
+    } catch (error) {
+      console.error('Error loading dashboard data:', error);
+    }
+  };
 
   // Load assigned emails for employees
   useEffect(() => {
@@ -449,108 +489,80 @@ export default function AdminDashboard() {
       {/* Main Content - Pending Items */}
       <Card className="bg-slate-800 border-slate-700">
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="text-white flex items-center gap-2">
-                <Bell className="h-5 w-5" />
-                Iteme care necesită atenție
-              </CardTitle>
-              <CardDescription className="text-gray-400">
-                Cereri, probleme și anunțuri care așteaptă acțiunea ta
-              </CardDescription>
-            </div>
-            <div className="flex gap-2">
-              <Button variant="outline" size="sm" className="border-slate-600 text-gray-300 hover:bg-slate-700">
-                <Check className="h-4 w-4 mr-1" />
-                Aprobă toate
-              </Button>
-              <Button variant="outline" size="sm" className="border-slate-600 text-gray-300 hover:bg-slate-700">
-                Filtrează
-              </Button>
-            </div>
+          <div>
+            <CardTitle className="text-white flex items-center gap-2">
+              <Bell className="h-5 w-5" />
+              Iteme care necesită atenție
+            </CardTitle>
+            <CardDescription className="text-gray-400">
+              Cele mai noi cereri, probleme și anunțuri care așteaptă acțiunea ta
+            </CardDescription>
           </div>
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
-            {pendingItems.map((item) => (
-              <div key={item.id} className="bg-slate-700/50 rounded-lg p-4 hover:bg-slate-700 transition-all border border-slate-600/50 hover:border-slate-500">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex items-start gap-3 flex-1">
-                    <div className={`p-2 rounded-lg ${
-                      item.type === 'problema' ? 'bg-orange-500/20 text-orange-400' :
-                      item.type === 'cerere' ? 'bg-blue-500/20 text-blue-400' :
-                      item.type === 'anunt' ? 'bg-purple-500/20 text-purple-400' :
-                      'bg-green-500/20 text-green-400'
-                    }`}>
-                      {getItemIcon(item.type)}
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex items-start justify-between mb-1">
-                        <div className="flex items-center gap-2">
-                          <h4 className="font-medium text-white">{item.title}</h4>
-                          {item.priority && (
-                            <Badge className={`text-xs ${getPriorityColor(item.priority)}`}>
-                              {item.priority === 'urgent' ? 'Urgent' : 
-                               item.priority === 'high' ? 'Înaltă' :
-                               item.priority === 'medium' ? 'Medie' : 'Scăzută'}
-                            </Badge>
-                          )}
+            {pendingItems.map((item) => {
+              const isNew = item.status === 'pending';
+              return (
+                <Link key={item.id} href={`/admin/${item.type === 'cerere' ? 'cereri' : item.type === 'problema' ? 'issues' : 'announcements'}`}>
+                  <div className={`rounded-lg p-4 transition-all border cursor-pointer ${
+                    isNew
+                      ? 'bg-slate-700/80 border-blue-500/50 hover:bg-slate-700 shadow-lg shadow-blue-500/10'
+                      : 'bg-slate-700/50 border-slate-600/50 hover:bg-slate-700 hover:border-slate-500'
+                  }`}>
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex items-start gap-3 flex-1">
+                        <div className={`p-2 rounded-lg flex-shrink-0 ${
+                          item.type === 'problema' ? 'bg-orange-500/20 text-orange-400' :
+                          item.type === 'cerere' ? 'bg-blue-500/20 text-blue-400' :
+                          item.type === 'anunt' ? 'bg-purple-500/20 text-purple-400' :
+                          'bg-green-500/20 text-green-400'
+                        }`}>
+                          {getItemIcon(item.type)}
                         </div>
-                        {getStatusBadge(item.status)}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1 flex-wrap">
+                            <h4 className="font-medium text-white">{item.title}</h4>
+                            {isNew && (
+                              <Badge className="bg-blue-600/80 text-white text-xs animate-pulse">Nou</Badge>
+                            )}
+                            {item.priority && (
+                              <Badge className={`text-xs ${getPriorityColor(item.priority)}`}>
+                                {item.priority === 'urgent' ? 'Urgent' :
+                                 item.priority === 'high' ? 'Înaltă' :
+                                 item.priority === 'medium' ? 'Medie' : 'Scăzută'}
+                              </Badge>
+                            )}
+                          </div>
+                          <p className="text-sm text-gray-400 mb-2 line-clamp-2">{item.description}</p>
+                          <div className="flex items-center gap-4 text-xs text-gray-500 flex-wrap">
+                            <span className="flex items-center gap-1">
+                              <Clock className="h-3 w-3 flex-shrink-0" />
+                              {getTimeAgo(item.createdAt)}
+                            </span>
+                            {item.author && (
+                              <span className="flex items-center gap-1">
+                                <User className="h-3 w-3 flex-shrink-0" />
+                                {item.author}
+                              </span>
+                            )}
+                            {item.location && (
+                              <span className="flex items-center gap-1">
+                                <MapPin className="h-3 w-3 flex-shrink-0" />
+                                {item.location}
+                              </span>
+                            )}
+                          </div>
+                        </div>
                       </div>
-                      <p className="text-sm text-gray-400 mb-2">{item.description}</p>
-                      <div className="flex items-center gap-4 text-xs text-gray-500">
-                        <span className="flex items-center gap-1">
-                          <Clock className="h-3 w-3" />
-                          {getTimeAgo(item.createdAt)}
-                        </span>
-                        {item.author && (
-                          <span className="flex items-center gap-1">
-                            <User className="h-3 w-3" />
-                            {item.author}
-                          </span>
-                        )}
-                        {item.location && (
-                          <span className="flex items-center gap-1">
-                            <MapPin className="h-3 w-3" />
-                            {item.location}
-                          </span>
-                        )}
-                        <span className="flex items-center gap-1 text-gray-400">
-                          <MessageSquare className="h-3 w-3" />
-                          {getItemTypeLabel(item.type)}
-                        </span>
+                      <div className="flex-shrink-0">
+                        <ChevronRight className="h-5 w-5 text-gray-400 group-hover:text-gray-300 transition-colors" />
                       </div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Button 
-                      size="sm" 
-                      variant="ghost" 
-                      className="text-green-400 hover:text-green-300 hover:bg-green-400/20"
-                    >
-                      <CheckCircle className="h-4 w-4" />
-                    </Button>
-                    <Button 
-                      size="sm" 
-                      variant="ghost" 
-                      className="text-red-400 hover:text-red-300 hover:bg-red-400/20"
-                    >
-                      <XCircle className="h-4 w-4" />
-                    </Button>
-                    <Link href={`/admin/${item.type === 'cerere' ? 'cereri' : item.type === 'problema' ? 'issues' : 'announcements'}/${item.id}`}>
-                      <Button 
-                        size="sm" 
-                        variant="ghost" 
-                        className="text-gray-400 hover:text-gray-300 hover:bg-slate-600"
-                      >
-                        <ChevronRight className="h-4 w-4" />
-                      </Button>
-                    </Link>
-                  </div>
-                </div>
-              </div>
-            ))}
+                </Link>
+              );
+            })}
           </div>
 
           {pendingItems.length === 0 && (

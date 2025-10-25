@@ -417,6 +417,9 @@ export default function AdminIssuesPage() {
                       </p>
 
                       <div className="flex flex-wrap gap-4 text-xs text-gray-400">
+                        <div className="flex items-center gap-1 text-blue-400 font-semibold">
+                          #{issue.reportId}
+                        </div>
                         <div className="flex items-center gap-1">
                           <User className="h-3 w-3" />
                           {issue.reporterName}
