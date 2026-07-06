@@ -145,12 +145,18 @@ export default function DosarulMeuPage() {
           </div>
         ) : (
           <Tabs defaultValue="cereri">
-            <TabsList className="grid w-full grid-cols-2 bg-slate-800 border border-slate-700">
-              <TabsTrigger value="cereri" className="data-[state=active]:bg-slate-700 text-base py-2.5">
+            <TabsList className="grid h-auto w-full grid-cols-2 gap-1 rounded-lg bg-slate-800 border border-slate-700 p-1">
+              <TabsTrigger
+                value="cereri"
+                className="rounded-md py-2.5 text-base text-gray-400 data-[state=active]:bg-slate-700 data-[state=active]:text-white"
+              >
                 <FileText className="mr-2 h-4 w-4" />
                 Cereri ({cereri.length})
               </TabsTrigger>
-              <TabsTrigger value="sesizari" className="data-[state=active]:bg-slate-700 text-base py-2.5">
+              <TabsTrigger
+                value="sesizari"
+                className="rounded-md py-2.5 text-base text-gray-400 data-[state=active]:bg-slate-700 data-[state=active]:text-white"
+              >
                 <AlertTriangle className="mr-2 h-4 w-4" />
                 Sesizări ({issues.length})
               </TabsTrigger>
