@@ -1,0 +1,716 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { useToast } from '@/hooks/use-toast';
+import {
+  collection,
+  query,
+  where,
+  getDocs,
+  doc,
+  updateDoc,
+  deleteDoc,
+  orderBy,
+  Timestamp,
+} from 'firebase/firestore';
+import { db, COLLECTIONS, RegistruDocument, StatusRegistru, TipDocument } from '@/lib/firebase';
+import { TIP_DOCUMENT_CONFIG, STATUS_CONFIG, DEPARTMENTS_LIST } from '@/types/registru';
+import {
+  Plus,
+  Search,
+  Eye,
+  Trash2,
+  AlertCircle,
+  FileText,
+  RefreshCw,
+  Loader2,
+  ArrowUpDown,
+  Edit2,
+  ChevronDown,
+} from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { exportToCSV, exportToExcel } from '@/lib/utils/exportRegistruData';
+
+export default function AdminRegistruPage() {
+  const router = useRouter();
+  const [documents, setDocuments] = useState<RegistruDocument[]>([]);
+  const [filteredDocuments, setFilteredDocuments] = useState<RegistruDocument[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [activeFilter, setActiveFilter] = useState<StatusRegistru | 'toate'>('toate');
+  const [selectedDocument, setSelectedDocument] = useState<RegistruDocument | null>(null);
+  const [editingDocument, setEditingDocument] = useState<RegistruDocument | null>(null);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showStatusDialog, setShowStatusDialog] = useState(false);
+  const [showBulkDeleteDialog, setShowBulkDeleteDialog] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [newStatus, setNewStatus] = useState<StatusRegistru>('nou');
+  const [observatii, setObservatii] = useState('');
+  const { toast } = useToast();
+
+  useEffect(() => {
+    loadDocuments();
+  }, []);
+
+  useEffect(() => {
+    filterDocuments();
+  }, [documents, activeFilter, searchTerm, sortOrder]);
+
+  const loadDocuments = async () => {
+    setLoading(true);
+    try {
+      const q = query(
+        collection(db, COLLECTIONS.REGISTRU_GENERAL),
+        orderBy('dataInregistrare', 'desc')
+      );
+
+      const snapshot = await getDocs(q);
+      const data = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+      } as RegistruDocument));
+
+      setDocuments(data);
+    } catch (error: any) {
+      console.error('Error loading documents:', error);
+      toast({
+        title: 'Eroare',
+        description: 'Nu s-au putut încărca documentele',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const filterDocuments = () => {
+    let filtered = [...documents];
+
+    if (activeFilter !== 'toate') {
+      filtered = filtered.filter(d => d.status === activeFilter);
+    }
+
+    if (searchTerm) {
+      const search = searchTerm.toLowerCase();
+      filtered = filtered.filter(d =>
+        d.numarInregistrare.toLowerCase().includes(search) ||
+        d.emitent.toLowerCase().includes(search) ||
+        d.emailEmitent?.toLowerCase().includes(search) ||
+        d.continut.toLowerCase().includes(search) ||
+        d.destinatar.toLowerCase().includes(search)
+      );
+    }
+
+    filtered.sort((a, b) => {
+      const dateA = a.dataInregistrare?.toMillis?.() || 0;
+      const dateB = b.dataInregistrare?.toMillis?.() || 0;
+      return sortOrder === 'desc' ? dateB - dateA : dateA - dateB;
+    });
+
+    setFilteredDocuments(filtered);
+  };
+
+  const handleStatusChange = async () => {
+    if (!selectedDocument || !newStatus) return;
+
+    try {
+      await updateDoc(doc(db, COLLECTIONS.REGISTRU_GENERAL, selectedDocument.id), {
+        status: newStatus,
+        observatii: observatii.trim() || selectedDocument.observatii || '',
+        updatedAt: Timestamp.now(),
+      });
+
+      toast({
+        title: 'Status actualizat',
+        description: `Documentul a fost marcat ca ${STATUS_CONFIG[newStatus].label}`,
+      });
+
+      setShowStatusDialog(false);
+      setNewStatus('nou');
+      setObservatii('');
+      loadDocuments();
+    } catch (error) {
+      console.error('Error updating status:', error);
+      toast({
+        title: 'Eroare',
+        description: 'Nu s-a putut actualiza statusul',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!selectedDocument) return;
+
+    try {
+      await deleteDoc(doc(db, COLLECTIONS.REGISTRU_GENERAL, selectedDocument.id));
+
+      toast({
+        title: 'Document șters',
+        description: 'Documentul a fost șters definitiv.',
+      });
+
+      setShowDeleteDialog(false);
+      setSelectedDocument(null);
+      loadDocuments();
+    } catch (error) {
+      console.error('Error deleting document:', error);
+      toast({
+        title: 'Eroare',
+        description: 'Nu s-a putut șterge documentul',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const formatDate = (timestamp: any) => {
+    if (!timestamp) return 'N/A';
+    const date = timestamp.toDate?.() || new Date(timestamp);
+    return date.toLocaleDateString('ro-RO', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+    });
+  };
+
+  const getStatusCount = (status: StatusRegistru) => {
+    return documents.filter(d => d.status === status).length;
+  };
+
+  return (
+    <div className="flex h-screen bg-slate-900">
+      {/* Left Sidebar */}
+      <div className="w-48 bg-slate-800 border-r border-slate-700 p-3 overflow-y-auto">
+        <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4">
+          📋 Registratură
+        </h2>
+        <nav className="space-y-1">
+          <div
+            onClick={() => setActiveFilter('toate')}
+            className={`px-3 py-2 rounded cursor-pointer font-medium text-sm transition-colors ${
+              activeFilter === 'toate'
+                ? 'bg-blue-600 text-white'
+                : 'text-gray-300 hover:bg-slate-700'
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <FileText className="h-3 w-3" />
+              Toate
+              <Badge className="ml-auto bg-slate-600 text-white text-xs px-2 py-0.5">
+                {documents.length}
+              </Badge>
+            </div>
+          </div>
+
+          <div
+            onClick={() => setActiveFilter('nou')}
+            className={`px-3 py-2 rounded cursor-pointer font-medium text-sm transition-colors ${
+              activeFilter === 'nou'
+                ? 'bg-blue-600 text-white'
+                : 'text-gray-300 hover:bg-slate-700'
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <Plus className="h-3 w-3" />
+              Noi
+              <Badge className="ml-auto bg-blue-600 text-white text-xs px-2 py-0.5">
+                {getStatusCount('nou')}
+              </Badge>
+            </div>
+          </div>
+
+          <div
+            onClick={() => setActiveFilter('in_lucru')}
+            className={`px-3 py-2 rounded cursor-pointer font-medium text-sm transition-colors ${
+              activeFilter === 'in_lucru'
+                ? 'bg-blue-600 text-white'
+                : 'text-gray-300 hover:bg-slate-700'
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <AlertCircle className="h-3 w-3" />
+              În Lucru
+              <Badge className="ml-auto bg-amber-600 text-white text-xs px-2 py-0.5">
+                {getStatusCount('in_lucru')}
+              </Badge>
+            </div>
+          </div>
+
+          <div
+            onClick={() => setActiveFilter('finalizat')}
+            className={`px-3 py-2 rounded cursor-pointer font-medium text-sm transition-colors ${
+              activeFilter === 'finalizat'
+                ? 'bg-blue-600 text-white'
+                : 'text-gray-300 hover:bg-slate-700'
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <Eye className="h-3 w-3" />
+              Finalizate
+              <Badge className="ml-auto bg-emerald-600 text-white text-xs px-2 py-0.5">
+                {getStatusCount('finalizat')}
+              </Badge>
+            </div>
+          </div>
+        </nav>
+      </div>
+
+      {/* Main Content */}
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {/* Header */}
+        <div className="bg-slate-800 border-b border-slate-700 p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h1 className="text-2xl font-bold text-white">📄 Înregistrări</h1>
+            <div className="flex gap-2">
+              <Button
+                onClick={() => router.push('/admin/registru/intrare-noua')}
+                className="bg-emerald-600 hover:bg-emerald-500 text-white font-medium"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Intrare Nouă
+              </Button>
+              <Button
+                onClick={() => setShowBulkDeleteDialog(true)}
+                className="bg-red-600 hover:bg-red-500 text-white font-medium"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Iesire Nouă
+              </Button>
+              <Button onClick={loadDocuments} className="bg-slate-700 hover:bg-slate-600 text-white font-medium">
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Reîncarcă
+              </Button>
+            </div>
+          </div>
+          <p className="text-gray-400 text-sm">
+            Editează coloane tabel
+          </p>
+        </div>
+
+        {/* Content Area */}
+        <div className="flex-1 overflow-auto p-6">
+          {loading ? (
+            <div className="flex items-center justify-center h-full">
+              <Loader2 className="h-8 w-8 animate-spin text-blue-400" />
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {/* Filter Row - REGIT Style with Input Fields */}
+              <div className="bg-slate-800 border border-slate-700 rounded overflow-x-auto">
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-slate-700/50 border-b border-slate-700">
+                        <TableHead className="text-gray-300 font-semibold px-2 py-2 text-xs w-20">Nr. Înregistrare</TableHead>
+                        <TableHead className="text-gray-300 font-semibold px-2 py-2 text-xs w-24">Data Înregistrării</TableHead>
+                        <TableHead className="text-gray-300 font-semibold px-2 py-2 text-xs w-20">Număr extern</TableHead>
+                        <TableHead className="text-gray-300 font-semibold px-2 py-2 text-xs w-20">Data externă</TableHead>
+                        <TableHead className="text-gray-300 font-semibold px-2 py-2 text-xs flex-1 min-w-32">Emitent</TableHead>
+                        <TableHead className="text-gray-300 font-semibold px-2 py-2 text-xs flex-1 min-w-32">Destinatar</TableHead>
+                        <TableHead className="text-gray-300 font-semibold px-2 py-2 text-xs flex-1 min-w-40">Conținut</TableHead>
+                        <TableHead className="text-gray-300 font-semibold px-2 py-2 text-xs w-24">Departament</TableHead>
+                        <TableHead className="text-gray-300 font-semibold px-2 py-2 text-xs w-20">Stare</TableHead>
+                        <TableHead className="text-gray-300 font-semibold px-2 py-2 text-xs w-28">Data intern de rezolvare</TableHead>
+                        <TableHead className="text-gray-300 font-semibold px-2 py-2 text-xs w-28">Data limită răspuns</TableHead>
+                        <TableHead className="text-gray-300 font-semibold px-2 py-2 text-xs w-24">Creatã de</TableHead>
+                        <TableHead className="text-gray-300 font-semibold px-2 py-2 text-xs w-28">Acțiuni</TableHead>
+                      </TableRow>
+                      <TableRow className="bg-slate-800 border-b border-slate-700">
+                        <TableHead className="px-2 py-2 text-xs w-20">
+                          <Input
+                            placeholder="Interv..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="h-8 bg-slate-700 border-slate-600 text-white placeholder:text-gray-500 text-xs"
+                          />
+                        </TableHead>
+                        <TableHead className="px-2 py-2 text-xs w-24">
+                          <Input placeholder="Int..." className="h-8 bg-slate-700 border-slate-600 text-white placeholder:text-gray-500 text-xs" />
+                        </TableHead>
+                        <TableHead className="px-2 py-2 text-xs w-20">
+                          <Input placeholder="Nu..." className="h-8 bg-slate-700 border-slate-600 text-white placeholder:text-gray-500 text-xs" />
+                        </TableHead>
+                        <TableHead className="px-2 py-2 text-xs w-20">
+                          <Input placeholder="I..." className="h-8 bg-slate-700 border-slate-600 text-white placeholder:text-gray-500 text-xs" />
+                        </TableHead>
+                        <TableHead className="px-2 py-2 text-xs flex-1 min-w-32">
+                          <Input placeholder="Emitent" className="h-8 bg-slate-700 border-slate-600 text-white placeholder:text-gray-500 text-xs" />
+                        </TableHead>
+                        <TableHead className="px-2 py-2 text-xs flex-1 min-w-32">
+                          <Input placeholder="Desti..." className="h-8 bg-slate-700 border-slate-600 text-white placeholder:text-gray-500 text-xs" />
+                        </TableHead>
+                        <TableHead className="px-2 py-2 text-xs flex-1 min-w-40">
+                          <Input placeholder="Conținut" className="h-8 bg-slate-700 border-slate-600 text-white placeholder:text-gray-500 text-xs" />
+                        </TableHead>
+                        <TableHead className="px-2 py-2 text-xs w-24">
+                          <Select>
+                            <SelectTrigger className="h-8 bg-slate-700 border-slate-600 text-white text-xs">
+                              <SelectValue placeholder="Department" />
+                            </SelectTrigger>
+                            <SelectContent className="bg-slate-800 border-slate-700">
+                              <SelectItem value="all">Tot/Toate</SelectItem>
+                              {DEPARTMENTS_LIST.map((dept) => (
+                                <SelectItem key={dept} value={dept}>{dept}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </TableHead>
+                        <TableHead className="px-2 py-2 text-xs w-20">
+                          <Select value={activeFilter} onValueChange={(value) => setActiveFilter(value as any)}>
+                            <SelectTrigger className="h-8 bg-slate-700 border-slate-600 text-white text-xs">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent className="bg-slate-800 border-slate-700">
+                              <SelectItem value="toate">Tot/Toate</SelectItem>
+                              <SelectItem value="nou">Nou</SelectItem>
+                              <SelectItem value="in_lucru">Lucru</SelectItem>
+                              <SelectItem value="finalizat">Finalizat</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </TableHead>
+                        <TableHead className="px-2 py-2 text-xs w-28">
+                          <Input placeholder="I..." className="h-8 bg-slate-700 border-slate-600 text-white placeholder:text-gray-500 text-xs" />
+                        </TableHead>
+                        <TableHead className="px-2 py-2 text-xs w-28">
+                          <Input placeholder="I..." className="h-8 bg-slate-700 border-slate-600 text-white placeholder:text-gray-500 text-xs" />
+                        </TableHead>
+                        <TableHead className="px-2 py-2 text-xs w-24">
+                          <Input placeholder="Cre..." className="h-8 bg-slate-700 border-slate-600 text-white placeholder:text-gray-500 text-xs" />
+                        </TableHead>
+                        <TableHead className="px-2 py-2 text-xs w-28 flex gap-1 justify-center">
+                          <Button size="sm" variant="outline" className="h-7 w-7 p-0 bg-slate-700 border-slate-600" onClick={() => exportToCSV(filteredDocuments)}>📥</Button>
+                          <Button size="sm" variant="outline" className="h-7 w-7 p-0 bg-slate-700 border-slate-600" onClick={() => exportToExcel(filteredDocuments)}>🔄</Button>
+                        </TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredDocuments.map((doc) => {
+                        const statusConfig = STATUS_CONFIG[doc.status];
+
+                        return (
+                          <TableRow
+                            key={doc.id}
+                            className="border-b border-slate-700/30 hover:bg-slate-700/20"
+                          >
+                            <TableCell className="font-mono font-bold whitespace-nowrap px-2 py-2 text-sm w-20">
+                              <Badge className={`${statusConfig.color} text-white text-xs px-2 py-1`}>
+                                {doc.numarInregistrare.split('-').pop()}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-gray-300 whitespace-nowrap px-2 py-2 text-sm text-center w-24">
+                              {formatDate(doc.dataInregistrare)}
+                            </TableCell>
+                            <TableCell className="text-gray-300 whitespace-nowrap px-2 py-2 text-sm w-20">
+                              {doc.numarExtern?.substring(0, 10) || '-'}
+                            </TableCell>
+                            <TableCell className="text-gray-300 whitespace-nowrap px-2 py-2 text-sm w-20">
+                              {doc.dataExterna?.substring(0, 10) || '-'}
+                            </TableCell>
+                            <TableCell className="text-gray-300 truncate px-2 py-2 text-sm flex-1 min-w-32">
+                              {doc.emitent}
+                            </TableCell>
+                            <TableCell className="text-gray-300 truncate px-2 py-2 text-sm flex-1 min-w-32">
+                              {doc.destinatar}
+                            </TableCell>
+                            <TableCell className="text-gray-300 truncate px-2 py-2 text-sm flex-1 min-w-40">
+                              {doc.continut.substring(0, 25)}...
+                            </TableCell>
+                            <TableCell className="text-gray-300 truncate px-2 py-2 text-sm w-24">
+                              {doc.departament || '-'}
+                            </TableCell>
+                            <TableCell className="whitespace-nowrap px-2 py-2 w-20">
+                              <span className={`inline-block px-2 py-1 text-xs font-semibold rounded text-white ${statusConfig.color}`}>
+                                {statusConfig.label}
+                              </span>
+                            </TableCell>
+                            <TableCell className="text-gray-300 whitespace-nowrap px-2 py-2 text-sm w-28">
+                              {doc.dataExterna || '-'}
+                            </TableCell>
+                            <TableCell className="text-gray-300 whitespace-nowrap px-2 py-2 text-sm w-28">
+                              {formatDate(doc.createdAt)}
+                            </TableCell>
+                            <TableCell className="text-gray-300 whitespace-nowrap px-2 py-2 text-sm w-24">
+                              {doc.creatDeNume || 'OANA SDROBIS'}
+                            </TableCell>
+                            <TableCell className="whitespace-nowrap px-2 py-2 flex gap-1 w-28 justify-center">
+                              <Button
+                                size="sm"
+                                className="h-7 w-7 p-0 bg-slate-700 hover:bg-slate-600"
+                                onClick={() => {
+                                  // TODO: Add print functionality
+                                }}
+                              >
+                                🖨️
+                              </Button>
+                              <Button
+                                size="sm"
+                                className="h-7 w-7 p-0 bg-slate-700 hover:bg-slate-600"
+                                onClick={() => {
+                                  setSelectedDocument(doc);
+                                  setNewStatus(doc.status);
+                                  setObservatii(doc.observatii || '');
+                                  setShowStatusDialog(true);
+                                }}
+                              >
+                                👁️
+                              </Button>
+                              <Button
+                                size="sm"
+                                className="h-7 w-7 p-0 bg-slate-700 hover:bg-slate-600"
+                                onClick={() => {
+                                  // TODO: Add edit functionality
+                                }}
+                              >
+                                ✏️
+                              </Button>
+                              {doc.status === 'finalizat' && (
+                                <Button
+                                  size="sm"
+                                  className="h-7 w-7 p-0 bg-red-700 hover:bg-red-600"
+                                  onClick={() => {
+                                    setSelectedDocument(doc);
+                                    setShowDeleteDialog(true);
+                                  }}
+                                >
+                                  🗑️
+                                </Button>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+
+              {/* Empty State */}
+              {filteredDocuments.length === 0 && (
+                <div className="text-center py-12">
+                  <FileText className="h-16 w-16 text-gray-600 mx-auto mb-4" />
+                  <p className="text-gray-400">
+                    Nu există documente în categoria selectată
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Status Change Dialog */}
+      <Dialog open={showStatusDialog} onOpenChange={setShowStatusDialog}>
+        <DialogContent className="bg-slate-800 border-slate-700">
+          <DialogHeader>
+            <DialogTitle className="text-white">Actualizare Status</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm text-gray-400 mb-2 block">Status nou</label>
+              <Select value={newStatus} onValueChange={(value) => setNewStatus(value as StatusRegistru)}>
+                <SelectTrigger className="bg-slate-900 border-slate-600 text-white">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-slate-800 border-slate-700">
+                  {(['nou', 'in_lucru', 'finalizat'] as StatusRegistru[]).map((status) => {
+                    const config = STATUS_CONFIG[status];
+                    return (
+                      <SelectItem key={status} value={status} className="text-gray-300">
+                        <div className="flex items-center gap-2">
+                          <span>{config.icon}</span>
+                          {config.label}
+                        </div>
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <label className="text-sm text-gray-400 mb-2 block">Observații</label>
+              <Textarea
+                value={observatii}
+                onChange={(e) => setObservatii(e.target.value)}
+                placeholder="Adaugă observații..."
+                className="bg-slate-900 border-slate-600 text-white"
+                rows={4}
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowStatusDialog(false)}>
+              Anulează
+            </Button>
+            <Button onClick={handleStatusChange} className="bg-blue-600 hover:bg-blue-700">
+              Salvează
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent className="bg-slate-800 border-slate-700">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-white">Confirmare ștergere</AlertDialogTitle>
+            <AlertDialogDescription className="text-gray-400">
+              Sigur vrei să ștergi definitiv documentul {selectedDocument?.numarInregistrare}?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Anulează</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-red-600 hover:bg-red-700">
+              Șterge
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Bulk Delete / Export Dialog */}
+      <Dialog open={showBulkDeleteDialog} onOpenChange={setShowBulkDeleteDialog}>
+        <DialogContent className="bg-slate-800 border-slate-700">
+          <DialogHeader>
+            <DialogTitle className="text-white">Iesire Nouă</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <p className="text-gray-400 text-sm">
+              Selectați acțiunea dorită pentru documentele finalizate:
+            </p>
+
+            <div className="space-y-2">
+              <Button
+                onClick={() => {
+                  const finalized = documents.filter(d => d.status === 'finalizat');
+                  if (finalized.length === 0) {
+                    toast({
+                      title: 'Nu sunt documente',
+                      description: 'Nu există documente finalizate de șters',
+                      variant: 'destructive',
+                    });
+                    return;
+                  }
+                  exportToCSV(finalized);
+                  toast({
+                    title: 'Export finalizat',
+                    description: 'Documentele finalizate au fost exportate ca CSV',
+                  });
+                }}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                Exportă Finalizate (CSV)
+              </Button>
+
+              <Button
+                onClick={() => {
+                  const finalized = documents.filter(d => d.status === 'finalizat');
+                  if (finalized.length === 0) {
+                    toast({
+                      title: 'Nu sunt documente',
+                      description: 'Nu există documente finalizate de șters',
+                      variant: 'destructive',
+                    });
+                    return;
+                  }
+                  exportToExcel(finalized);
+                  toast({
+                    title: 'Export finalizat',
+                    description: 'Documentele finalizate au fost exportate ca Excel',
+                  });
+                }}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                Exportă Finalizate (Excel)
+              </Button>
+
+              <Button
+                onClick={async () => {
+                  const finalized = documents.filter(d => d.status === 'finalizat');
+                  if (finalized.length === 0) {
+                    toast({
+                      title: 'Nu sunt documente',
+                      description: 'Nu există documente finalizate de șters',
+                      variant: 'destructive',
+                    });
+                    return;
+                  }
+
+                  try {
+                    for (const docItem of finalized) {
+                      await deleteDoc(doc(db, COLLECTIONS.REGISTRU_GENERAL, docItem.id));
+                    }
+                    toast({
+                      title: 'Șters',
+                      description: `${finalized.length} documente finalizate au fost șterse.`,
+                    });
+                    setShowBulkDeleteDialog(false);
+                    loadDocuments();
+                  } catch (error) {
+                    console.error('Error deleting documents:', error);
+                    toast({
+                      title: 'Eroare',
+                      description: 'Nu s-au putut șterge documentele',
+                      variant: 'destructive',
+                    });
+                  }
+                }}
+                className="w-full bg-red-600 hover:bg-red-700 text-white"
+              >
+                Șterge Finalizate
+              </Button>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowBulkDeleteDialog(false)}
+            >
+              Anulează
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
