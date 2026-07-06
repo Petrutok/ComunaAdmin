@@ -26,6 +26,7 @@ import {
   Code
 } from 'lucide-react';
 import Image from 'next/image';
+import { ActiveAlertsBanner } from '@/components/ActiveAlertsBanner';
 
 export default function HomePage() {
   const cards = [
@@ -132,6 +133,9 @@ export default function HomePage() {
     
   return (
     <div className="min-h-screen bg-slate-950">
+      {/* Urgent alerts banner (renders only while an alert is live) */}
+      <ActiveAlertsBanner />
+
       {/* Modern Redesigned Header */}
       <header className="relative bg-gradient-to-br from-slate-950 via-slate-900 to-blue-950 overflow-hidden">
         {/* Animated Background Elements */}
