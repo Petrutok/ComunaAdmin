@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { db, auth } from '@/lib/firebase';
 
 export function NotificationPermissionManager() {
   const [hasAskedPermission, setHasAskedPermission] = useState<boolean | null>(null);
@@ -132,10 +132,14 @@ export function NotificationPermissionManager() {
 
   const saveSubscriptionToServer = async (subscription: PushSubscription) => {
     try {
+      // Logged-in citizens get the subscription linked to their account
+      const idToken = await auth.currentUser?.getIdToken().catch(() => null);
+
       const response = await fetch('/api/push/subscribe', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...(idToken ? { Authorization: `Bearer ${idToken}` } : {}),
         },
         body: JSON.stringify({
           subscription: subscription.toJSON(),

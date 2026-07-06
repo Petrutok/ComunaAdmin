@@ -891,6 +891,33 @@ const handleSubmit = async (e: React.FormEvent) => {
         </div>
       )}
 
+      {citizenUser ? (
+        <p className="text-sm text-gray-300">
+          Cererea a fost salvată în{' '}
+          <button
+            onClick={() => { setShowSuccess(false); router.push('/dosarul-meu'); }}
+            className="text-blue-400 hover:underline font-medium"
+          >
+            Dosarul meu
+          </button>
+          {' '}— primești notificare când primăria o rezolvă.
+        </p>
+      ) : (
+        <div className="rounded-lg border border-blue-500/30 bg-blue-900/10 px-4 py-3 text-sm">
+          <p className="text-gray-200 font-medium">Vrei să urmărești această cerere din aplicație?</p>
+          <p className="text-gray-400 mt-1">
+            Creează-ți un cont gratuit și viitoarele cereri vor apărea în „Dosarul meu",
+            cu notificare când sunt rezolvate.
+          </p>
+          <Button
+            onClick={() => { setShowSuccess(false); router.push('/cont'); }}
+            className="mt-3 w-full bg-blue-600 hover:bg-blue-700"
+          >
+            Creează cont gratuit
+          </Button>
+        </div>
+      )}
+
               <div className="flex gap-3">
                 <Button
                   variant="outline"

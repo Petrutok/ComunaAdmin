@@ -8,6 +8,7 @@ import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   sendPasswordResetEmail,
+  sendEmailVerification,
   signOut,
   onAuthStateChanged,
   updateProfile,
@@ -32,6 +33,7 @@ interface CitizenAuthContextType {
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
+  resendVerificationEmail: () => Promise<void>;
 }
 
 const CitizenAuthContext = createContext<CitizenAuthContextType>({
@@ -42,6 +44,7 @@ const CitizenAuthContext = createContext<CitizenAuthContextType>({
   login: async () => {},
   logout: async () => {},
   resetPassword: async () => {},
+  resendVerificationEmail: async () => {},
 });
 
 export const useCitizenAuth = () => useContext(CitizenAuthContext);
@@ -90,6 +93,12 @@ export function CitizenAuthProvider({ children }: { children: React.ReactNode })
     };
     await setDoc(doc(db, 'citizens', credential.user.uid), newProfile);
     setProfile(newProfile);
+
+    // Non-blocking email verification: the account works right away, but the
+    // /cont page nudges until the address is confirmed (protects password reset)
+    sendEmailVerification(credential.user).catch((error) =>
+      console.warn('[CitizenAuth] Verification email failed:', error)
+    );
   };
 
   const login = async (email: string, password: string) => {
@@ -104,8 +113,16 @@ export function CitizenAuthProvider({ children }: { children: React.ReactNode })
     await sendPasswordResetEmail(auth, email);
   };
 
+  const resendVerificationEmail = async () => {
+    if (auth.currentUser && !auth.currentUser.emailVerified) {
+      await sendEmailVerification(auth.currentUser);
+    }
+  };
+
   return (
-    <CitizenAuthContext.Provider value={{ user, profile, loading, register, login, logout, resetPassword }}>
+    <CitizenAuthContext.Provider
+      value={{ user, profile, loading, register, login, logout, resetPassword, resendVerificationEmail }}
+    >
       {children}
     </CitizenAuthContext.Provider>
   );

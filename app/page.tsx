@@ -19,6 +19,7 @@ import {
   Menu,
   MapPin,
   FolderOpen,
+  UserCircle,
   Phone,
   Shield,
   Heart,
@@ -141,6 +142,15 @@ export default function HomePage() {
 
         {/* Main Header Content */}
         <div className="relative max-w-7xl mx-auto px-4 py-8 md:py-10">
+          {/* Account button - top right */}
+          <div className="absolute top-4 right-4 z-10">
+            <Link href="/cont">
+              <div className="flex items-center gap-2 rounded-xl border border-white/20 bg-white/10 px-4 py-2 text-sm font-medium text-white backdrop-blur-md transition-all hover:bg-white/20">
+                <UserCircle className="h-5 w-5" />
+                <span>Contul meu</span>
+              </div>
+            </Link>
+          </div>
           <div className="flex justify-center">
             {/* Logo Section - Centrat */}
             <div className="flex items-center gap-4">
