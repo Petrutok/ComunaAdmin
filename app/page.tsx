@@ -49,6 +49,15 @@ export default function HomePage() {
       iconBg: "bg-red-500/10"
     },
     {
+      title: "Programare la Primărie",
+      description: "Rezervă-ți ora la ghișeu sau audiență la primar, fără așteptare",
+      icon: CalendarDays,
+      link: "/programari",
+      buttonText: "Programează-te",
+      color: "text-cyan-400",
+      iconBg: "bg-cyan-500/10"
+    },
+    {
       title: "Anunțuri Locale",
       description: "Publică și găsește anunțuri de vânzare, cumpărare sau schimb",
       icon: Newspaper,

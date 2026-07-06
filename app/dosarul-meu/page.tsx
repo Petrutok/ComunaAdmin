@@ -19,7 +19,11 @@ import {
   CheckCircle,
   XCircle,
   Hammer,
+  CalendarClock,
 } from 'lucide-react';
+import { auth } from '@/lib/firebase';
+import { useToast } from '@/hooks/use-toast';
+import { SERVICE_CONFIG, AppointmentService } from '@/types/appointments';
 
 interface MyCerere {
   id: string;
@@ -41,6 +45,16 @@ interface MyIssue {
   location?: string;
   reportId?: string;
   status: string;
+  createdAt?: Timestamp;
+}
+
+interface MyAppointment {
+  id: string;
+  service: AppointmentService;
+  date: string;
+  time: string;
+  status: string;
+  motiv?: string;
   createdAt?: Timestamp;
 }
 
@@ -79,7 +93,10 @@ export default function DosarulMeuPage() {
   const router = useRouter();
   const [cereri, setCereri] = useState<MyCerere[]>([]);
   const [issues, setIssues] = useState<MyIssue[]>([]);
+  const [appointments, setAppointments] = useState<MyAppointment[]>([]);
   const [loadingData, setLoadingData] = useState(true);
+  const [cancellingId, setCancellingId] = useState<string | null>(null);
+  const { toast } = useToast();
 
   useEffect(() => {
     if (authLoading) return;
@@ -91,9 +108,10 @@ export default function DosarulMeuPage() {
     const load = async () => {
       try {
         // No orderBy: avoids needing composite indexes; sorted client-side
-        const [cereriSnap, issuesSnap] = await Promise.all([
+        const [cereriSnap, issuesSnap, appointmentsSnap] = await Promise.all([
           getDocs(query(collection(db, 'form_submissions'), where('citizenUid', '==', user.uid))),
           getDocs(query(collection(db, 'reported_issues'), where('citizenUid', '==', user.uid))),
+          getDocs(query(collection(db, 'appointments'), where('citizenUid', '==', user.uid))),
         ]);
 
         const byDateDesc = (a: { createdAt?: Timestamp }, b: { createdAt?: Timestamp }) =>
@@ -104,6 +122,11 @@ export default function DosarulMeuPage() {
         );
         setIssues(
           issuesSnap.docs.map((d) => ({ id: d.id, ...d.data() } as MyIssue)).sort(byDateDesc)
+        );
+        setAppointments(
+          appointmentsSnap.docs
+            .map((d) => ({ id: d.id, ...d.data() } as MyAppointment))
+            .sort((a, b) => `${a.date}${a.time}`.localeCompare(`${b.date}${b.time}`))
         );
       } catch (error) {
         console.error('[DosarulMeu] Failed to load data:', error);
@@ -149,20 +172,27 @@ export default function DosarulMeuPage() {
           </div>
         ) : (
           <Tabs defaultValue="cereri">
-            <TabsList className="grid h-auto w-full grid-cols-2 gap-1 rounded-lg bg-slate-800 border border-slate-700 p-1">
+            <TabsList className="grid h-auto w-full grid-cols-3 gap-1 rounded-lg bg-slate-800 border border-slate-700 p-1">
               <TabsTrigger
                 value="cereri"
-                className="rounded-md py-2.5 text-base text-gray-400 data-[state=active]:bg-slate-700 data-[state=active]:text-white"
+                className="rounded-md py-2.5 text-sm sm:text-base text-gray-400 data-[state=active]:bg-slate-700 data-[state=active]:text-white"
               >
-                <FileText className="mr-2 h-4 w-4" />
+                <FileText className="mr-1.5 h-4 w-4" />
                 Cereri ({cereri.length})
               </TabsTrigger>
               <TabsTrigger
                 value="sesizari"
-                className="rounded-md py-2.5 text-base text-gray-400 data-[state=active]:bg-slate-700 data-[state=active]:text-white"
+                className="rounded-md py-2.5 text-sm sm:text-base text-gray-400 data-[state=active]:bg-slate-700 data-[state=active]:text-white"
               >
-                <AlertTriangle className="mr-2 h-4 w-4" />
+                <AlertTriangle className="mr-1.5 h-4 w-4" />
                 Sesizări ({issues.length})
+              </TabsTrigger>
+              <TabsTrigger
+                value="programari"
+                className="rounded-md py-2.5 text-sm sm:text-base text-gray-400 data-[state=active]:bg-slate-700 data-[state=active]:text-white"
+              >
+                <CalendarClock className="mr-1.5 h-4 w-4" />
+                Programări ({appointments.filter((a) => a.status === 'confirmata').length})
               </TabsTrigger>
             </TabsList>
 
@@ -252,6 +282,85 @@ export default function DosarulMeuPage() {
                     </CardContent>
                   </Card>
                 ))
+              )}
+            </TabsContent>
+
+            <TabsContent value="programari" className="mt-4 space-y-3">
+              {appointments.length === 0 ? (
+                <Card className="bg-slate-800 border-slate-700">
+                  <CardContent className="py-10 text-center space-y-4">
+                    <p className="text-gray-400">Nu ai nicio programare.</p>
+                    <Button onClick={() => router.push('/programari')} className="bg-cyan-600 hover:bg-cyan-700">
+                      Fă o programare
+                    </Button>
+                  </CardContent>
+                </Card>
+              ) : (
+                appointments.map((appt) => {
+                  const config = SERVICE_CONFIG[appt.service];
+                  const isPast = appt.date < new Date().toISOString().slice(0, 10);
+                  const isActive = appt.status === 'confirmata' && !isPast;
+                  return (
+                    <Card key={appt.id} className="bg-slate-800 border-slate-700">
+                      <CardContent className="pt-6">
+                        <div className="flex items-start justify-between gap-3 flex-wrap">
+                          <div className="min-w-0">
+                            <h3 className="font-semibold text-white">
+                              {config?.icon} {config?.label || appt.service}
+                            </h3>
+                            <p className="text-lg text-cyan-300 font-medium mt-1">
+                              {new Date(`${appt.date}T00:00:00`).toLocaleDateString('ro-RO', {
+                                weekday: 'long', day: 'numeric', month: 'long',
+                              })}
+                              , ora {appt.time}
+                            </p>
+                            {appt.motiv && (
+                              <p className="text-sm text-gray-400 mt-1 line-clamp-2">{appt.motiv}</p>
+                            )}
+                          </div>
+                          {isActive ? (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              disabled={cancellingId === appt.id}
+                              onClick={async () => {
+                                setCancellingId(appt.id);
+                                try {
+                                  const idToken = await auth.currentUser?.getIdToken();
+                                  const response = await fetch('/api/programari', {
+                                    method: 'PATCH',
+                                    headers: {
+                                      'Content-Type': 'application/json',
+                                      ...(idToken ? { Authorization: `Bearer ${idToken}` } : {}),
+                                    },
+                                    body: JSON.stringify({ id: appt.id, action: 'cancel' }),
+                                  });
+                                  const result = await response.json();
+                                  if (!result.success) throw new Error(result.error);
+                                  setAppointments((prev) => prev.filter((a) => a.id !== appt.id));
+                                  toast({ title: 'Programare anulată' });
+                                } catch {
+                                  toast({ title: 'Eroare', description: 'Anularea a eșuat.', variant: 'destructive' });
+                                } finally {
+                                  setCancellingId(null);
+                                }
+                              }}
+                              className="border-red-500/40 text-red-300 hover:bg-red-900/20 shrink-0"
+                            >
+                              {cancellingId === appt.id ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                'Anulează'
+                              )}
+                            </Button>
+                          ) : (
+                            <StatusBadge status={isPast ? 'rezolvata' : appt.status} />
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })
               )}
             </TabsContent>
           </Tabs>
