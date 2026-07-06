@@ -49,6 +49,18 @@ service firebase.storage {
       allow write: if request.resource.size < 10 * 1024 * 1024;
     }
 
+    // Issuing configuration (signature/stamp image): staff only
+    match /config/{allPaths=**} {
+      allow read, write: if isStaff();
+    }
+
+    // Issued certificates: written server-side (Admin SDK); citizens
+    // receive tokenized download URLs in Dosarul meu, so no direct
+    // path access is needed
+    match /adeverinte/{allPaths=**} {
+      allow read, write: if isStaff();
+    }
+
     // Default: deny
     match /{allPaths=**} {
       allow read, write: if false;

@@ -101,7 +101,7 @@ export default function CerereFormularClient({ formType }: CerereFormularClientP
   const [showSuccess, setShowSuccess] = useState(false);
   const [successEmail, setSuccessEmail] = useState('');
   const [successRegNumber, setSuccessRegNumber] = useState('');
-  const { user: citizenUser, profile: citizenProfile } = useCitizenAuth();
+  const { user: citizenUser, profile: citizenProfile, loading: citizenLoading } = useCitizenAuth();
 
   // Prefill contact fields for logged-in citizens (only if still empty)
   useEffect(() => {
@@ -123,6 +123,38 @@ export default function CerereFormularClient({ formType }: CerereFormularClientP
   }, [config, router]);
 
   if (!config) return null;
+
+  // Adeverintele se livreaza ca PDF in "Dosarul meu", deci cer autentificare
+  if (config.requiresAccount && !citizenLoading && !citizenUser) {
+    return (
+      <div className="min-h-screen bg-slate-900 text-white flex items-center justify-center p-4">
+        <Card className="bg-slate-800 border-slate-700 max-w-md w-full">
+          <CardHeader>
+            <CardTitle className="text-white text-xl">Ai nevoie de cont</CardTitle>
+            <CardDescription className="text-gray-300">
+              {config.title} se eliberează digital: primăria o semnează, iar tu o descarci
+              din „Dosarul meu". Pentru asta trebuie să fii autentificat.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <Button
+              onClick={() => router.push('/cont')}
+              className="w-full bg-blue-600 hover:bg-blue-700 py-6 text-base"
+            >
+              Intră în cont sau înregistrează-te
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => router.push('/cereri-online')}
+              className="w-full border-slate-600 text-gray-300 hover:bg-slate-700 hover:text-white"
+            >
+              Înapoi la cereri
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);

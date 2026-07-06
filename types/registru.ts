@@ -15,6 +15,12 @@ export type TipDocument =
 // Status types
 export type StatusRegistru = 'nou' | 'in_lucru' | 'finalizat';
 
+// Where the registry entry came from (unified registry)
+export type SursaRegistru = 'manual' | 'email' | 'cerere_online' | 'adeverinta';
+
+// Real registries record both directions
+export type DirectieRegistru = 'intrare' | 'iesire';
+
 // Main registry document interface
 export interface RegistruDocument {
   id: string;
@@ -44,6 +50,13 @@ export interface RegistruDocument {
   // Workflow
   departament?: string;              // responsible department
   status: StatusRegistru;
+
+  // Unified registry fields
+  sursa?: SursaRegistru;             // how the document entered the system (default: manual)
+  directie?: DirectieRegistru;       // intrare/iesire (default: intrare)
+  termen?: Timestamp | null;         // legal response deadline (OG 27/2002: 30 days)
+  emailId?: string;                  // link to registratura_emails doc (sursa=email)
+  cerereId?: string;                 // link to form_submissions doc (sursa=cerere_online/adeverinta)
 
   // Metadata
   creatDe: string;                   // user ID

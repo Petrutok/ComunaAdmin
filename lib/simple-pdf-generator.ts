@@ -42,6 +42,40 @@ export interface RequestData {
 
 // Map pentru tipurile de cereri
 export const REQUEST_CONFIGS: { [key: string]: any } = {
+  // Adeverințe (eliberate digital, cu semnătură și verificare QR)
+  // requiresAccount: PDF-ul emis conține date personale și se livrează
+  // exclusiv în "Dosarul meu", deci cetățeanul trebuie să fie autentificat
+  'adeverinta-rol-agricol': {
+    title: 'Adeverință de Rol Agricol',
+    category: 'adeverinte',
+    requiresAccount: true,
+    scopPlaceholder: 'Menționează scopul (ex: notariat, bancă, instanță) și, dacă știi, poziția de rol...',
+  },
+  'adeverinta-apia': {
+    title: 'Adeverință pentru APIA',
+    category: 'adeverinte',
+    requiresAccount: true,
+    scopPlaceholder: 'Menționează campania APIA și suprafețele pentru care soliciți adeverința...',
+  },
+  'adeverinta-domiciliu': {
+    title: 'Adeverință de Domiciliu / Componență Familie',
+    category: 'adeverinte',
+    requiresAccount: true,
+    scopPlaceholder: 'Menționează scopul (școală, angajare, bursă) și persoanele din gospodărie...',
+  },
+  'adeverinta-ajutor-social': {
+    title: 'Adeverință Ajutor Social / Alocație',
+    category: 'adeverinte',
+    requiresAccount: true,
+    scopPlaceholder: 'Menționează tipul de beneficiu și instituția care solicită adeverința...',
+  },
+  'adeverinta-fara-datorii': {
+    title: 'Adeverință Fără Datorii la Bugetul Local',
+    category: 'adeverinte',
+    requiresAccount: true,
+    scopPlaceholder: 'Menționează scopul (notariat, vânzare imobil, licitație)...',
+  },
+
   // Solicitări Generale
   'cerere-generala': {
     title: 'Cerere Generală',
