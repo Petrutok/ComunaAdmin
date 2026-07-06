@@ -18,6 +18,7 @@ import {
   LogOut,
   User,
   Siren,
+  Settings,
 } from 'lucide-react';
 
 export function ControlCenterNav() {
@@ -36,6 +37,7 @@ export function ControlCenterNav() {
     { href: '/admin/announcements', label: 'Anunțuri', icon: Newspaper, gradient: 'from-pink-600/20 to-pink-800/20', border: 'border-pink-500/30 hover:border-pink-400/50', iconBg: 'bg-pink-500/20', iconColor: 'text-pink-400', roles: ['admin'] },
     { href: '/admin/jobs', label: 'Joburi', icon: Briefcase, gradient: 'from-teal-600/20 to-teal-800/20', border: 'border-teal-500/30 hover:border-teal-400/50', iconBg: 'bg-teal-500/20', iconColor: 'text-teal-400', roles: ['admin'] },
     { href: '/admin/alerte', label: 'Alerte', icon: Siren, gradient: 'from-red-600/20 to-red-800/20', border: 'border-red-500/30 hover:border-red-400/50', iconBg: 'bg-red-500/20', iconColor: 'text-red-400', roles: ['admin'] },
+    { href: '/admin/setari-adeverinte', label: 'Setări adeverințe', icon: Settings, gradient: 'from-slate-600/20 to-slate-800/20', border: 'border-slate-500/30 hover:border-slate-400/50', iconBg: 'bg-slate-500/20', iconColor: 'text-slate-300', roles: ['admin'] },
   ];
 
   // Filter navigation items based on user role

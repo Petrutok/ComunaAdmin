@@ -4,7 +4,7 @@ import { Timestamp } from 'firebase-admin/firestore';
 import { getDownloadURL } from 'firebase-admin/storage';
 import { getAdminDb, getAdminBucket } from '@/lib/firebase-admin';
 import { RegistraturaEmail, EmailStatus } from '@/types/registratura';
-import { generateRegistrationNumberAdmin } from '@/lib/generateRegistrationNumberAdmin';
+import { generateRegistruNumberAdmin } from '@/lib/generateRegistruNumberAdmin';
 import { processAndMergeDocuments, generateTrackingUrl } from '@/lib/services/document-processor';
 
 const COLLECTION_NAME = 'registratura_emails';
@@ -17,9 +17,10 @@ function requireDb() {
 
 export class RegistraturaService {
   // Generare număr de înregistrare unic
-  // Now uses the shared utility function
+  // Unified registry: emails draw from the same counter as manual entries
+  // and online submissions (registru_counters), so one REG- sequence exists
   async generateRegistrationNumber(): Promise<string> {
-    return generateRegistrationNumberAdmin();
+    return generateRegistruNumberAdmin();
   }
 
   // Salvare atașament în Firebase Storage
@@ -98,6 +99,33 @@ export class RegistraturaService {
 
     const docRef = await requireDb().collection(COLLECTION_NAME).add(docData);
     console.log(`[REGISTRATURA] Created record ${numarInregistrare} with ${docData.attachments.length} attachment(s)`);
+
+    // Unified registry: every email also gets an index entry in
+    // registru_general, so staff find all documents in one place
+    try {
+      await requireDb().collection('registru_general').add({
+        numarInregistrare,
+        tipDocument: 'adresa',
+        dataInregistrare: docData.dateReceived,
+        emitent: docData.from,
+        emailEmitent: docData.from,
+        destinatar: 'Primăria',
+        continut: docData.subject || '(fără subiect)',
+        status: 'nou',
+        sursa: 'email',
+        directie: 'intrare',
+        // OG 27/2002: default 30-day legal response deadline
+        termen: Timestamp.fromMillis(Date.now() + 30 * 24 * 60 * 60 * 1000),
+        emailId: docRef.id,
+        creatDe: 'sistem',
+        creatDeNume: 'Registratură email',
+        createdAt: Timestamp.now(),
+      });
+    } catch (error) {
+      // Index failure must not lose the email itself
+      console.error('[REGISTRATURA] Failed to create registru_general index entry:', error);
+    }
+
     return docRef.id;
   }
 

@@ -147,6 +147,7 @@ export async function POST(request: NextRequest) {
     // registry entries made from the admin panel
     const numarInregistrare = await generateRegistruNumberAdmin();
 
+    const isAdeverinta = String(body.tipCerere).startsWith('adeverinta-');
     const registruDoc = {
       numarInregistrare,
       tipDocument: 'cerere',
@@ -157,6 +158,10 @@ export async function POST(request: NextRequest) {
       destinatar: 'Primăria',
       continut: `Cerere online: ${body.tipCerere}${body.scopulCererii ? ` — ${body.scopulCererii}` : ''}`,
       status: 'nou',
+      sursa: isAdeverinta ? 'adeverinta' : 'cerere_online',
+      directie: 'intrare',
+      // OG 27/2002: default 30-day legal response deadline
+      termen: Timestamp.fromMillis(Date.now() + 30 * 24 * 60 * 60 * 1000),
       creatDe: 'sistem',
       creatDeNume: 'Depunere online',
       createdAt: Timestamp.now(),

@@ -18,7 +18,8 @@ import {
   Globe,
   ArrowRight,
   Send,
-  Loader2
+  Loader2,
+  BadgeCheck
 } from 'lucide-react';
 
 export default function CereriOnlinePage() {
@@ -28,6 +29,40 @@ export default function CereriOnlinePage() {
   const [loadingRequest, setLoadingRequest] = useState<string | null>(null);
 
   const requestsData = [
+    {
+      category: "Adeverințe eliberate digital",
+      icon: BadgeCheck,
+      color: "text-emerald-400",
+      bgColor: "bg-emerald-500/20",
+      borderColor: "border-emerald-500",
+      requests: [
+        {
+          title: "Adeverință de rol agricol",
+          description: "Pentru notariat, bancă, instanță — primești PDF-ul direct în aplicație",
+          formType: "adeverinta-rol-agricol"
+        },
+        {
+          title: "Adeverință pentru APIA",
+          description: "Pentru dosarul de subvenții — primești PDF-ul direct în aplicație",
+          formType: "adeverinta-apia"
+        },
+        {
+          title: "Adeverință de domiciliu / componență familie",
+          description: "Pentru școală, angajare, burse — primești PDF-ul direct în aplicație",
+          formType: "adeverinta-domiciliu"
+        },
+        {
+          title: "Adeverință ajutor social / alocație",
+          description: "Pentru dosare de beneficii sociale — primești PDF-ul direct în aplicație",
+          formType: "adeverinta-ajutor-social"
+        },
+        {
+          title: "Adeverință fără datorii la bugetul local",
+          description: "Pentru notariat, vânzări imobile, licitații — primești PDF-ul direct în aplicație",
+          formType: "adeverinta-fara-datorii"
+        }
+      ]
+    },
     {
       category: "Solicitări Generale",
       icon: Globe,

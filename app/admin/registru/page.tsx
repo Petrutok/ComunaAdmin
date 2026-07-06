@@ -423,16 +423,32 @@ export default function AdminRegistruPage() {
                     <TableBody>
                       {filteredDocuments.map((doc) => {
                         const statusConfig = STATUS_CONFIG[doc.status];
+                        // Legal deadline exceeded and still unresolved
+                        const isOverdue =
+                          doc.status !== 'finalizat' &&
+                          !!doc.termen &&
+                          doc.termen.toMillis() < Date.now();
+                        const sursaIcon =
+                          doc.sursa === 'email' ? '📧 ' :
+                          doc.sursa === 'cerere_online' ? '🌐 ' :
+                          doc.sursa === 'adeverinta' ? '📜 ' : '';
 
                         return (
                           <TableRow
                             key={doc.id}
-                            className="border-b border-slate-700/30 hover:bg-slate-700/20"
+                            className={`border-b border-slate-700/30 hover:bg-slate-700/20 ${
+                              isOverdue ? 'bg-red-900/15 border-l-2 border-l-red-500' : ''
+                            }`}
                           >
                             <TableCell className="font-mono font-bold whitespace-nowrap px-2 py-2 text-sm w-20">
                               <Badge className={`${statusConfig.color} text-white text-xs px-2 py-1`}>
                                 {doc.numarInregistrare.split('-').pop()}
                               </Badge>
+                              {isOverdue && (
+                                <Badge className="ml-1 bg-red-600 text-white text-xs px-1.5 py-0.5" title="Termen legal depășit">
+                                  ⏰
+                                </Badge>
+                              )}
                             </TableCell>
                             <TableCell className="text-gray-300 whitespace-nowrap px-2 py-2 text-sm text-center w-24">
                               {formatDate(doc.dataInregistrare)}
@@ -444,7 +460,7 @@ export default function AdminRegistruPage() {
                               {doc.dataExterna?.substring(0, 10) || '-'}
                             </TableCell>
                             <TableCell className="text-gray-300 truncate px-2 py-2 text-sm flex-1 min-w-32">
-                              {doc.emitent}
+                              {sursaIcon}{doc.emitent}
                             </TableCell>
                             <TableCell className="text-gray-300 truncate px-2 py-2 text-sm flex-1 min-w-32">
                               {doc.destinatar}

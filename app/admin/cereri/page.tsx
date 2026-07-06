@@ -46,7 +46,10 @@ import {
   Building2,
   Zap,
   ArrowUpDown,
+  BadgeCheck,
 } from 'lucide-react';
+import { isAdeverintaType, buildAdeverintaBody, ADEVERINTA_LABELS } from '@/lib/adeverinte';
+import type { AdeverintaType } from '@/lib/adeverinte';
 import {
   Dialog,
   DialogContent,
@@ -95,6 +98,11 @@ interface Cerere {
   tipCerere: string;
   scopulCererii: string;
   numarInregistrare?: string;
+  adeverinta?: {
+    numarIesire: string;
+    downloadURL: string;
+    emisLa?: any;
+  };
   status: CerereStatus;
   priority?: CererePriority;
   departmentId?: string;
@@ -206,6 +214,9 @@ export default function AdminCereriPage() {
   const [selectedCerere, setSelectedCerere] = useState<Cerere | null>(null);
   const [showDetailsDialog, setShowDetailsDialog] = useState(false);
   const [showStatusDialog, setShowStatusDialog] = useState(false);
+  const [showEmiteDialog, setShowEmiteDialog] = useState(false);
+  const [adeverintaText, setAdeverintaText] = useState('');
+  const [emitting, setEmitting] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showAssignDialog, setShowAssignDialog] = useState(false);
   const [newStatus, setNewStatus] = useState<CerereStatus>('noua');
@@ -462,6 +473,61 @@ export default function AdminCereriPage() {
         description: "Nu s-a putut șterge cererea",
         variant: "destructive",
       });
+    }
+  };
+
+  const handleEmiteAdeverinta = async () => {
+    if (!selectedCerere || !adeverintaText.trim()) return;
+    setEmitting(true);
+    try {
+      const idToken = await auth.currentUser?.getIdToken();
+      const response = await fetch('/api/emite-adeverinta', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(idToken ? { Authorization: `Bearer ${idToken}` } : {}),
+        },
+        body: JSON.stringify({
+          cerereId: selectedCerere.id,
+          continut: adeverintaText.trim(),
+        }),
+      });
+      const result = await response.json();
+
+      if (!result.success) {
+        throw new Error(result.error || 'Emiterea a eșuat');
+      }
+
+      // Notify the citizen that the request was resolved (best effort)
+      fetch('/api/notify-status-change', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(idToken ? { Authorization: `Bearer ${idToken}` } : {}),
+        },
+        body: JSON.stringify({
+          collection: 'form_submissions',
+          docId: selectedCerere.id,
+          newStatus: 'rezolvat',
+        }),
+      }).catch(() => {});
+
+      toast({
+        title: 'Adeverință emisă',
+        description: `Nr. ieșire ${result.numarIesire} — cetățeanul o poate descărca din Dosarul meu.`,
+      });
+      setShowEmiteDialog(false);
+      setAdeverintaText('');
+      loadCereri();
+    } catch (error) {
+      console.error('Error issuing adeverinta:', error);
+      toast({
+        title: 'Eroare',
+        description: error instanceof Error ? error.message : 'Nu s-a putut emite adeverința',
+        variant: 'destructive',
+      });
+    } finally {
+      setEmitting(false);
     }
   };
 
@@ -787,6 +853,40 @@ export default function AdminCereriPage() {
                       >
                         <Download className="h-5 w-5" />
                       </Button>
+                      {isAdeverintaType(cerere.tipCerere) && !cerere.adeverinta && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => {
+                            setSelectedCerere(cerere);
+                            setAdeverintaText(
+                              buildAdeverintaBody(cerere.tipCerere as AdeverintaType, {
+                                numeComplet: cerere.numeComplet,
+                                cnp: cerere.cnp,
+                                adresa: `${cerere.adresa || ''}, ${cerere.localitate || ''}`.replace(/^, /, ''),
+                                scopulCererii: cerere.scopulCererii,
+                              })
+                            );
+                            setShowEmiteDialog(true);
+                          }}
+                          className="hover:bg-emerald-600/20 hover:text-emerald-300 text-emerald-400 border border-transparent hover:border-emerald-400/30"
+                          title="Emite adeverința"
+                        >
+                          <BadgeCheck className="h-5 w-5" />
+                        </Button>
+                      )}
+                      {cerere.adeverinta?.downloadURL && (
+                        <a href={cerere.adeverinta.downloadURL} target="_blank" rel="noreferrer">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="text-emerald-300 hover:bg-emerald-600/20 border border-transparent hover:border-emerald-400/30"
+                            title={`Adeverință emisă: ${cerere.adeverinta.numarIesire}`}
+                          >
+                            <BadgeCheck className="h-5 w-5" />
+                          </Button>
+                        </a>
+                      )}
                       {(cerere.status === 'rezolvat' || cerere.status === 'respins') && (
                         <Button
                           size="sm"
@@ -809,6 +909,55 @@ export default function AdminCereriPage() {
           })}
         </div>
       )}
+
+      {/* Emite adeverinta Dialog */}
+      <Dialog open={showEmiteDialog} onOpenChange={setShowEmiteDialog}>
+        <DialogContent className="bg-slate-800 border-slate-700 max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-white text-xl flex items-center gap-2">
+              <BadgeCheck className="h-5 w-5 text-emerald-400" />
+              Emite adeverința
+            </DialogTitle>
+            <DialogDescription className="text-gray-400">
+              {selectedCerere && isAdeverintaType(selectedCerere.tipCerere)
+                ? ADEVERINTA_LABELS[selectedCerere.tipCerere as AdeverintaType]
+                : ''}
+              {' '}pentru <span className="text-white">{selectedCerere?.numeComplet}</span>.
+              Completează câmpurile marcate cu [ ... ] cu datele din evidențe, apoi emite.
+            </DialogDescription>
+          </DialogHeader>
+
+          <Textarea
+            value={adeverintaText}
+            onChange={(e) => setAdeverintaText(e.target.value)}
+            rows={12}
+            className="bg-slate-700 border-slate-600 text-white font-mono text-sm"
+          />
+          {adeverintaText.includes('[ ') && (
+            <p className="text-amber-400 text-sm">
+              ⚠️ Textul mai conține câmpuri necompletate [ ... ]
+            </p>
+          )}
+
+          <div className="flex gap-3">
+            <Button
+              variant="outline"
+              onClick={() => setShowEmiteDialog(false)}
+              className="flex-1 border-slate-600 text-gray-300 hover:bg-slate-700 hover:text-white"
+            >
+              Anulează
+            </Button>
+            <Button
+              onClick={handleEmiteAdeverinta}
+              disabled={emitting || !adeverintaText.trim()}
+              className="flex-1 bg-emerald-600 hover:bg-emerald-700"
+            >
+              {emitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Emite cu număr de ieșire
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Details Dialog */}
       <Dialog open={showDetailsDialog} onOpenChange={setShowDetailsDialog}>

@@ -26,6 +26,10 @@ interface MyCerere {
   tipCerere: string;
   scopulCererii?: string;
   numarInregistrare?: string;
+  adeverinta?: {
+    numarIesire: string;
+    downloadURL: string;
+  };
   status: string;
   createdAt?: Timestamp;
 }
@@ -198,6 +202,18 @@ export default function DosarulMeuPage() {
                         </div>
                         <StatusBadge status={cerere.status} />
                       </div>
+                      {cerere.adeverinta?.downloadURL && (
+                        <a
+                          href={cerere.adeverinta.downloadURL}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="mt-4 block"
+                        >
+                          <Button className="w-full bg-emerald-600 hover:bg-emerald-700 py-5 text-base">
+                            📄 Descarcă adeverința ({cerere.adeverinta.numarIesire})
+                          </Button>
+                        </a>
+                      )}
                     </CardContent>
                   </Card>
                 ))

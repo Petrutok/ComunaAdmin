@@ -18,6 +18,28 @@ interface PageProps {
 
 // Metadata pentru fiecare tip de formular
 const formMetadata: Record<string, { title: string; description: string }> = {
+  // Adeverințe eliberate digital
+  'adeverinta-rol-agricol': {
+    title: 'Adeverință de Rol Agricol',
+    description: 'Solicită adeverința de rol agricol și primește-o digital, în Dosarul meu'
+  },
+  'adeverinta-apia': {
+    title: 'Adeverință pentru APIA',
+    description: 'Solicită adeverința pentru dosarul de subvenții APIA'
+  },
+  'adeverinta-domiciliu': {
+    title: 'Adeverință de Domiciliu / Componență Familie',
+    description: 'Solicită adeverința de domiciliu sau componență familie'
+  },
+  'adeverinta-ajutor-social': {
+    title: 'Adeverință Ajutor Social / Alocație',
+    description: 'Solicită adeverința pentru dosare de beneficii sociale'
+  },
+  'adeverinta-fara-datorii': {
+    title: 'Adeverință Fără Datorii la Bugetul Local',
+    description: 'Solicită adeverința de atestare că nu ai datorii la bugetul local'
+  },
+
   // Solicitări Generale
   'cerere-generala': {
     title: 'Cerere Generală',
