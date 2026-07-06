@@ -10,6 +10,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { useEffect } from 'react';
+import { auth } from '@/lib/firebase';
+import { useCitizenAuth } from '@/contexts/CitizenAuthContext';
 import { 
   FileText, 
   Send, 
@@ -98,6 +100,19 @@ export default function CerereFormularClient({ formType }: CerereFormularClientP
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [successEmail, setSuccessEmail] = useState('');
+  const [successRegNumber, setSuccessRegNumber] = useState('');
+  const { user: citizenUser, profile: citizenProfile } = useCitizenAuth();
+
+  // Prefill contact fields for logged-in citizens (only if still empty)
+  useEffect(() => {
+    if (!citizenUser) return;
+    setFormData(prev => ({
+      ...prev,
+      email: prev.email || citizenUser.email || '',
+      telefonMobil: prev.telefonMobil || citizenProfile?.telefon || '',
+    }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [citizenUser, citizenProfile]);
   const { toast } = useToast();
 
   // Dacă tipul de cerere nu există, redirecționează
@@ -259,11 +274,15 @@ const handleSubmit = async (e: React.FormEvent) => {
 
     console.log('📤 Trimitere date către API...');
     
+    // Logged-in citizens get the request linked to their account (Dosarul meu)
+    const idToken = await auth.currentUser?.getIdToken().catch(() => null);
+
     // Trimitem ca JSON normal
     const response = await fetch('/api/trimite-cerere', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        ...(idToken ? { Authorization: `Bearer ${idToken}` } : {}),
       },
       body: JSON.stringify(dataToSend),
     });
@@ -273,8 +292,9 @@ const handleSubmit = async (e: React.FormEvent) => {
    if (result.success) {
   console.log('✅ Cerere trimisă cu succes!');
 
-  // 1. Save email for the dialog
+  // 1. Save email and registration number for the dialog
   setSuccessEmail(formData.email);
+  setSuccessRegNumber(result.numarInregistrare || '');
   setShowSuccess(true);
 
   // 2. Reset the form (after a short delay so the dialog has the data)
@@ -860,7 +880,17 @@ const handleSubmit = async (e: React.FormEvent) => {
       <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-green-900/20">
         <CheckCircle className="h-8 w-8 text-green-400" />
       </div>
-              
+
+      {successRegNumber && (
+        <div className="rounded-lg border border-green-500/30 bg-green-900/10 px-4 py-3">
+          <p className="text-sm text-gray-400">Număr de înregistrare</p>
+          <p className="text-xl font-bold tracking-wide text-green-400">{successRegNumber}</p>
+          <p className="mt-1 text-xs text-gray-400">
+            Notează acest număr — cu el poți urmări cererea la primărie.
+          </p>
+        </div>
+      )}
+
               <div className="flex gap-3">
                 <Button
                   variant="outline"

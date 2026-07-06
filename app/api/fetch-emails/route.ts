@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { EmailService, isSpam } from '@/lib/email-service';
 import { RegistraturaService } from '@/lib/registratura-service';
-import { Timestamp } from 'firebase/firestore';
+// Admin SDK Timestamp: RegistraturaService writes via the Admin SDK
+import { Timestamp } from 'firebase-admin/firestore';
 import { getAdminDb } from '@/lib/firebase-admin';
+import { verifyStaffRequest } from '@/lib/api-auth';
 
 // IMPORTANT: Configuration for dynamic route
 export const dynamic = 'force-dynamic';
@@ -36,17 +38,9 @@ async function verifyAuthorization(request: NextRequest): Promise<boolean> {
     return true;
   }
 
-  // Check for admin authentication
-  // Note: In production, you should verify Firebase auth token
-  if (authHeader?.startsWith('Bearer ')) {
-    // You can add Firebase Admin SDK verification here
-    // const token = authHeader.replace('Bearer ', '');
-    // const decodedToken = await admin.auth().verifyIdToken(token);
-    // return decodedToken.isAdmin === true;
-    return true; // Simplified for now
-  }
-
-  return false;
+  // Manual trigger from the admin panel: verify the Firebase ID token
+  const staffAuth = await verifyStaffRequest(request, ['admin', 'employee']);
+  return staffAuth.authorized;
 }
 
 /**

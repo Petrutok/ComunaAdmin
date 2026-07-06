@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { collection, addDoc, Timestamp } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
-import { generateRegistrationNumber } from '@/lib/generateRegistrationNumber';
+import { Timestamp } from 'firebase-admin/firestore';
+import { getAdminDb } from '@/lib/firebase-admin';
+import { generateRegistrationNumberAdmin } from '@/lib/generateRegistrationNumberAdmin';
+import { getOptionalCitizenUid } from '@/lib/api-auth';
+import { rateLimit, getClientIp } from '@/lib/rate-limit';
+
+// Max lengths to keep spam/abuse payloads out of Firestore
+const MAX_FIELD_LENGTH = 500;
+const MAX_DESCRIPTION_LENGTH = 5000;
 
 interface ReportIssueRequest {
   name: string;
@@ -19,6 +25,15 @@ interface ReportIssueRequest {
 }
 
 export async function POST(request: NextRequest) {
+  // Public endpoint: limit to 5 reports per hour per IP
+  const limit = rateLimit(`report-issue:${getClientIp(request)}`, 5, 60 * 60 * 1000);
+  if (!limit.allowed) {
+    return NextResponse.json(
+      { success: false, error: 'Prea multe sesizări trimise. Încercați din nou mai târziu.' },
+      { status: 429, headers: { 'Retry-After': String(limit.retryAfterSeconds) } }
+    );
+  }
+
   try {
     // Parse request body
     const body: ReportIssueRequest = await request.json();
@@ -29,6 +44,18 @@ export async function POST(request: NextRequest) {
       if (!body[field as keyof ReportIssueRequest]) {
         return NextResponse.json(
           { success: false, error: `Missing required field: ${field}` },
+          { status: 400 }
+        );
+      }
+    }
+
+    // Reject oversized payloads
+    for (const field of requiredFields) {
+      const value = body[field as keyof ReportIssueRequest];
+      const maxLen = field === 'description' ? MAX_DESCRIPTION_LENGTH : MAX_FIELD_LENGTH;
+      if (typeof value === 'string' && value.length > maxLen) {
+        return NextResponse.json(
+          { success: false, error: `Field too long: ${field}` },
           { status: 400 }
         );
       }
@@ -48,14 +75,23 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const db = getAdminDb();
+    if (!db) {
+      throw new Error('Firebase Admin not initialized');
+    }
+
     // Generate unique report ID
-    const reportId = await generateRegistrationNumber({
+    const reportId = await generateRegistrationNumberAdmin({
       prefix: 'RAPORT',
       padding: 6
     });
 
+    // Logged-in citizens get the issue linked to their account ("Dosarul meu")
+    const citizenUid = await getOptionalCitizenUid(request);
+
     // Prepare issue document
     const issueData = {
+      ...(citizenUid ? { citizenUid } : {}),
       reporterName: body.name,
       reporterContact: body.contact,
       location: body.location,
@@ -75,9 +111,8 @@ export async function POST(request: NextRequest) {
       resolution: null
     };
 
-    // Save to Firestore
-    const issuesCollection = collection(db, 'reported_issues');
-    const docRef = await addDoc(issuesCollection, issueData);
+    // Save to Firestore (Admin SDK - bypasses security rules)
+    const docRef = await db.collection('reported_issues').add(issueData);
 
     return NextResponse.json(
       {

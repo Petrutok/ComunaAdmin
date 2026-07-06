@@ -9,7 +9,13 @@ import {
   doc,
   deleteDoc 
 } from 'firebase/firestore';
-import { db } from './firebase';
+import { db, auth } from './firebase';
+
+/** ID token of the logged-in staff user, required by protected API routes. */
+async function getAuthHeader(): Promise<Record<string, string>> {
+  const token = await auth.currentUser?.getIdToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
 
 // 1. Salvare subscription când un cetățean activează notificările
 export async function saveSubscription(subscription: PushSubscription, deviceInfo?: any) {
@@ -98,7 +104,7 @@ export async function sendNotificationToAll(
       try {
         const response = await fetch('/api/push-send/', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', ...(await getAuthHeader()) },
           body: JSON.stringify({
             title,
             message,

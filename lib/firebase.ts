@@ -69,6 +69,8 @@ export const COLLECTIONS = {
   REGISTRATURA_EMAILS: 'registratura_emails',
   DEPARTMENTS: 'departments',
   USERS: 'users',
+  REGISTRU_GENERAL: 'registru_general',
+  REGISTRU_COUNTERS: 'registru_counters',
 } as const;
 
 // UPDATED Types for Announcements - FĂRĂ 'schimb' și FĂRĂ 'views'
@@ -188,3 +190,7 @@ export interface FCMToken {
   userAgent?: string;
   active: boolean;
 }
+
+// Import and re-export Registru types
+export type { RegistruDocument, StatusRegistru, TipDocument } from '@/types/registru';
+export { TIP_DOCUMENT_CONFIG, STATUS_CONFIG, DEPARTMENTS_LIST } from '@/types/registru';

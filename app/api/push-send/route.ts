@@ -1,14 +1,41 @@
 import { NextRequest, NextResponse } from 'next/server';
 import webpush from 'web-push';
+import { verifyStaffRequest } from '@/lib/api-auth';
 
-// Configure web-push with VAPID credentials
-webpush.setVapidDetails(
-  process.env.VAPID_EMAIL || 'mailto:admin@primaria.ro',
-  process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || '',
-  process.env.VAPID_PRIVATE_KEY || ''
-);
+// Lazy VAPID configuration: web-push throws on missing/empty keys, so doing
+// this at module scope breaks the build when env vars are absent
+let vapidConfigured = false;
+function ensureVapidConfigured(): boolean {
+  if (vapidConfigured) return true;
+  const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+  const privateKey = process.env.VAPID_PRIVATE_KEY;
+  if (!publicKey || !privateKey) return false;
+  webpush.setVapidDetails(
+    process.env.VAPID_EMAIL || 'mailto:admin@primaria.ro',
+    publicKey,
+    privateKey
+  );
+  vapidConfigured = true;
+  return true;
+}
 
 export async function POST(request: NextRequest) {
+  if (!ensureVapidConfigured()) {
+    return NextResponse.json(
+      { success: false, error: 'Push notifications not configured (missing VAPID keys)', sent: 0, failed: 0 },
+      { status: 503 }
+    );
+  }
+
+  // Only admins may broadcast push notifications
+  const auth = await verifyStaffRequest(request, ['admin']);
+  if (!auth.authorized) {
+    return NextResponse.json(
+      { success: false, error: 'Unauthorized', sent: 0, failed: 0 },
+      { status: 401 }
+    );
+  }
+
   try {
     const body = await request.json();
     const { subscriptionsList, title, message, url, icon, badge } = body;

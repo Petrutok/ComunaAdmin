@@ -1,7 +1,7 @@
 console.log('[SW] Service Worker loading...', new Date().toISOString());
 
 // Cache configuration
-const CACHE_NAME = 'primaria-v5';
+const CACHE_NAME = 'primaria-v6';
 const urlsToCache = [
   '/',
   '/icon-192x192.png',
@@ -80,56 +80,68 @@ self.addEventListener('fetch', (event) => {
     return; // Let browser handle it normally
   }
 
-  // Network First pentru API calls
+  // Every branch below MUST resolve to a real Response object -
+  // respondWith(undefined) throws "Returned response is null" in the browser.
+  const offlineFallback = () =>
+    new Response('Offline', { status: 503, statusText: 'Service Unavailable' });
+
+  // API calls: network only, never serve stale API data from cache
   if (event.request.url.includes('/api/')) {
+    event.respondWith(
+      fetch(event.request).catch(() => offlineFallback())
+    );
+    return;
+  }
+
+  // Pages (navigations): Network First. HTML must always be fresh -
+  // serving cached HTML from an old deployment requests hashed assets
+  // (JS/fonts) that no longer exist and 404s.
+  if (event.request.mode === 'navigate' || event.request.destination === 'document') {
     event.respondWith(
       fetch(event.request)
         .then((response) => {
-          // Clone response pentru cache
-          const responseToCache = response.clone();
-          caches.open(CACHE_NAME)
-            .then((cache) => {
-              cache.put(event.request, responseToCache);
-            });
+          if (response && response.status === 200) {
+            const responseToCache = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseToCache));
+          }
           return response;
         })
-        .catch(() => {
-          return caches.match(event.request);
+        .catch(async () => {
+          const cached = await caches.match(event.request);
+          if (cached) return cached;
+          const offline = await caches.match('/offline.html');
+          return offline || offlineFallback();
         })
     );
     return;
   }
-  
-  // Cache First pentru assets statice
+
+  // Static assets (JS, CSS, fonts, images): Cache First - Next.js hashes
+  // their filenames, so a cache hit is always the correct content
   event.respondWith(
     caches.match(event.request)
       .then((response) => {
         if (response) {
           return response;
         }
-        
+
         return fetch(event.request)
           .then((response) => {
             // Verifică dacă răspunsul e valid
             if (!response || response.status !== 200 || response.type !== 'basic') {
               return response;
             }
-            
+
             const responseToCache = response.clone();
             caches.open(CACHE_NAME)
               .then((cache) => {
                 cache.put(event.request, responseToCache);
               });
-            
+
             return response;
           });
       })
-      .catch(() => {
-        // Fallback la offline page
-        if (event.request.destination === 'document') {
-          return caches.match('/offline.html');
-        }
-      })
+      .catch(() => offlineFallback())
   );
 });
 

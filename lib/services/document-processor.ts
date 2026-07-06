@@ -8,8 +8,10 @@ import { convertToPdf, isConvertibleToPdf } from './file-to-pdf-converter';
 import { stampPdf, StampPosition, getPdfInfo } from './pdf-stamper';
 import { StampConfig } from './stamp-generator';
 import { mergePdfs } from './pdf-merger';
-import { storage } from '@/lib/firebase';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+// Server-only: uploads use the Admin SDK (this service runs in API routes
+// and server actions, where the client SDK would be unauthenticated).
+import { getDownloadURL } from 'firebase-admin/storage';
+import { getAdminBucket } from '@/lib/firebase-admin';
 
 export interface DocumentProcessingOptions {
   registrationNumber: string;
@@ -137,20 +139,24 @@ export async function processDocument(
       const storagePath = options.storagePath ||
         `registratura/processed/${options.registrationNumber}/${fileName.replace(/\.[^/.]+$/, '')}.pdf`;
 
-      const storageRef = ref(storage, storagePath);
+      const bucket = getAdminBucket();
+      if (!bucket) throw new Error('Firebase Admin Storage not initialized');
+      const fileRef = bucket.file(storagePath);
 
-      await uploadBytes(storageRef, result.processedPdfBuffer, {
+      await fileRef.save(result.processedPdfBuffer, {
         contentType: 'application/pdf',
-        customMetadata: {
-          originalFileName: fileName,
-          originalFileType: fileType,
-          registrationNumber: options.registrationNumber,
-          wasConverted: wasConverted.toString(),
-          processedAt: new Date().toISOString(),
+        metadata: {
+          metadata: {
+            originalFileName: fileName,
+            originalFileType: fileType,
+            registrationNumber: options.registrationNumber,
+            wasConverted: wasConverted.toString(),
+            processedAt: new Date().toISOString(),
+          },
         },
       });
 
-      const downloadURL = await getDownloadURL(storageRef);
+      const downloadURL = await getDownloadURL(fileRef);
       result.downloadURL = downloadURL;
       result.storagePath = storagePath;
     }
@@ -402,22 +408,26 @@ export async function processAndMergeDocuments(
       const storagePath = options.storagePath ||
         `registratura/processed/${options.registrationNumber}/document-oficial.pdf`;
 
-      const storageRef = ref(storage, storagePath);
+      const bucket = getAdminBucket();
+      if (!bucket) throw new Error('Firebase Admin Storage not initialized');
+      const fileRef = bucket.file(storagePath);
 
-      await uploadBytes(storageRef, result.processedPdfBuffer, {
+      await fileRef.save(result.processedPdfBuffer, {
         contentType: 'application/pdf',
-        customMetadata: {
-          registrationNumber: options.registrationNumber,
-          sourceFileCount: files.length.toString(),
-          convertedFileCount: pdfBuffers.length.toString(),
-          skippedFiles: skippedFiles.join(', '),
-          processedAt: new Date().toISOString(),
-          senderName: options.senderName || '',
-          senderEmail: options.senderEmail || '',
+        metadata: {
+          metadata: {
+            registrationNumber: options.registrationNumber,
+            sourceFileCount: files.length.toString(),
+            convertedFileCount: pdfBuffers.length.toString(),
+            skippedFiles: skippedFiles.join(', '),
+            processedAt: new Date().toISOString(),
+            senderName: options.senderName || '',
+            senderEmail: options.senderEmail || '',
+          },
         },
       });
 
-      const downloadURL = await getDownloadURL(storageRef);
+      const downloadURL = await getDownloadURL(fileRef);
       result.downloadURL = downloadURL;
       result.storagePath = storagePath;
 

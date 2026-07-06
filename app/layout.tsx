@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { NotificationProvider } from "@/components/NotificationProvider";
+import { CitizenAuthProvider } from "@/contexts/CitizenAuthContext";
 import { Toaster } from "@/components/ui/toaster";
 import { PWAInstallPrompt } from '@/components/PWAInstallPrompt';
 import { ServiceWorkerRegistration } from '@/components/ServiceWorkerRegistration';
@@ -62,10 +63,12 @@ export default function RootLayout({
       </head>
       <body className={inter.className}>
         <ServiceWorkerRegistration />
-        <NotificationProvider>
-          {children}
-          <PWAInstallPrompt />
-        </NotificationProvider>
+        <CitizenAuthProvider>
+          <NotificationProvider>
+            {children}
+            <PWAInstallPrompt />
+          </NotificationProvider>
+        </CitizenAuthProvider>
         <Toaster />
       </body>
     </html>

@@ -1,0 +1,57 @@
+rules_version = '2';
+
+// Storage rules for Primăria Digitală.
+//
+// - Registratura attachments contain personal data: staff only.
+// - Public uploads (announcement photos, issue photos) are size- and
+//   type-limited; reads are public because URLs are shown in the app.
+//
+// Deploy with: firebase deploy --only storage
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function isStaff() {
+      return request.auth != null
+        && firestore.exists(/databases/(default)/documents/users/$(request.auth.uid))
+        && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.active == true;
+    }
+
+    function isImageUnder5MB() {
+      return request.resource.size < 5 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+    }
+
+    // Photos attached to citizen announcements and issue reports
+    match /announcements/{allPaths=**} {
+      allow read: if true;
+      allow write: if isImageUnder5MB();
+    }
+
+    match /issues/{allPaths=**} {
+      allow read: if true;
+      allow write: if isImageUnder5MB();
+    }
+
+    // Registratura / registry documents: personal data, staff only.
+    // Server-side processing uses the Admin SDK and bypasses these rules.
+    match /registratura/{allPaths=**} {
+      allow read, write: if isStaff();
+    }
+
+    match /registru/{allPaths=**} {
+      allow read, write: if isStaff();
+    }
+
+    // Form submission attachments: staff read, uploads size-limited
+    match /cereri/{allPaths=**} {
+      allow read: if isStaff();
+      allow write: if request.resource.size < 10 * 1024 * 1024;
+    }
+
+    // Default: deny
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

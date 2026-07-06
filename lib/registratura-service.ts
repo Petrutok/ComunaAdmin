@@ -1,30 +1,25 @@
-import {
-  collection,
-  doc,
-  addDoc,
-  updateDoc,
-  deleteDoc,
-  getDoc,
-  getDocs,
-  query,
-  where,
-  orderBy,
-  limit,
-  Timestamp,
-} from 'firebase/firestore';
-import { db, storage } from '@/lib/firebase';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+// Server-only service: runs in API routes and server actions, so it uses the
+// Firebase Admin SDK (security rules do not apply to it).
+import { Timestamp } from 'firebase-admin/firestore';
+import { getDownloadURL } from 'firebase-admin/storage';
+import { getAdminDb, getAdminBucket } from '@/lib/firebase-admin';
 import { RegistraturaEmail, EmailStatus } from '@/types/registratura';
-import { generateRegistrationNumber } from '@/lib/generateRegistrationNumber';
+import { generateRegistrationNumberAdmin } from '@/lib/generateRegistrationNumberAdmin';
 import { processAndMergeDocuments, generateTrackingUrl } from '@/lib/services/document-processor';
 
 const COLLECTION_NAME = 'registratura_emails';
+
+function requireDb() {
+  const db = getAdminDb();
+  if (!db) throw new Error('Firebase Admin not initialized');
+  return db;
+}
 
 export class RegistraturaService {
   // Generare număr de înregistrare unic
   // Now uses the shared utility function
   async generateRegistrationNumber(): Promise<string> {
-    return generateRegistrationNumber();
+    return generateRegistrationNumberAdmin();
   }
 
   // Salvare atașament în Firebase Storage
@@ -41,15 +36,18 @@ export class RegistraturaService {
     uploadedAt: Timestamp;
   }> {
     try {
+      const bucket = getAdminBucket();
+      if (!bucket) throw new Error('Firebase Admin Storage not initialized');
+
       // Sanitize filename to prevent path traversal and special characters
       const safeName = filename.replace(/[^a-zA-Z0-9._-]/g, '_');
       const storagePath = `registratura/${registrationNumber}/attachments/${safeName}`;
-      const storageRef = ref(storage, storagePath);
+      const fileRef = bucket.file(storagePath);
 
-      // Upload with metadata
-      const metadata = contentType ? { contentType } : undefined;
-      const snapshot = await uploadBytes(storageRef, file, metadata);
-      const downloadURL = await getDownloadURL(snapshot.ref);
+      await fileRef.save(file, {
+        contentType: contentType || 'application/octet-stream',
+      });
+      const downloadURL = await getDownloadURL(fileRef);
 
       console.log(`[REGISTRATURA] Uploaded attachment: ${filename} (${file.length} bytes) -> ${downloadURL}`);
 
@@ -57,7 +55,7 @@ export class RegistraturaService {
         fileName: filename, // Keep original filename for display
         downloadURL,
         fileSize: file.length,
-        fileType: snapshot.metadata.contentType || contentType || 'application/octet-stream',
+        fileType: contentType || 'application/octet-stream',
         uploadedAt: Timestamp.now(),
       };
     } catch (error) {
@@ -69,14 +67,12 @@ export class RegistraturaService {
   // Verifică dacă email-ul există deja (evită duplicate)
   async emailExists(messageId: string): Promise<boolean> {
     if (!messageId) return false;
-    
-    const q = query(
-      collection(db, COLLECTION_NAME),
-      where('messageId', '==', messageId),
-      limit(1)
-    );
-    
-    const snapshot = await getDocs(q);
+
+    const snapshot = await requireDb()
+      .collection(COLLECTION_NAME)
+      .where('messageId', '==', messageId)
+      .limit(1)
+      .get();
     return !snapshot.empty;
   }
 
@@ -100,27 +96,25 @@ export class RegistraturaService {
       updatedAt: Timestamp.now()
     };
 
-    const docRef = await addDoc(collection(db, COLLECTION_NAME), docData);
+    const docRef = await requireDb().collection(COLLECTION_NAME).add(docData);
     console.log(`[REGISTRATURA] Created record ${numarInregistrare} with ${docData.attachments.length} attachment(s)`);
     return docRef.id;
   }
 
   // Obține toate email-urile cu filtrare opțională
   async getEmails(status?: EmailStatus): Promise<RegistraturaEmail[]> {
-    let q = query(
-      collection(db, COLLECTION_NAME),
-      orderBy('dateReceived', 'desc')
-    );
-    
+    let query = requireDb()
+      .collection(COLLECTION_NAME)
+      .orderBy('dateReceived', 'desc');
+
     if (status) {
-      q = query(
-        collection(db, COLLECTION_NAME),
-        where('status', '==', status),
-        orderBy('dateReceived', 'desc')
-      );
+      query = requireDb()
+        .collection(COLLECTION_NAME)
+        .where('status', '==', status)
+        .orderBy('dateReceived', 'desc');
     }
-    
-    const snapshot = await getDocs(q);
+
+    const snapshot = await query.get();
     return snapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data()
@@ -146,13 +140,13 @@ export class RegistraturaService {
     if (assignedTo !== undefined) {
       updateData.assignedTo = assignedTo;
     }
-    
-    await updateDoc(doc(db, COLLECTION_NAME, emailId), updateData);
+
+    await requireDb().collection(COLLECTION_NAME).doc(emailId).update(updateData);
   }
 
   // Șterge email
   async deleteEmail(emailId: string): Promise<void> {
-    await deleteDoc(doc(db, COLLECTION_NAME, emailId));
+    await requireDb().collection(COLLECTION_NAME).doc(emailId).delete();
   }
 
   // Process email attachments - creates a single merged and stamped official document
@@ -172,8 +166,8 @@ export class RegistraturaService {
   }> {
     try {
       // Get email document
-      const emailDoc = await getDoc(doc(db, COLLECTION_NAME, emailId));
-      if (!emailDoc.exists()) {
+      const emailDoc = await requireDb().collection(COLLECTION_NAME).doc(emailId).get();
+      if (!emailDoc.exists) {
         return {
           success: false,
           processedCount: 0,
@@ -252,7 +246,7 @@ export class RegistraturaService {
       }
 
       // Update Firestore document with official document
-      await updateDoc(doc(db, COLLECTION_NAME, emailId), {
+      await requireDb().collection(COLLECTION_NAME).doc(emailId).update({
         officialDocument: {
           fileName: 'document-oficial.pdf',
           downloadURL: result.downloadURL!,

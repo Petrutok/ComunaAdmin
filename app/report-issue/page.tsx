@@ -3,6 +3,8 @@
 import {useState, useEffect} from 'react';
 import {useToast} from "@/hooks/use-toast";
 import {useRouter} from "next/navigation";
+import {auth} from '@/lib/firebase';
+import {useCitizenAuth} from '@/contexts/CitizenAuthContext';
 
 import {Button} from "@/components/ui/button";
 import {Card, CardContent} from "@/components/ui/card";
@@ -56,6 +58,14 @@ export default function ReportIssuePage() {
   const [hasGeolocation, setHasGeolocation] = useState(false);
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
   const [reportId, setReportId] = useState<string>('');
+  const { user: citizenUser, profile: citizenProfile } = useCitizenAuth();
+
+  // Prefill for logged-in citizens (only if fields are still empty)
+  useEffect(() => {
+    if (!citizenUser) return;
+    setName(prev => prev || citizenProfile?.numeComplet || citizenUser.displayName || '');
+    setContact(prev => prev || citizenUser.email || '');
+  }, [citizenUser, citizenProfile]);
 
   useEffect(() => {
     if (navigator.geolocation) {
@@ -166,11 +176,15 @@ export default function ReportIssuePage() {
         coordinates
       };
 
+      // Logged-in citizens get the issue linked to their account (Dosarul meu)
+      const idToken = await auth.currentUser?.getIdToken().catch(() => null);
+
       // Send to API
       const response = await fetch('/api/report-issue', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...(idToken ? { Authorization: `Bearer ${idToken}` } : {}),
         },
         body: JSON.stringify(reportData)
       });

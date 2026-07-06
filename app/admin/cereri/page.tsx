@@ -17,7 +17,7 @@ import {
   deleteDoc,
   orderBy,
 } from 'firebase/firestore';
-import { db, COLLECTIONS } from '@/lib/firebase';
+import { db, auth, COLLECTIONS } from '@/lib/firebase';
 import { Department, User as UserType } from '@/types/departments';
 import {
   Phone,
@@ -94,6 +94,7 @@ interface Cerere {
   adresa: string;
   tipCerere: string;
   scopulCererii: string;
+  numarInregistrare?: string;
   status: CerereStatus;
   priority?: CererePriority;
   departmentId?: string;
@@ -449,10 +450,12 @@ export default function AdminCereriPage() {
 
   const handleDownloadPDF = async (cerere: Cerere) => {
     try {
+      const idToken = await auth.currentUser?.getIdToken();
       const response = await fetch('/api/download-cerere', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...(idToken ? { Authorization: `Bearer ${idToken}` } : {}),
         },
         body: JSON.stringify({ cerereId: cerere.id }),
       });
@@ -683,6 +686,11 @@ export default function AdminCereriPage() {
                       )}
 
                       <h3 className="text-lg font-semibold text-white mb-3 line-clamp-1 overflow-hidden break-words">
+                        {cerere.numarInregistrare && (
+                          <span className="mr-2 rounded bg-green-500/15 px-2 py-0.5 text-sm font-mono text-green-400 align-middle">
+                            {cerere.numarInregistrare}
+                          </span>
+                        )}
                         {tipuriCereri[cerere.tipCerere] || cerere.tipCerere}
                       </h3>
 

@@ -18,16 +18,25 @@ import {
   Bell,
   Menu,
   MapPin,
+  FolderOpen,
   Phone,
   Shield,
   Heart,
   Code
 } from 'lucide-react';
-import { Resend } from 'resend';
 import Image from 'next/image';
 
 export default function HomePage() {
   const cards = [
+    {
+      title: "Dosarul Meu",
+      description: "Urmărește stadiul cererilor și sesizărilor tale la primărie",
+      icon: FolderOpen,
+      link: "/dosarul-meu",
+      buttonText: "Vezi Dosarul",
+      color: "text-indigo-400",
+      iconBg: "bg-indigo-500/10"
+    },
     {
       title: "Raportează o Problemă",
       description: "Semnalează probleme din comună: gropi, iluminat defect, alte defecțiuni",
