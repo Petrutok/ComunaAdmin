@@ -94,6 +94,7 @@ interface Cerere {
   adresa: string;
   tipCerere: string;
   scopulCererii: string;
+  numarInregistrare?: string;
   status: CerereStatus;
   priority?: CererePriority;
   departmentId?: string;
@@ -685,6 +686,11 @@ export default function AdminCereriPage() {
                       )}
 
                       <h3 className="text-lg font-semibold text-white mb-3 line-clamp-1 overflow-hidden break-words">
+                        {cerere.numarInregistrare && (
+                          <span className="mr-2 rounded bg-green-500/15 px-2 py-0.5 text-sm font-mono text-green-400 align-middle">
+                            {cerere.numarInregistrare}
+                          </span>
+                        )}
                         {tipuriCereri[cerere.tipCerere] || cerere.tipCerere}
                       </h3>
 

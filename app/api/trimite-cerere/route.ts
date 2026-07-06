@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Timestamp } from 'firebase-admin/firestore';
 import { getAdminDb } from '@/lib/firebase-admin';
+import { generateRegistruNumberAdmin } from '@/lib/generateRegistruNumberAdmin';
 import { rateLimit, getClientIp } from '@/lib/rate-limit';
 
 interface CerereRequest {
@@ -135,17 +136,47 @@ export async function POST(request: NextRequest) {
       updatedAt: Timestamp.now(),
     };
 
-    // Save to Firestore (Admin SDK - bypasses security rules)
     const db = getAdminDb();
     if (!db) {
       throw new Error('Firebase Admin not initialized');
     }
-    const docRef = await db.collection('form_submissions').add(submissionData);
+
+    // Register the request in the general registry: every online submission
+    // gets an official registration number, sequential with the manual
+    // registry entries made from the admin panel
+    const numarInregistrare = await generateRegistruNumberAdmin();
+
+    const registruDoc = {
+      numarInregistrare,
+      tipDocument: 'cerere',
+      dataInregistrare: Timestamp.now(),
+      emitent: body.numeComplet,
+      adresaEmitent: body.adresa || `${body.strada} ${body.numar || ''}, ${body.localitate}`.trim(),
+      emailEmitent: body.email,
+      destinatar: 'Primăria',
+      continut: `Cerere online: ${body.tipCerere}${body.scopulCererii ? ` — ${body.scopulCererii}` : ''}`,
+      status: 'nou',
+      creatDe: 'sistem',
+      creatDeNume: 'Depunere online',
+      createdAt: Timestamp.now(),
+    };
+    const registruRef = await db.collection('registru_general').add(registruDoc);
+
+    // Save the submission with its registration number and registry link
+    const docRef = await db.collection('form_submissions').add({
+      ...submissionData,
+      numarInregistrare,
+      registruDocId: registruRef.id,
+    });
+
+    // Backlink so the registry entry can open the full submission
+    await registruRef.update({ cerereId: docRef.id });
 
     return NextResponse.json(
       {
         success: true,
         id: docRef.id,
+        numarInregistrare,
         message: 'Cerere trimisă cu succes'
       },
       { status: 201 }
