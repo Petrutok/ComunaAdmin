@@ -51,6 +51,12 @@ service cloud.firestore {
       allow update, delete: if isStaff();
     }
 
+    // Urgent local alerts: everyone reads, only staff issue/close them
+    match /alerts/{id} {
+      allow read: if true;
+      allow write: if isStaff();
+    }
+
     // ---- citizen accounts ----------------------------------------------
 
     // Citizens manage only their own profile; staff can look profiles up
