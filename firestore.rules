@@ -57,6 +57,13 @@ service cloud.firestore {
       allow write: if isStaff();
     }
 
+    // Appointments: booked/cancelled through the API (Admin SDK);
+    // citizens read their own, staff manage the daily schedule
+    match /appointments/{id} {
+      allow read: if request.auth != null && resource.data.citizenUid == request.auth.uid;
+      allow read, write: if isStaff();
+    }
+
     // ---- citizen accounts ----------------------------------------------
 
     // Citizens manage only their own profile; staff can look profiles up
