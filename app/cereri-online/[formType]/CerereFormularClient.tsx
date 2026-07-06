@@ -10,6 +10,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { useEffect } from 'react';
+import { auth } from '@/lib/firebase';
+import { useCitizenAuth } from '@/contexts/CitizenAuthContext';
 import { 
   FileText, 
   Send, 
@@ -99,6 +101,18 @@ export default function CerereFormularClient({ formType }: CerereFormularClientP
   const [showSuccess, setShowSuccess] = useState(false);
   const [successEmail, setSuccessEmail] = useState('');
   const [successRegNumber, setSuccessRegNumber] = useState('');
+  const { user: citizenUser, profile: citizenProfile } = useCitizenAuth();
+
+  // Prefill contact fields for logged-in citizens (only if still empty)
+  useEffect(() => {
+    if (!citizenUser) return;
+    setFormData(prev => ({
+      ...prev,
+      email: prev.email || citizenUser.email || '',
+      telefonMobil: prev.telefonMobil || citizenProfile?.telefon || '',
+    }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [citizenUser, citizenProfile]);
   const { toast } = useToast();
 
   // Dacă tipul de cerere nu există, redirecționează
@@ -260,11 +274,15 @@ const handleSubmit = async (e: React.FormEvent) => {
 
     console.log('📤 Trimitere date către API...');
     
+    // Logged-in citizens get the request linked to their account (Dosarul meu)
+    const idToken = await auth.currentUser?.getIdToken().catch(() => null);
+
     // Trimitem ca JSON normal
     const response = await fetch('/api/trimite-cerere', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        ...(idToken ? { Authorization: `Bearer ${idToken}` } : {}),
       },
       body: JSON.stringify(dataToSend),
     });

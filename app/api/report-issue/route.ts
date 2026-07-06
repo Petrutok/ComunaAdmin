@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { Timestamp } from 'firebase-admin/firestore';
 import { getAdminDb } from '@/lib/firebase-admin';
 import { generateRegistrationNumberAdmin } from '@/lib/generateRegistrationNumberAdmin';
+import { getOptionalCitizenUid } from '@/lib/api-auth';
 import { rateLimit, getClientIp } from '@/lib/rate-limit';
 
 // Max lengths to keep spam/abuse payloads out of Firestore
@@ -85,8 +86,12 @@ export async function POST(request: NextRequest) {
       padding: 6
     });
 
+    // Logged-in citizens get the issue linked to their account ("Dosarul meu")
+    const citizenUid = await getOptionalCitizenUid(request);
+
     // Prepare issue document
     const issueData = {
+      ...(citizenUid ? { citizenUid } : {}),
       reporterName: body.name,
       reporterContact: body.contact,
       location: body.location,

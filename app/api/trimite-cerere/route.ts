@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { Timestamp } from 'firebase-admin/firestore';
 import { getAdminDb } from '@/lib/firebase-admin';
 import { generateRegistruNumberAdmin } from '@/lib/generateRegistruNumberAdmin';
+import { getOptionalCitizenUid } from '@/lib/api-auth';
 import { rateLimit, getClientIp } from '@/lib/rate-limit';
 
 interface CerereRequest {
@@ -162,11 +163,16 @@ export async function POST(request: NextRequest) {
     };
     const registruRef = await db.collection('registru_general').add(registruDoc);
 
+    // Logged-in citizens get the submission linked to their account
+    // so it shows up in "Dosarul meu"
+    const citizenUid = await getOptionalCitizenUid(request);
+
     // Save the submission with its registration number and registry link
     const docRef = await db.collection('form_submissions').add({
       ...submissionData,
       numarInregistrare,
       registruDocId: registruRef.id,
+      ...(citizenUid ? { citizenUid } : {}),
     });
 
     // Backlink so the registry entry can open the full submission

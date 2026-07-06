@@ -1,5 +1,5 @@
 import { Timestamp } from 'firebase/firestore';
-import { EmailPriority } from '@/types/registratura';
+import { EmailPriority, FirestoreTimestamp } from '@/types/registratura';
 
 /**
  * Calculate deadline based on priority
@@ -29,7 +29,7 @@ export function calculateDeadline(priority: EmailPriority, fromDate: Date = new 
  * Calculate days remaining until deadline
  * Returns negative number if overdue
  */
-export function getDaysRemaining(deadline: Timestamp | null): number {
+export function getDaysRemaining(deadline: FirestoreTimestamp | null): number {
   if (!deadline) return 0;
 
   const now = new Date();
@@ -43,14 +43,14 @@ export function getDaysRemaining(deadline: Timestamp | null): number {
 /**
  * Check if deadline is overdue
  */
-export function isOverdue(deadline: Timestamp | null): boolean {
+export function isOverdue(deadline: FirestoreTimestamp | null): boolean {
   return getDaysRemaining(deadline) < 0;
 }
 
 /**
  * Format days remaining for display
  */
-export function formatDaysRemaining(deadline: Timestamp | null): string {
+export function formatDaysRemaining(deadline: FirestoreTimestamp | null): string {
   if (!deadline) return 'Fără termen';
 
   const days = getDaysRemaining(deadline);

@@ -51,14 +51,25 @@ service cloud.firestore {
       allow update, delete: if isStaff();
     }
 
-    // ---- citizen data (contains personal data - staff only) ------------
-    // Created server-side via Admin SDK; clients never write directly.
+    // ---- citizen accounts ----------------------------------------------
+
+    // Citizens manage only their own profile; staff can look profiles up
+    match /citizens/{uid} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+      allow read: if isStaff();
+    }
+
+    // ---- citizen data (contains personal data) --------------------------
+    // Created server-side via Admin SDK; citizens read their own documents
+    // ("Dosarul meu" queries constrain on citizenUid == auth.uid).
 
     match /reported_issues/{id} {
+      allow read: if request.auth != null && resource.data.citizenUid == request.auth.uid;
       allow read, write: if isStaff();
     }
 
     match /form_submissions/{id} {
+      allow read: if request.auth != null && resource.data.citizenUid == request.auth.uid;
       allow read, write: if isStaff();
     }
 
