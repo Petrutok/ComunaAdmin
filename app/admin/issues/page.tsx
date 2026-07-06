@@ -41,7 +41,7 @@ import {
   Activity
 } from 'lucide-react';
 import { collection, getDocs, doc, updateDoc, query, where, orderBy } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { db, auth } from '@/lib/firebase';
 
 interface ReportedIssue {
   id: string;
@@ -170,9 +170,26 @@ export default function AdminIssuesPage() {
 
       await updateDoc(issueRef, updateData);
 
+      // Notify the citizen (push + email) - best effort, never blocks the update
+      try {
+        const idToken = await auth.currentUser?.getIdToken();
+        fetch('/api/notify-status-change', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(idToken ? { Authorization: `Bearer ${idToken}` } : {}),
+          },
+          body: JSON.stringify({
+            collection: 'reported_issues',
+            docId: issueId,
+            newStatus,
+          }),
+        }).catch(() => {});
+      } catch {}
+
       // Update local state
-      setIssues(issues.map(issue => 
-        issue.id === issueId 
+      setIssues(issues.map(issue =>
+        issue.id === issueId
           ? { ...issue, ...updateData }
           : issue
       ));

@@ -34,7 +34,7 @@ function friendlyError(code: string): string {
 }
 
 export default function ContPage() {
-  const { user, profile, loading, login, register, logout, resetPassword } = useCitizenAuth();
+  const { user, profile, loading, login, register, logout, resetPassword, resendVerificationEmail } = useCitizenAuth();
   const router = useRouter();
   const { toast } = useToast();
 
@@ -107,6 +107,28 @@ export default function ContPage() {
               <CardDescription className="text-gray-300">{user.email}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
+              {!user.emailVerified && (
+                <div className="rounded-lg border border-amber-500/30 bg-amber-900/10 px-4 py-3 text-sm">
+                  <p className="text-amber-300 font-medium">Emailul nu este confirmat</p>
+                  <p className="text-gray-400 mt-1">
+                    Ți-am trimis un email de confirmare la înregistrare. Fără confirmare,
+                    resetarea parolei poate fi nesigură.
+                  </p>
+                  <button
+                    onClick={async () => {
+                      try {
+                        await resendVerificationEmail();
+                        toast({ title: 'Email trimis', description: 'Verifică-ți căsuța de email (și folderul Spam).' });
+                      } catch {
+                        toast({ title: 'Eroare', description: 'Încearcă din nou peste câteva minute.', variant: 'destructive' });
+                      }
+                    }}
+                    className="mt-2 text-amber-400 hover:underline font-medium"
+                  >
+                    Retrimite emailul de confirmare
+                  </button>
+                </div>
+              )}
               <Button
                 onClick={() => router.push('/dosarul-meu')}
                 className="w-full bg-blue-600 hover:bg-blue-700 text-base py-6"
@@ -142,6 +164,13 @@ export default function ContPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
+              {mode === 'register' && (
+                <ul className="mb-5 space-y-2 rounded-lg border border-slate-700 bg-slate-900/40 p-4 text-sm text-gray-300">
+                  <li className="flex gap-2"><span className="text-green-400">✓</span> Vezi stadiul cererilor și sesizărilor tale în „Dosarul meu"</li>
+                  <li className="flex gap-2"><span className="text-green-400">✓</span> Primești notificare când primăria îți rezolvă cererea</li>
+                  <li className="flex gap-2"><span className="text-green-400">✓</span> Formularele se completează automat cu datele tale</li>
+                </ul>
+              )}
               <form onSubmit={handleSubmit} className="space-y-4">
                 {mode === 'register' && (
                   <div className="space-y-2">

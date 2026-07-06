@@ -574,6 +574,32 @@ export default function ReportIssuePage() {
               <p className="mt-3 text-gray-400 text-sm px-4">
                 Te vom contacta dacă avem nevoie de mai multe detalii.
               </p>
+              {citizenUser ? (
+                <p className="mt-3 text-sm text-gray-300 px-4">
+                  Sesizarea a fost salvată în{' '}
+                  <button
+                    onClick={() => router.push('/dosarul-meu')}
+                    className="text-blue-400 hover:underline font-medium"
+                  >
+                    Dosarul meu
+                  </button>
+                  {' '}— primești notificare când e rezolvată.
+                </p>
+              ) : (
+                <div className="mt-3 mx-4 rounded-lg border border-blue-500/30 bg-blue-900/10 px-4 py-3 text-sm text-left">
+                  <p className="text-gray-200 font-medium">Vrei să urmărești această sesizare?</p>
+                  <p className="text-gray-400 mt-1">
+                    Cu un cont gratuit, sesizările tale apar în „Dosarul meu" și primești
+                    notificare când sunt rezolvate.
+                  </p>
+                  <Button
+                    onClick={() => router.push('/cont')}
+                    className="mt-3 w-full bg-blue-600 hover:bg-blue-700 text-white"
+                  >
+                    Creează cont gratuit
+                  </Button>
+                </div>
+              )}
             </DialogHeader>
             <DialogFooter className="flex-col sm:flex-row gap-2 pt-6">
               <Button

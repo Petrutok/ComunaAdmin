@@ -4,6 +4,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Bell } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { auth } from '@/lib/firebase';
 import {
   Dialog,
   DialogContent,
@@ -430,11 +431,15 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       const subscriptionJSON = subscription.toJSON();
       console.log('[NotificationProvider] Subscription JSON:', subscriptionJSON);
 
+      // Logged-in citizens get the subscription linked to their account
+      const idToken = await auth.currentUser?.getIdToken().catch(() => null);
+
       // Send subscription to server
       const response = await fetch('/api/push/subscribe', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...(idToken ? { Authorization: `Bearer ${idToken}` } : {}),
         },
         body: JSON.stringify({
           subscription: subscriptionJSON,  // <-- Send the JSON version

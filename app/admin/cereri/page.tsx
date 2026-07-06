@@ -405,6 +405,23 @@ export default function AdminCereriPage() {
 
       await updateDoc(doc(db, 'form_submissions', selectedCerere.id), updateData);
 
+      // Notify the citizen (push + email) - best effort, never blocks the update
+      try {
+        const idToken = await auth.currentUser?.getIdToken();
+        fetch('/api/notify-status-change', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(idToken ? { Authorization: `Bearer ${idToken}` } : {}),
+          },
+          body: JSON.stringify({
+            collection: 'form_submissions',
+            docId: selectedCerere.id,
+            newStatus,
+          }),
+        }).catch(() => {});
+      } catch {}
+
       toast({
         title: "Status actualizat",
         description: `Cererea a fost marcată ca ${statusConfig[newStatus].label}`,

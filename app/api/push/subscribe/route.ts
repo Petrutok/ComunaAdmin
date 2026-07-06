@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Timestamp } from 'firebase-admin/firestore';
 import { getAdminDb } from '@/lib/firebase-admin';
+import { getOptionalCitizenUid } from '@/lib/api-auth';
 import { rateLimit, getClientIp } from '@/lib/rate-limit';
 
 export async function POST(request: NextRequest) {
@@ -39,10 +40,15 @@ export async function POST(request: NextRequest) {
         .where('endpoint', '==', subscription.endpoint)
         .get();
 
+      // Logged-in citizens get the subscription linked to their account,
+      // enabling targeted notifications (e.g. status changes)
+      const citizenUid = await getOptionalCitizenUid(request);
+
       const subscriptionData = {
         endpoint: subscription.endpoint,
         keys: subscription.keys,
         deviceInfo: deviceInfo || null,
+        ...(citizenUid ? { citizenUid } : {}),
         createdAt: Timestamp.now(),
         lastActive: Timestamp.now(),
         active: true,
