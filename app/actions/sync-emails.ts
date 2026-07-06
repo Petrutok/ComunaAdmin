@@ -6,7 +6,9 @@
 
 import { EmailService, isSpam } from '@/lib/email-service';
 import { RegistraturaService } from '@/lib/registratura-service';
-import { Timestamp } from 'firebase/firestore';
+// Admin SDK Timestamp: this server action writes through RegistraturaService,
+// which uses the Admin SDK - client SDK Timestamps are not compatible with it
+import { Timestamp } from 'firebase-admin/firestore';
 
 interface SyncEmailsResult {
   success: boolean;

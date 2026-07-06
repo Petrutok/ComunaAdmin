@@ -1,0 +1,131 @@
+rules_version = '2';
+
+// Security rules for Primăria Digitală.
+//
+// Principles:
+// - Citizens (unauthenticated) can READ public content and CREATE
+//   announcements/jobs (moderated by staff afterwards). Nothing else.
+// - Staff (documents in `users` with active=true and a role) manage
+//   operational data from the admin panel.
+// - Server API routes use the Admin SDK and bypass these rules entirely
+//   (report-issue, trimite-cerere, push subscriptions, registratura).
+//
+// Deploy with: firebase deploy --only firestore:rules
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---- helpers -------------------------------------------------------
+
+    function staffDoc() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function isStaff() {
+      return request.auth != null
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && staffDoc().active == true
+        && staffDoc().role in ['admin', 'employee'];
+    }
+
+    function isAdmin() {
+      return request.auth != null
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && staffDoc().active == true
+        && staffDoc().role == 'admin';
+    }
+
+    // ---- public content ------------------------------------------------
+
+    // Citizen marketplace: anyone may read and post; only staff may
+    // edit/remove (moderation).
+    match /announcements/{id} {
+      allow read: if true;
+      allow create: if true;
+      allow update, delete: if isStaff();
+    }
+
+    match /jobs/{id} {
+      allow read: if true;
+      allow create: if true;
+      allow update, delete: if isStaff();
+    }
+
+    // ---- citizen data (contains personal data - staff only) ------------
+    // Created server-side via Admin SDK; clients never write directly.
+
+    match /reported_issues/{id} {
+      allow read, write: if isStaff();
+    }
+
+    match /form_submissions/{id} {
+      allow read, write: if isStaff();
+    }
+
+    match /registratura_emails/{id} {
+      allow read, write: if isStaff();
+    }
+
+    match /registru_general/{id} {
+      allow read, write: if isStaff();
+    }
+
+    match /registru_counters/{id} {
+      allow read, write: if isStaff();
+    }
+
+    // Registration number counter (config/registratura_counter)
+    match /config/{id} {
+      allow read, write: if isStaff();
+    }
+
+    // ---- notifications infrastructure -----------------------------------
+    // Subscriptions are created via the API (Admin SDK); the admin panel
+    // reads them to send notifications.
+
+    match /push_subscriptions/{id} {
+      allow read, write: if isStaff();
+    }
+
+    match /fcm_tokens/{id} {
+      allow read, write: if isStaff();
+    }
+
+    match /notifications/{id} {
+      allow read, write: if isStaff();
+    }
+
+    match /notification_history/{id} {
+      allow read, write: if isStaff();
+    }
+
+    match /system_logs/{id} {
+      allow read, write: if isStaff();
+    }
+
+    // ---- staff management (admin only for writes) -----------------------
+
+    match /users/{id} {
+      // Staff can read the list (needed for assignment dropdowns);
+      // only admins manage accounts.
+      allow read: if isStaff();
+      allow write: if isAdmin();
+    }
+
+    match /departments/{id} {
+      allow read: if isStaff();
+      allow write: if isAdmin();
+    }
+
+    match /admins/{id} {
+      allow read: if isStaff();
+      allow write: if isAdmin();
+    }
+
+    // ---- default: deny -------------------------------------------------
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

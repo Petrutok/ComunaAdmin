@@ -1,19 +1,28 @@
 // app/api/registratura/count-new/route.ts
 
-import { NextResponse } from 'next/server';
-import { collection, query, where, getDocs } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { NextRequest, NextResponse } from 'next/server';
+import { getAdminDb } from '@/lib/firebase-admin';
+import { verifyStaffRequest } from '@/lib/api-auth';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const auth = await verifyStaffRequest(request, ['admin', 'employee']);
+  if (!auth.authorized) {
+    return NextResponse.json({ success: false, count: 0, error: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
+    const db = getAdminDb();
+    if (!db) {
+      throw new Error('Firebase Admin not initialized');
+    }
+
     // Query pentru email-uri cu status 'nou'
-    const q = query(
-      collection(db, 'registratura_emails'),
-      where('status', '==', 'nou')
-    );
-    
-    const snapshot = await getDocs(q);
-    const count = snapshot.size;
+    const snapshot = await db
+      .collection('registratura_emails')
+      .where('status', '==', 'nou')
+      .count()
+      .get();
+    const count = snapshot.data().count;
     
     return NextResponse.json({ 
       success: true,

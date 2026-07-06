@@ -17,7 +17,7 @@ import {
   deleteDoc,
   orderBy,
 } from 'firebase/firestore';
-import { db, COLLECTIONS } from '@/lib/firebase';
+import { db, auth, COLLECTIONS } from '@/lib/firebase';
 import { Department, User as UserType } from '@/types/departments';
 import {
   Phone,
@@ -449,10 +449,12 @@ export default function AdminCereriPage() {
 
   const handleDownloadPDF = async (cerere: Cerere) => {
     try {
+      const idToken = await auth.currentUser?.getIdToken();
       const response = await fetch('/api/download-cerere', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...(idToken ? { Authorization: `Bearer ${idToken}` } : {}),
         },
         body: JSON.stringify({ cerereId: cerere.id }),
       });

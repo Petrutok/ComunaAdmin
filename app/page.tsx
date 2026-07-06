@@ -23,7 +23,6 @@ import {
   Heart,
   Code
 } from 'lucide-react';
-import { Resend } from 'resend';
 import Image from 'next/image';
 
 export default function HomePage() {

@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { verifyStaffRequest } from '@/lib/api-auth';
 import { processStorageFile, generateTrackingUrl, getProcessingSummary } from '@/lib/services/document-processor';
-import { db, COLLECTIONS } from '@/lib/firebase';
-import { doc, updateDoc, arrayUnion } from 'firebase/firestore';
+import { getAdminDb } from '@/lib/firebase-admin';
+import { COLLECTIONS } from '@/lib/firebase';
 
 /**
  * API Route: Process Registratura Documents
@@ -14,6 +15,11 @@ import { doc, updateDoc, arrayUnion } from 'firebase/firestore';
  * 4. Updating Firestore document with processed file URLs
  */
 export async function POST(request: NextRequest) {
+  const auth = await verifyStaffRequest(request, ['admin', 'employee']);
+  if (!auth.authorized) {
+    return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
     const body = await request.json();
     const {
@@ -68,7 +74,11 @@ export async function POST(request: NextRequest) {
 
     // Update Firestore document with processed attachments
     if (summary.successful > 0) {
-      const emailRef = doc(db, COLLECTIONS.REGISTRATURA_EMAILS, emailId);
+      const adminDb = getAdminDb();
+      if (!adminDb) {
+        throw new Error('Firebase Admin not initialized');
+      }
+      const emailRef = adminDb.collection(COLLECTIONS.REGISTRATURA_EMAILS).doc(emailId);
 
       const processedAttachments = results
         .filter(r => r.success && r.downloadURL)
@@ -83,7 +93,7 @@ export async function POST(request: NextRequest) {
           storagePath: r.storagePath,
         }));
 
-      await updateDoc(emailRef, {
+      await emailRef.update({
         processedAttachments: processedAttachments,
         lastProcessed: new Date(),
       });

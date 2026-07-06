@@ -1,8 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebase-admin';
 import { generatePDF, RequestData } from '@/lib/simple-pdf-generator';
+import { verifyStaffRequest } from '@/lib/api-auth';
 
 export async function POST(request: NextRequest) {
+  // Cereri contain CNP and addresses - staff only
+  const auth = await verifyStaffRequest(request, ['admin', 'employee']);
+  if (!auth.authorized) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
     const body = await request.json();
     const { cerereId } = body;

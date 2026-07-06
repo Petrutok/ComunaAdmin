@@ -1,25 +1,43 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/firebase';
-import { collection, addDoc, deleteDoc, query, where, getDocs, Timestamp } from 'firebase/firestore';
+import { Timestamp } from 'firebase-admin/firestore';
+import { getAdminDb } from '@/lib/firebase-admin';
+import { rateLimit, getClientIp } from '@/lib/rate-limit';
 
 export async function POST(request: NextRequest) {
+  // Public endpoint: limit to 20 subscribe/unsubscribe actions per hour per IP
+  const limit = rateLimit(`push-subscribe:${getClientIp(request)}`, 20, 60 * 60 * 1000);
+  if (!limit.allowed) {
+    return NextResponse.json(
+      { success: false, error: 'Too many requests' },
+      { status: 429, headers: { 'Retry-After': String(limit.retryAfterSeconds) } }
+    );
+  }
+
   try {
     const body = await request.json();
     const { subscription, action, deviceInfo } = body;
+
+    const db = getAdminDb();
+    if (!db) {
+      throw new Error('Firebase Admin not initialized');
+    }
+    const subscriptionsRef = db.collection('push_subscriptions');
 
     // If no action is specified, default to 'subscribe'
     const effectiveAction = action || 'subscribe';
 
     if (effectiveAction === 'subscribe') {
-      // Save subscription to Firestore
-      const subscriptionsRef = collection(db, 'push_subscriptions');
+      if (!subscription?.endpoint || !subscription?.keys) {
+        return NextResponse.json(
+          { success: false, error: 'Invalid subscription' },
+          { status: 400 }
+        );
+      }
 
       // Check if subscription already exists
-      const q = query(
-        subscriptionsRef,
-        where('endpoint', '==', subscription.endpoint)
-      );
-      const existingDocs = await getDocs(q);
+      const existingDocs = await subscriptionsRef
+        .where('endpoint', '==', subscription.endpoint)
+        .get();
 
       const subscriptionData = {
         endpoint: subscription.endpoint,
@@ -32,12 +50,11 @@ export async function POST(request: NextRequest) {
 
       if (existingDocs.empty) {
         // Add new subscription
-        await addDoc(subscriptionsRef, subscriptionData);
+        await subscriptionsRef.add(subscriptionData);
       } else {
         // Update existing subscription
-        const docRef = existingDocs.docs[0].ref;
-        await deleteDoc(docRef);
-        await addDoc(subscriptionsRef, subscriptionData);
+        await existingDocs.docs[0].ref.delete();
+        await subscriptionsRef.add(subscriptionData);
       }
 
       return NextResponse.json({
@@ -46,19 +63,21 @@ export async function POST(request: NextRequest) {
       });
 
     } else if (effectiveAction === 'unsubscribe') {
-      // Remove subscription from Firestore
-      const subscriptionsRef = collection(db, 'push_subscriptions');
       // For unsubscribe, endpoint comes from body directly
-      const endpoint = body.endpoint || subscription.endpoint;
+      const endpoint = body.endpoint || subscription?.endpoint;
+      if (!endpoint) {
+        return NextResponse.json(
+          { success: false, error: 'Missing endpoint' },
+          { status: 400 }
+        );
+      }
 
-      const q = query(
-        subscriptionsRef,
-        where('endpoint', '==', endpoint)
-      );
-      const existingDocs = await getDocs(q);
+      const existingDocs = await subscriptionsRef
+        .where('endpoint', '==', endpoint)
+        .get();
 
       if (!existingDocs.empty) {
-        await deleteDoc(existingDocs.docs[0].ref);
+        await existingDocs.docs[0].ref.delete();
       }
 
       return NextResponse.json({

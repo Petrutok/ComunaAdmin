@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { collection, addDoc, Timestamp } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { Timestamp } from 'firebase-admin/firestore';
+import { getAdminDb } from '@/lib/firebase-admin';
+import { rateLimit, getClientIp } from '@/lib/rate-limit';
 
 interface CerereRequest {
   numeComplet: string;
@@ -27,9 +28,27 @@ interface CerereRequest {
 }
 
 export async function POST(request: NextRequest) {
+  // Public endpoint: limit to 5 submissions per hour per IP
+  const limit = rateLimit(`trimite-cerere:${getClientIp(request)}`, 5, 60 * 60 * 1000);
+  if (!limit.allowed) {
+    return NextResponse.json(
+      { success: false, error: 'Prea multe cereri trimise. Încercați din nou mai târziu.' },
+      { status: 429, headers: { 'Retry-After': String(limit.retryAfterSeconds) } }
+    );
+  }
+
   try {
     // Parse request body
     const body: CerereRequest = await request.json();
+
+    // Reject oversized payloads: the route stores unknown extra fields,
+    // so cap the overall size before anything reaches Firestore
+    if (JSON.stringify(body).length > 100_000 || Object.keys(body).length > 60) {
+      return NextResponse.json(
+        { success: false, error: 'Payload too large' },
+        { status: 413 }
+      );
+    }
 
     // Validate required fields
     const requiredFields = ['numeComplet', 'cnp', 'email', 'localitate', 'strada', 'tipCerere'];
@@ -116,9 +135,12 @@ export async function POST(request: NextRequest) {
       updatedAt: Timestamp.now(),
     };
 
-    // Save to Firestore
-    const cereriCollection = collection(db, 'form_submissions');
-    const docRef = await addDoc(cereriCollection, submissionData);
+    // Save to Firestore (Admin SDK - bypasses security rules)
+    const db = getAdminDb();
+    if (!db) {
+      throw new Error('Firebase Admin not initialized');
+    }
+    const docRef = await db.collection('form_submissions').add(submissionData);
 
     return NextResponse.json(
       {

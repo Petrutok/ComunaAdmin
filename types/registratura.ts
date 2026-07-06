@@ -1,4 +1,11 @@
-import { Timestamp } from 'firebase/firestore';
+import type { Timestamp as ClientTimestamp } from 'firebase/firestore';
+import type { Timestamp as AdminTimestamp } from 'firebase-admin/firestore';
+
+// These types are shared between the admin panel (client SDK) and API
+// routes/server actions (Admin SDK). The two SDKs have distinct Timestamp
+// classes with the same shape, so accept either. Type-only imports are
+// erased at compile time and don't pull firebase-admin into the client bundle.
+type Timestamp = ClientTimestamp | AdminTimestamp;
 
 export type EmailPriority = 'urgent' | 'normal' | 'low';
 

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import webpush from 'web-push';
+import { verifyStaffRequest } from '@/lib/api-auth';
 
 // Configure web-push with VAPID credentials
 webpush.setVapidDetails(
@@ -9,6 +10,15 @@ webpush.setVapidDetails(
 );
 
 export async function POST(request: NextRequest) {
+  // Only admins may broadcast push notifications
+  const auth = await verifyStaffRequest(request, ['admin']);
+  if (!auth.authorized) {
+    return NextResponse.json(
+      { success: false, error: 'Unauthorized', sent: 0, failed: 0 },
+      { status: 401 }
+    );
+  }
+
   try {
     const body = await request.json();
     const { subscriptionsList, title, message, url, icon, badge } = body;
