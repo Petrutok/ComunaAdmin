@@ -57,6 +57,28 @@ service cloud.firestore {
       allow write: if isStaff();
     }
 
+    // Admin-editable public content (events, works, council, settings):
+    // everyone reads, staff publishes
+    match /events/{id} {
+      allow read: if true;
+      allow write: if isStaff();
+    }
+
+    match /ongoing_works/{id} {
+      allow read: if true;
+      allow write: if isStaff();
+    }
+
+    match /representatives/{id} {
+      allow read: if true;
+      allow write: if isStaff();
+    }
+
+    match /site_settings/{id} {
+      allow read: if true;
+      allow write: if isStaff();
+    }
+
     // Appointments: booked/cancelled through the API (Admin SDK);
     // citizens read their own, staff manage the daily schedule
     match /appointments/{id} {

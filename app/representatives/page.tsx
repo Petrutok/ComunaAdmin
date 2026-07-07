@@ -1,13 +1,17 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { collection, getDocs } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Search, Users, Mail, Phone, User, UserCircle, Home } from 'lucide-react';
 
-const members = [
+// Built-in defaults: replaced by the `representatives` collection when the
+// admin publishes the real council list from Admin -> Conținut
+const DEFAULT_MEMBERS = [
   { 
     name: "Rusu Constantin", 
     affiliation: "PNL",
@@ -104,6 +108,21 @@ const members = [
 export default function CouncilPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedAffiliation, setSelectedAffiliation] = useState('all');
+  const [members, setMembers] = useState<any[]>(DEFAULT_MEMBERS);
+
+  useEffect(() => {
+    getDocs(collection(db, 'representatives'))
+      .then((snap) => {
+        if (!snap.empty) {
+          setMembers(
+            snap.docs
+              .map((d) => ({ id: d.id, ...d.data() } as any))
+              .sort((a, b) => (a.name || '').localeCompare(b.name || '', 'ro'))
+          );
+        }
+      })
+      .catch((error) => console.error('Error loading representatives:', error));
+  }, []);
 
   const affiliations = ['all', ...new Set(members.map(member => member.affiliation))];
 

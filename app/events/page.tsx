@@ -1,6 +1,8 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { collection, getDocs } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -26,7 +28,9 @@ import {
 export default function EventsPage() {
   const [selectedMonth, setSelectedMonth] = useState('all');
 
-  const events = [
+  // Built-in defaults: shown until the admin publishes events from
+  // Admin -> Conținut (the `events` collection replaces them entirely)
+  const DEFAULT_EVENTS = [
     {
       id: 1,
       title: "Ziua Comunei Filipești",
@@ -189,29 +193,47 @@ export default function EventsPage() {
     }
   ];
 
+  const [events, setEvents] = useState<any[]>(DEFAULT_EVENTS);
+
+  useEffect(() => {
+    getDocs(collection(db, 'events'))
+      .then((snap) => {
+        if (!snap.empty) {
+          setEvents(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+        }
+      })
+      .catch((error) => console.error('Error loading events:', error));
+  }, []);
+
+  // Month filter derived from whatever events exist
+  const monthOrder = [
+    'ianuarie', 'februarie', 'martie', 'aprilie', 'mai', 'iunie',
+    'iulie', 'august', 'septembrie', 'octombrie', 'noiembrie', 'decembrie',
+  ];
   const months = [
     { id: 'all', name: 'Toate' },
-    { id: 'martie', name: 'Martie' },
-    { id: 'aprilie', name: 'Aprilie' },
-    { id: 'iunie', name: 'Iunie' },
-    { id: 'septembrie', name: 'Septembrie' },
-    { id: 'octombrie', name: 'Octombrie' },
-    { id: 'decembrie', name: 'Decembrie' }
+    ...monthOrder
+      .filter((m) => events.some((e) => e.month === m))
+      .map((m) => ({ id: m, name: m.charAt(0).toUpperCase() + m.slice(1) })),
   ];
 
   const filteredEvents = selectedMonth === 'all' 
     ? events 
     : events.filter(event => event.month === selectedMonth);
 
+  // Style and icon derive from category, so admin-created events (which
+  // store only the category string) render identically to the defaults
   const getCategoryBadge = (category: string) => {
     const categories = {
-      'cultural': { name: 'Cultural', color: 'bg-purple-500' },
-      'social': { name: 'Social', color: 'bg-yellow-500' },
-      'religios': { name: 'Religios', color: 'bg-red-500' },
-      'familie': { name: 'Familie', color: 'bg-pink-500' },
-      'oficial': { name: 'Oficial', color: 'bg-blue-500' }
+      'cultural': { name: 'Cultural', color: 'bg-purple-500', border: 'border-purple-500', icon: PartyPopper },
+      'social': { name: 'Social', color: 'bg-yellow-500', border: 'border-yellow-500', icon: Trophy },
+      'religios': { name: 'Religios', color: 'bg-red-500', border: 'border-red-500', icon: Church },
+      'familie': { name: 'Familie', color: 'bg-pink-500', border: 'border-pink-500', icon: Baby },
+      'oficial': { name: 'Oficial', color: 'bg-blue-500', border: 'border-blue-500', icon: Sparkles },
+      'sportiv': { name: 'Sportiv', color: 'bg-green-500', border: 'border-green-500', icon: Trophy },
     };
-return categories[category as keyof typeof categories] || { name: category, color: 'bg-gray-500' };
+    return categories[category as keyof typeof categories]
+      || { name: category, color: 'bg-gray-500', border: 'border-gray-500', icon: Calendar };
   };
 
   return (
@@ -280,16 +302,16 @@ return categories[category as keyof typeof categories] || { name: category, colo
         {/* Events Grid */}
         <div className="grid md:grid-cols-2 gap-6 mb-8">
           {filteredEvents.map((event) => {
-            const Icon = event.icon;
             const category = getCategoryBadge(event.category);
-            
+            const Icon = category.icon;
+
             return (
-              <Card key={event.id} className={`bg-slate-800 border-2 ${event.borderColor} overflow-hidden hover:shadow-xl transition-all duration-300`}>
-                <div className={`${event.color} h-2`}></div>
+              <Card key={event.id} className={`bg-slate-800 border-2 ${category.border} overflow-hidden hover:shadow-xl transition-all duration-300`}>
+                <div className={`${category.color} h-2`}></div>
                 <CardHeader>
                   <div className="flex items-start justify-between">
                     <div className="flex items-start gap-4">
-                      <div className={`${event.color} bg-opacity-20 rounded-xl p-3`}>
+                      <div className={`${category.color} bg-opacity-20 rounded-xl p-3`}>
                         <Icon className="h-8 w-8 text-white" />
                       </div>
                       <div>
@@ -329,7 +351,7 @@ return categories[category as keyof typeof categories] || { name: category, colo
                       Program:
                     </p>
                     <ul className="space-y-1">
-                      {event.activities.map((activity, index) => (
+                      {(event.activities || []).map((activity: string, index: number) => (
                         <li key={index} className="text-sm text-gray-300 flex items-start gap-2">
                           <span className="text-gray-500 mt-0.5">•</span>
                           <span>{activity}</span>

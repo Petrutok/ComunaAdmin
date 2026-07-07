@@ -172,7 +172,7 @@ export default function HomePage() {
                 <div className="absolute inset-0 bg-gradient-to-r from-cyan-500 to-blue-500 rounded-2xl blur-xl opacity-40 group-hover:opacity-60 transition-opacity duration-300"></div>
                 <div className="relative bg-slate-900/60 backdrop-blur-md p-1 rounded-2xl border border-white/20 hover:border-white/40 transition-colors duration-300 shadow-2xl">
                   <Image
-                    src="/logo.jpg"
+                    src={TENANT.logoUrl}
                     alt={`Logo ${TENANT.numePrimarie}`}
                     width={100}
                     height={100}
