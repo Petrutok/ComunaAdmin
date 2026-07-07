@@ -110,6 +110,13 @@ service cloud.firestore {
 
     match /registratura_emails/{id} {
       allow read, write: if isStaff();
+
+      // Per-document activity journal (audit log + internal comments)
+      match /activity/{entryId} {
+        allow read, create: if isStaff();
+        // Journal entries are immutable once written
+        allow update, delete: if false;
+      }
     }
 
     match /registru_general/{id} {

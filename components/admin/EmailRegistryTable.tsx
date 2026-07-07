@@ -29,13 +29,33 @@ interface EmailRegistryTableProps {
 type BadgeVariant = "default" | "secondary" | "destructive" | "outline";
 
 const statusConfig: Record<EmailStatus, { label: string; variant: BadgeVariant; className?: string }> = {
-  nou: { 
-    label: 'Nou', 
+  nou: {
+    label: 'Nou',
     variant: 'default',
     className: 'bg-blue-100 text-blue-800 hover:bg-blue-200'
   },
-  in_lucru: { 
-    label: 'În lucru', 
+  in_analiza: {
+    label: 'În analiză',
+    variant: 'secondary',
+    className: 'bg-cyan-100 text-cyan-800 hover:bg-cyan-200'
+  },
+  repartizata: {
+    label: 'Repartizată',
+    variant: 'secondary',
+    className: 'bg-violet-100 text-violet-800 hover:bg-violet-200'
+  },
+  in_asteptare: {
+    label: 'În așteptare',
+    variant: 'secondary',
+    className: 'bg-orange-100 text-orange-800 hover:bg-orange-200'
+  },
+  arhivat: {
+    label: 'Arhivată',
+    variant: 'outline',
+    className: 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+  },
+  in_lucru: {
+    label: 'În lucru',
     variant: 'secondary',
     className: 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200'
   },

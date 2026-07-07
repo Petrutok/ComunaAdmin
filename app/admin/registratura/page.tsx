@@ -1,451 +1,184 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+// Registratura electronica - the staff-facing document registry.
+// Composition of: dashboard (clickable stats = smart filters), filter bar
+// with saved filters, sortable/selectable table with pagination, and the
+// document sheet (fisa) with workflow + audit timeline.
+// Data + mutations live in useRegistratura (optimistic updates, no full
+// reloads); this file only wires components together.
+
+import { useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem,
+  DropdownMenuSeparator, DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { useToast } from '@/hooks/use-toast';
 import {
-  collection,
-  query,
-  getDocs,
-  doc,
-  updateDoc,
-  deleteDoc,
-  orderBy,
-} from 'firebase/firestore';
-import { db, COLLECTIONS } from '@/lib/firebase';
-import { RegistraturaEmail, EmailStatus, EmailPriority } from '@/types/registratura';
-import { Department, User } from '@/types/departments';
-import { syncEmailsAction } from '@/app/actions/sync-emails';
-import { formatFileSize, getFileIcon, getFileTypeColor } from '@/lib/utils/formatFileSize';
-import { calculateDeadline, getDaysRemaining, formatDaysRemaining, isOverdue } from '@/lib/utils/deadline-utils';
-import { findDepartmentBySubject, getSuggestedPriority } from '@/lib/utils/auto-assignment';
-import {
-  Mail,
-  Calendar,
-  Clock,
-  CheckCircle,
-  XCircle,
-  AlertCircle,
-  Eye,
-  Trash2,
-  RefreshCw,
-  Search,
-  Download,
-  Paperclip,
-  User as UserIcon,
-  FileText,
-  ArrowUpDown,
-  File,
-  Image,
-  Video,
-  Music,
-  Archive,
-  Sheet,
-  ExternalLink,
-  Inbox,
-  CheckCheck,
-  Ban,
-  Loader2,
-  UserPlus,
-  Building2,
-  Zap,
-  AlertTriangle as AlertTriangleIcon,
-  Award,
+  Mail, RefreshCw, Loader2, Download, Star, ChevronDown, Archive, X,
 } from 'lucide-react';
+import { syncEmailsAction } from '@/app/actions/sync-emails';
+import { useRegistratura } from '@/lib/hooks/useRegistratura';
+import { useAdminAuth } from '@/contexts/AdminAuthContext';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from '@/components/ui/dialog';
+  RegistraturaEmail, EmailStatus, EMAIL_STATUS_CONFIG, OPEN_STATUSES,
+} from '@/types/registratura';
+import { exportEmailsCsv } from '@/lib/registratura/export';
+import { RegistraturaDashboard, DashboardFilter } from '@/components/registratura/RegistraturaDashboard';
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { AssignmentDialog } from '@/components/admin/registratura/AssignmentDialog';
+  RegistraturaFilters, RegistraturaFilterState, EMPTY_FILTERS,
+} from '@/components/registratura/RegistraturaFilters';
+import { RegistraturaTable, SortState } from '@/components/registratura/RegistraturaTable';
+import { EmailDetailSheet } from '@/components/registratura/EmailDetailSheet';
 
-const statusConfig = {
-  'nou': {
-    label: 'Nou',
-    icon: Mail,
-    color: 'bg-blue-600',
-    textColor: 'text-blue-300',
-    bgColor: 'bg-blue-500/20',
-    borderColor: 'border-blue-400/30',
-    hoverColor: 'hover:bg-blue-500/30',
-  },
-  'in_lucru': {
-    label: 'În lucru',
-    icon: Loader2,
-    color: 'bg-amber-500',
-    textColor: 'text-amber-300',
-    bgColor: 'bg-amber-500/20',
-    borderColor: 'border-amber-400/30',
-    hoverColor: 'hover:bg-amber-500/30',
-  },
-  'rezolvat': {
-    label: 'Rezolvat',
-    icon: CheckCircle,
-    color: 'bg-emerald-600',
-    textColor: 'text-emerald-300',
-    bgColor: 'bg-emerald-500/20',
-    borderColor: 'border-emerald-400/30',
-    hoverColor: 'hover:bg-emerald-500/30',
-  },
-  'respins': {
-    label: 'Respins',
-    icon: XCircle,
-    color: 'bg-rose-600',
-    textColor: 'text-rose-300',
-    bgColor: 'bg-rose-500/20',
-    borderColor: 'border-rose-400/30',
-    hoverColor: 'hover:bg-rose-500/30',
-  },
-};
-
-const priorityConfig = {
-  'urgent': {
-    label: 'Urgent',
-    icon: Zap,
-    color: 'bg-rose-600',
-    textColor: 'text-rose-300',
-    bgColor: 'bg-rose-500/20',
-  },
-  'normal': {
-    label: 'Normal',
-    icon: Clock,
-    color: 'bg-amber-600',
-    textColor: 'text-amber-300',
-    bgColor: 'bg-amber-500/20',
-  },
-  'low': {
-    label: 'Scăzută',
-    icon: ArrowUpDown,
-    color: 'bg-gray-600',
-    textColor: 'text-gray-400',
-    bgColor: 'bg-gray-500/20',
-  },
-};
-
-// Helper function to get the appropriate icon component
-const getIconComponent = (iconName: string) => {
-  const icons: Record<string, any> = {
-    FileText,
-    Sheet,
-    Image,
-    Video,
-    Music,
-    Archive,
-    File,
-  };
-  return icons[iconName] || File;
-};
-
-export default function AdminRegistraturaPage() {
-  // Force reload - modern styling update
-  const [emails, setEmails] = useState<RegistraturaEmail[]>([]);
-  const [filteredEmails, setFilteredEmails] = useState<RegistraturaEmail[]>([]);
-  const [departments, setDepartments] = useState<Department[]>([]);
-  const [users, setUsers] = useState<User[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [activeFilter, setActiveFilter] = useState<EmailStatus | 'toate'>('toate');
-  const [selectedEmail, setSelectedEmail] = useState<RegistraturaEmail | null>(null);
-  const [showDetailsDialog, setShowDetailsDialog] = useState(false);
-  const [showAssignDialog, setShowAssignDialog] = useState(false);
-  const [showStatusDialog, setShowStatusDialog] = useState(false);
-  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [newStatus, setNewStatus] = useState<EmailStatus>('nou');
-  const [observatii, setObservatii] = useState('');
-  const [searchTerm, setSearchTerm] = useState('');
-  const [refreshing, setRefreshing] = useState(false);
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
-  const [processing, setProcessing] = useState(false);
-  // Assignment form state
-  const [assignmentData, setAssignmentData] = useState({
-    departmentId: null as string | null,
-    userId: null as string | null,
-    priority: 'normal' as EmailPriority,
-  });
-
+export default function RegistraturaPage() {
   const { toast } = useToast();
-  useEffect(() => {
-    loadEmails();
-    loadDepartmentsAndUsers();
-  }, []);
+  const { user: adminUser } = useAdminAuth();
+  const {
+    emails, departments, users, loading, stats,
+    reload, updateStatus, assign, setTags, addComment, remove, bulkUpdateStatus,
+  } = useRegistratura();
 
-  useEffect(() => {
-    filterEmails();
-  }, [emails, activeFilter, searchTerm, sortOrder]);
+  const [filters, setFilters] = useState<RegistraturaFilterState>(EMPTY_FILTERS);
+  const [dashboardFilter, setDashboardFilter] = useState<DashboardFilter>(null);
+  const [sort, setSort] = useState<SortState>({ key: 'data', dir: 'desc' });
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
 
-  const loadEmails = async () => {
-    setLoading(true);
+  const [selectedEmail, setSelectedEmail] = useState<RegistraturaEmail | null>(null);
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<RegistraturaEmail | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const [processing, setProcessing] = useState(false);
+
+  // Per-user favorites, persisted locally
+  const favKey = `registratura_favorites_${adminUser?.uid || 'anon'}`;
+  const [favorites, setFavorites] = useState<Set<string>>(() => {
     try {
-      const q = query(
-        collection(db, COLLECTIONS.REGISTRATURA_EMAILS),
-        orderBy('dateReceived', 'desc')
-      );
-
-      const snapshot = await getDocs(q);
-      const data = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-      })) as RegistraturaEmail[];
-
-      setEmails(data);
-    } catch (error: any) {
-      console.error('Error loading emails:', error);
-      toast({
-        title: "Eroare",
-        description: "Nu s-au putut încărca documentele",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
+      return new Set(JSON.parse(localStorage.getItem(favKey) || '[]'));
+    } catch {
+      return new Set();
     }
-  };
-
-  const loadDepartmentsAndUsers = async () => {
-    try {
-      // Load departments
-      const deptQuery = query(
-        collection(db, COLLECTIONS.DEPARTMENTS),
-        orderBy('name', 'asc')
-      );
-      const deptSnapshot = await getDocs(deptQuery);
-      const deptData = deptSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-      })) as Department[];
-
-      // Load users
-      const usersQuery = query(
-        collection(db, COLLECTIONS.USERS),
-        orderBy('fullName', 'asc')
-      );
-      const usersSnapshot = await getDocs(usersQuery);
-      const usersData = usersSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-      })) as User[];
-
-      setDepartments(deptData);
-      setUsers(usersData);
-    } catch (error) {
-      console.error('Error loading departments and users:', error);
-    }
-  };
-
-  const filterEmails = () => {
-    let filtered = [...emails];
-
-    if (activeFilter !== 'toate') {
-      filtered = filtered.filter(email => email.status === activeFilter);
-    }
-
-    if (searchTerm) {
-      const search = searchTerm.toLowerCase();
-      filtered = filtered.filter(email =>
-        email.from.toLowerCase().includes(search) ||
-        email.subject.toLowerCase().includes(search) ||
-        email.body?.toLowerCase().includes(search) ||
-        email.numarInregistrare.toLowerCase().includes(search)
-      );
-    }
-
-    filtered.sort((a, b) => {
-      const dateA = a.dateReceived?.toMillis?.() || 0;
-      const dateB = b.dateReceived?.toMillis?.() || 0;
-      return sortOrder === 'desc' ? dateB - dateA : dateA - dateB;
+  });
+  const toggleFavorite = (id: string) => {
+    setFavorites((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      localStorage.setItem(favKey, JSON.stringify([...next]));
+      return next;
     });
-
-    setFilteredEmails(filtered);
   };
 
-  const handleAssignment = async (
-    departmentId: string | null,
-    userId: string | null,
-    priority: EmailPriority
-  ) => {
-    if (!selectedEmail) return;
+  const allTags = useMemo(
+    () => Array.from(new Set(emails.flatMap((e) => e.etichete || []))).sort(),
+    [emails]
+  );
 
-    try {
-      const department = departments.find(d => d.id === departmentId);
-      const user = users.find(u => u.id === userId);
-      const deadline = calculateDeadline(priority);
+  // ---- Filtering + sorting (memoized; instant at commune volume) --------
+  const visibleEmails = useMemo(() => {
+    let list = emails;
 
-      const updateData: any = {
-        assignedToUserId: userId,
-        assignedToUserName: user?.fullName || null,
-        departmentId: departmentId,
-        departmentName: department?.name || null,
-        priority: priority,
-        deadline: deadline,
-        assignedAt: new Date(),
-        updatedAt: new Date(),
-      };
+    // Archived documents stay out of sight unless explicitly requested
+    if (filters.status !== 'arhivat' && dashboardFilter !== 'solutionate') {
+      list = list.filter((e) => e.status !== 'arhivat');
+    }
 
-      // If assigning for first time, change status to in_lucru
-      if (!selectedEmail.assignedToUserId && (userId || departmentId)) {
-        updateData.status = 'in_lucru';
+    if (dashboardFilter === 'noi') list = list.filter((e) => e.status === 'nou');
+    if (dashboardFilter === 'in_lucru')
+      list = list.filter((e) => OPEN_STATUSES.includes(e.status) && e.status !== 'nou');
+    if (dashboardFilter === 'solutionate')
+      list = list.filter((e) => e.status === 'rezolvat' || e.status === 'respins');
+    if (dashboardFilter === 'depasite') {
+      const now = Date.now();
+      list = list.filter(
+        (e) => OPEN_STATUSES.includes(e.status) && e.deadline?.toMillis && e.deadline.toMillis() < now
+      );
+    }
+
+    if (filters.status !== 'toate') list = list.filter((e) => e.status === filters.status);
+    if (filters.priority !== 'toate') list = list.filter((e) => (e.priority || 'normal') === filters.priority);
+    if (filters.assignee === 'nerepartizat') list = list.filter((e) => !e.assignedToUserId);
+    else if (filters.assignee !== 'toate') list = list.filter((e) => e.assignedToUserId === filters.assignee);
+    if (filters.tag !== 'toate') list = list.filter((e) => e.etichete?.includes(filters.tag));
+    if (showFavoritesOnly) list = list.filter((e) => favorites.has(e.id));
+
+    if (filters.search.trim()) {
+      const q = filters.search.toLowerCase();
+      // One haystack per document: number, sender, subject, body (covers
+      // CNP/CUI/phone/address mentioned in the text), assignee, tags, notes
+      list = list.filter((e) =>
+        [
+          e.numarInregistrare, e.from, e.subject, e.body,
+          e.assignedToUserName, e.departmentName, e.observatii,
+          (e.etichete || []).join(' '),
+        ]
+          .join(' ')
+          .toLowerCase()
+          .includes(q)
+      );
+    }
+
+    const dir = sort.dir === 'asc' ? 1 : -1;
+    const val = (e: RegistraturaEmail): string | number => {
+      switch (sort.key) {
+        case 'numar': return e.numarInregistrare;
+        case 'data': return e.dateReceived?.toMillis?.() || 0;
+        case 'expeditor': return e.from.toLowerCase();
+        case 'subiect': return (e.subject || '').toLowerCase();
+        case 'responsabil': return (e.assignedToUserName || '').toLowerCase();
+        case 'termen': return e.deadline?.toMillis?.() || Number.MAX_SAFE_INTEGER;
+        case 'status': return EMAIL_STATUS_CONFIG[e.status]?.order ?? 99;
       }
+    };
+    return [...list].sort((a, b) => {
+      const va = val(a);
+      const vb = val(b);
+      return (va < vb ? -1 : va > vb ? 1 : 0) * dir;
+    });
+  }, [emails, filters, dashboardFilter, sort, showFavoritesOnly, favorites]);
 
-      await updateDoc(doc(db, COLLECTIONS.REGISTRATURA_EMAILS, selectedEmail.id), updateData);
+  const selectedEmails = useMemo(
+    () => emails.filter((e) => selectedIds.has(e.id)),
+    [emails, selectedIds]
+  );
 
-      toast({
-        title: "Document atribuit",
-        description: `Documentul a fost atribuit ${department?.name ? `departamentului ${department.name}` : ''} ${user ? `utilizatorului ${user.fullName}` : ''}`,
-      });
-
-      setShowAssignDialog(false);
-      loadEmails();
-    } catch (error) {
-      console.error('Error assigning document:', error);
-      toast({
-        title: "Eroare",
-        description: "Nu s-a putut atribui documentul",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleStatusChange = async () => {
-    if (!selectedEmail || !newStatus) return;
-
+  // ---- Actions -----------------------------------------------------------
+  const handleSync = async () => {
+    setRefreshing(true);
     try {
-      const updateData: any = {
-        status: newStatus,
-        updatedAt: new Date(),
-      };
-
-      const finalObservatii = observatii.trim() || selectedEmail.observatii || '';
-      if (finalObservatii) {
-        updateData.observatii = finalObservatii;
-      }
-
-      await updateDoc(doc(db, COLLECTIONS.REGISTRATURA_EMAILS, selectedEmail.id), updateData);
-
-      toast({
-        title: "Status actualizat",
-        description: `Documentul a fost marcat ca ${statusConfig[newStatus].label}`,
-      });
-
-      setShowStatusDialog(false);
-      setNewStatus('nou');
-      setObservatii('');
-      loadEmails();
-    } catch (error) {
-      console.error('Error updating status:', error);
-      toast({
-        title: "Eroare",
-        description: "Nu s-a putut actualiza statusul",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleDelete = async () => {
-    if (!selectedEmail) return;
-
-    try {
-      await deleteDoc(doc(db, COLLECTIONS.REGISTRATURA_EMAILS, selectedEmail.id));
-
-      toast({
-        title: "Document șters",
-        description: "Documentul a fost șters definitiv.",
-      });
-
-      setShowDeleteDialog(false);
-      setSelectedEmail(null);
-      loadEmails();
-    } catch (error) {
-      console.error('Error deleting email:', error);
-      toast({
-        title: "Eroare",
-        description: "Nu s-a putut șterge documentul",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleRefreshEmails = async () => {
-    try {
-      setRefreshing(true);
-      console.log('[REGISTRATURA] Starting email refresh...');
       const result = await syncEmailsAction();
-      console.log('[REGISTRATURA] Sync result:', result);
-
-      // Check if result is valid
-      if (!result || typeof result.success === 'undefined') {
-        throw new Error('Server action returned invalid response');
-      }
-
-      if (result.success) {
-        toast({
-          title: 'Succes',
-          description: `${result.processed} email-uri noi procesate${
-            result.spamFiltered > 0 ? ` (${result.spamFiltered} spam filtrat)` : ''
-          }`
-        });
-        await loadEmails();
-      } else {
-        throw new Error(result.message || 'Unknown error occurred');
-      }
-    } catch (error) {
-      console.error('Error refreshing emails:', error);
-      const errorMessage = error instanceof Error
-        ? error.message
-        : 'Nu s-au putut prelua email-urile noi';
-
+      if (!result?.success) throw new Error(result?.message || 'Sincronizarea a eșuat');
       toast({
-        title: 'Eroare',
-        description: errorMessage,
-        variant: 'destructive'
+        title: 'Sincronizat',
+        description: `${result.processed} emailuri noi${result.spamFiltered ? ` (${result.spamFiltered} spam filtrat)` : ''}`,
+      });
+      await reload();
+    } catch (error) {
+      toast({
+        title: 'Eroare la sincronizare',
+        description: error instanceof Error ? error.message : 'Încercați din nou',
+        variant: 'destructive',
       });
     } finally {
       setRefreshing(false);
     }
   };
 
-  const handleProcessDocuments = async (email: RegistraturaEmail) => {
-    if (!email.attachments || email.attachments.length === 0) {
-      toast({
-        title: 'Info',
-        description: 'Nu există atașamente de procesat',
-      });
+  const handleProcess = async (email: RegistraturaEmail) => {
+    if (!email.attachments?.length) {
+      toast({ title: 'Fără atașamente', description: 'Nu există documente de procesat.' });
       return;
     }
-
+    setProcessing(true);
     try {
-      setProcessing(true);
-      console.log('[REGISTRATURA] Processing documents for', email.numarInregistrare);
-
-      // Extract sender name and email from the "from" field
-      // Format can be: "Name <email@example.com>" or just "email@example.com"
-      const senderName = email.from.replace(/<.*>/, '').trim() || 'Expeditor Necunoscut';
-      const emailMatch = email.from.match(/<(.+)>/);
-      const senderEmail = emailMatch ? emailMatch[1] : email.from;
-
+      const senderName = email.from.replace(/<.*>/, '').trim() || 'Expeditor';
+      const senderEmail = email.from.match(/<(.+)>/)?.[1] || email.from;
       const { processDocumentsAction } = await import('@/app/actions/process-documents');
-
       const result = await processDocumentsAction(
         email.id,
         email.numarInregistrare,
@@ -454,25 +187,13 @@ export default function AdminRegistraturaPage() {
         senderEmail,
         email.departmentName || undefined
       );
-
-      if (result.success) {
-        toast({
-          title: 'Succes',
-          description: `Document oficial creat cu ${result.processedCount} atașamente`,
-        });
-        await loadEmails(); // Reload to show official document
-      } else {
-        toast({
-          title: 'Eroare',
-          description: result.errors.join(', '),
-          variant: 'destructive',
-        });
-      }
+      if (!result.success) throw new Error(result.errors.join(', '));
+      toast({ title: 'Document oficial creat', description: `${result.processedCount} atașamente procesate` });
+      await reload();
     } catch (error) {
-      console.error('Error processing documents:', error);
       toast({
-        title: 'Eroare',
-        description: error instanceof Error ? error.message : 'Nu s-au putut procesa documentele',
+        title: 'Eroare la procesare',
+        description: error instanceof Error ? error.message : 'Încercați din nou',
         variant: 'destructive',
       });
     } finally {
@@ -480,723 +201,198 @@ export default function AdminRegistraturaPage() {
     }
   };
 
-  const formatDate = (timestamp: any) => {
-    if (!timestamp) return 'N/A';
-    const date = timestamp.toDate?.() || new Date(timestamp);
-    return date.toLocaleDateString('ro-RO', {
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
+  const handleBulkStatus = async (status: EmailStatus) => {
+    const count = selectedEmails.length;
+    await bulkUpdateStatus(selectedEmails, status);
+    setSelectedIds(new Set());
+    toast({
+      title: `${count} documente actualizate`,
+      description: `Status: ${EMAIL_STATUS_CONFIG[status].label}`,
     });
   };
 
-  const formatShortDate = (timestamp: any) => {
-    if (!timestamp) return 'N/A';
-    const date = timestamp.toDate?.() || new Date(timestamp);
-    return date.toLocaleDateString('ro-RO', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    await remove(deleteTarget);
+    setDeleteTarget(null);
+    setSheetOpen(false);
+    toast({ title: 'Document șters' });
   };
 
-  const getStatusBadge = (status: EmailStatus) => {
-    const config = statusConfig[status];
-    const Icon = config.icon;
-    return (
-      <Badge className={`${config.color} text-white flex items-center gap-2 px-4 py-2 text-sm font-semibold shadow-sm`}>
-        <Icon className="h-4 w-4" />
-        {config.label}
-      </Badge>
-    );
+  const openEmail = (email: RegistraturaEmail) => {
+    setSelectedEmail(email);
+    setSheetOpen(true);
   };
 
-  const getStatusCount = (status: EmailStatus) => {
-    return emails.filter(e => e.status === status).length;
-  };
+  // Keep the sheet in sync with optimistic updates
+  const liveSelected = selectedEmail
+    ? emails.find((e) => e.id === selectedEmail.id) || selectedEmail
+    : null;
 
   return (
-    <div className="space-y-6 p-6 bg-slate-900 min-h-screen">
+    <div className="space-y-5">
       {/* Header */}
-      <div className="flex items-center justify-between bg-gradient-to-r from-slate-800 to-slate-800/50 p-6 rounded-xl border border-slate-700/50 shadow-lg">
-        <div>
-          <h1 className="text-3xl font-bold text-white flex items-center gap-3">
-            <div className="bg-blue-500/30 rounded-xl p-3 border border-blue-400/20">
-              <Inbox className="h-8 w-8 text-blue-300" />
-            </div>
-            Registratură Electronică
-          </h1>
-          <p className="text-gray-300 mt-2 text-lg">
-            <span className="font-semibold text-white">{emails.length}</span> documente totale •
-            <span className="font-semibold text-blue-300"> {getStatusCount('nou')}</span> noi •
-            <span className="font-semibold text-amber-300"> {getStatusCount('in_lucru')}</span> în lucru
-          </p>
-        </div>
-        <Button
-          onClick={handleRefreshEmails}
-          disabled={refreshing}
-          className="bg-blue-600 hover:bg-blue-500 text-white font-medium shadow-lg hover:shadow-xl transition-all"
-        >
-          <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
-          {refreshing ? 'Sincronizare...' : 'Sincronizează'}
-        </Button>
-      </div>
-
-      {/* Search and Filters */}
-      <Card className="bg-slate-800/80 border-slate-600/50 shadow-md">
-        <CardContent className="p-5">
-          <div className="flex flex-col md:flex-row gap-4">
-            <div className="flex-1">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-300" />
-                <Input
-                  placeholder="Caută după expeditor, subiect, număr înregistrare..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-11 bg-slate-700/50 border-slate-500 text-white placeholder:text-gray-400 focus:border-blue-400 focus:ring-2 focus:ring-blue-400/20 h-11"
-                />
-              </div>
-            </div>
-            <Button
-              variant="outline"
-              onClick={() => setSortOrder(sortOrder === 'desc' ? 'asc' : 'desc')}
-              className="bg-slate-700/50 border-slate-500 text-white hover:bg-slate-600 font-medium h-11"
-            >
-              <ArrowUpDown className="h-4 w-4 mr-2" />
-              {sortOrder === 'desc' ? 'Nou → Vechi' : 'Vechi → Nou'}
-            </Button>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div className="rounded-xl bg-purple-500/20 p-3">
+            <Mail className="h-7 w-7 text-purple-400" />
           </div>
-        </CardContent>
-      </Card>
+          <div>
+            <h1 className="text-2xl font-bold text-white">Registratură electronică</h1>
+            <p className="text-sm text-gray-400">
+              Documente primite pe emailul oficial, cu numere din registrul unificat
+            </p>
+          </div>
+        </div>
 
-      {/* Status Filters */}
-      <div className="flex gap-3 overflow-x-auto pb-2">
-        <Button
-          variant={activeFilter === 'toate' ? 'default' : 'outline'}
-          onClick={() => setActiveFilter('toate')}
-          className={`${
-            activeFilter === 'toate'
-              ? 'bg-slate-700 text-white border-slate-600'
-              : 'border-slate-500 text-gray-300 bg-slate-800/50 hover:bg-slate-700/50'
-          } font-medium px-5 py-2.5 shadow-sm`}
-        >
-          Toate
-          <Badge className="ml-2 bg-slate-600 text-white font-semibold px-2 py-0.5">{emails.length}</Badge>
-        </Button>
-        {(Object.keys(statusConfig) as EmailStatus[]).map((status) => {
-          const config = statusConfig[status];
-          const Icon = config.icon;
-          const count = getStatusCount(status);
-
-          return (
-            <Button
-              key={status}
-              variant={activeFilter === status ? 'default' : 'outline'}
-              onClick={() => setActiveFilter(status)}
-              className={`${
-                activeFilter === status
-                  ? `${config.color} text-white border-transparent shadow-md`
-                  : `border-slate-500 ${config.textColor} bg-slate-800/50 hover:${config.bgColor} hover:border-${status === 'nou' ? 'blue' : status === 'in_lucru' ? 'amber' : status === 'rezolvat' ? 'emerald' : 'rose'}-400/50`
-              } font-medium px-5 py-2.5`}
-            >
-              <Icon className={`h-4 w-4 mr-2 ${activeFilter === status ? 'animate-pulse' : ''}`} />
-              {config.label}
-              {count > 0 && (
-                <Badge className={`ml-2 ${activeFilter === status ? 'bg-white/20' : config.bgColor} font-semibold px-2 py-0.5`}>
-                  {count}
-                </Badge>
-              )}
-            </Button>
-          );
-        })}
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            onClick={() => setShowFavoritesOnly((v) => !v)}
+            aria-pressed={showFavoritesOnly}
+            className={`rounded-xl border-slate-700 ${
+              showFavoritesOnly ? 'bg-yellow-500/15 text-yellow-300 border-yellow-500/40' : 'bg-slate-800/80 text-gray-300'
+            } hover:bg-slate-700 hover:text-white`}
+          >
+            <Star className="mr-1.5 h-4 w-4" fill={showFavoritesOnly ? 'currentColor' : 'none'} />
+            Favorite
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => exportEmailsCsv(visibleEmails)}
+            className="rounded-xl border-slate-700 bg-slate-800/80 text-gray-300 hover:bg-slate-700 hover:text-white"
+          >
+            <Download className="mr-1.5 h-4 w-4" /> Export CSV
+          </Button>
+          <Button
+            onClick={handleSync}
+            disabled={refreshing}
+            className="rounded-xl bg-purple-600 hover:bg-purple-700"
+          >
+            {refreshing ? (
+              <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+            ) : (
+              <RefreshCw className="mr-1.5 h-4 w-4" />
+            )}
+            Sincronizează
+          </Button>
+        </div>
       </div>
 
-      {/* Email List */}
       {loading ? (
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-blue-400" />
+        <div className="flex justify-center py-20">
+          <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
         </div>
-      ) : filteredEmails.length === 0 ? (
-        <Card className="bg-slate-800 border-slate-700">
-          <CardContent className="text-center py-12">
-            <Inbox className="h-16 w-16 text-gray-600 mx-auto mb-4" />
-            <p className="text-gray-400 text-lg">
-              Nu există documente {activeFilter !== 'toate' ? `cu statusul "${statusConfig[activeFilter as EmailStatus].label}"` : ''}.
-            </p>
-          </CardContent>
-        </Card>
       ) : (
-        <div className="grid gap-4">
-          {filteredEmails.map((email) => {
-            const config = statusConfig[email.status];
-            const Icon = config.icon;
+        <>
+          <RegistraturaDashboard
+            stats={stats}
+            active={dashboardFilter}
+            onSelect={setDashboardFilter}
+            onOpenEmail={openEmail}
+          />
 
-            return (
-              <Card key={email.id} className={`bg-slate-800/90 border-slate-600/50 hover:border-slate-500 hover:shadow-lg transition-all duration-200 hover:scale-[1.01]`}>
-                <CardContent className="p-6">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1 min-w-0 overflow-hidden">
-                      <div className="flex items-center gap-2 mb-4 flex-wrap">
-                        <code className="text-sm font-mono bg-slate-700/70 px-3 py-1.5 rounded-md text-blue-300 border border-slate-600 font-semibold">
-                          {email.numarInregistrare}
-                        </code>
-                        {getStatusBadge(email.status)}
+          <RegistraturaFilters
+            filters={filters}
+            onChange={setFilters}
+            users={users}
+            allTags={allTags}
+            resultCount={visibleEmails.length}
+          />
 
-                        {/* Priority Badge */}
-                        {email.priority && (
-                          <Badge className={`${priorityConfig[email.priority].color} text-white flex items-center gap-1.5`}>
-                            {(() => {
-                              const PriorityIcon = priorityConfig[email.priority].icon;
-                              return <PriorityIcon className="h-3.5 w-3.5" />;
-                            })()}
-                            {priorityConfig[email.priority].label.split(' ')[0]}
-                          </Badge>
-                        )}
+          {/* Bulk actions bar */}
+          {selectedIds.size > 0 && (
+            <div
+              className="flex flex-wrap items-center gap-3 rounded-xl border border-blue-500/40 bg-blue-950/30 px-4 py-2.5"
+              role="toolbar"
+              aria-label="Acțiuni în masă"
+            >
+              <span className="text-sm font-medium text-blue-200">
+                {selectedIds.size} selectate
+              </span>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button size="sm" variant="outline" className="rounded-lg border-slate-600 bg-slate-800 text-gray-200 hover:bg-slate-700">
+                    Schimbă statusul <ChevronDown className="ml-1 h-3.5 w-3.5" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="border-slate-700 bg-slate-800 text-white">
+                  {(Object.keys(EMAIL_STATUS_CONFIG) as EmailStatus[]).map((s) => (
+                    <DropdownMenuItem key={s} onClick={() => handleBulkStatus(s)}>
+                      {EMAIL_STATUS_CONFIG[s].label}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => handleBulkStatus('arhivat')}
+                className="rounded-lg border-slate-600 bg-slate-800 text-gray-200 hover:bg-slate-700"
+              >
+                <Archive className="mr-1.5 h-3.5 w-3.5" /> Arhivează
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => exportEmailsCsv(selectedEmails, 'registratura-selectie.csv')}
+                className="rounded-lg border-slate-600 bg-slate-800 text-gray-200 hover:bg-slate-700"
+              >
+                <Download className="mr-1.5 h-3.5 w-3.5" /> Exportă selecția
+              </Button>
+              <button
+                onClick={() => setSelectedIds(new Set())}
+                aria-label="Deselectează tot"
+                className="ml-auto text-gray-400 hover:text-white"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          )}
 
-                        {/* Deadline Badge */}
-                        {email.deadline && (
-                          <Badge className={`${
-                            isOverdue(email.deadline) ? 'bg-rose-600' :
-                            getDaysRemaining(email.deadline) <= 3 ? 'bg-amber-600' :
-                            'bg-emerald-600'
-                          } text-white flex items-center gap-1.5`}>
-                            <Clock className="h-3.5 w-3.5" />
-                            {formatDaysRemaining(email.deadline)}
-                          </Badge>
-                        )}
-
-                        <div className="flex items-center gap-2 text-sm text-gray-300 bg-slate-700/50 px-3 py-1 rounded-md">
-                          <Calendar className="h-4 w-4 text-gray-400" />
-                          {formatShortDate(email.dateReceived)}
-                        </div>
-                      </div>
-
-                      {/* Assignment Info */}
-                      {(email.departmentName || email.assignedToUserName) && (
-                        <div className="flex items-center gap-3 mb-3 text-sm">
-                          {email.departmentName && (
-                            <div className="flex items-center gap-1.5 bg-purple-500/10 px-2 py-1 rounded border border-purple-500/20">
-                              <Building2 className="h-3.5 w-3.5 text-purple-400" />
-                              <span className="text-purple-300">{email.departmentName}</span>
-                            </div>
-                          )}
-                          {email.assignedToUserName && (
-                            <div className="flex items-center gap-1.5 bg-blue-500/10 px-2 py-1 rounded border border-blue-500/20">
-                              <UserIcon className="h-3.5 w-3.5 text-blue-400" />
-                              <span className="text-blue-300">{email.assignedToUserName}</span>
-                            </div>
-                          )}
-                        </div>
-                      )}
-
-                      <h3 className="text-lg font-semibold text-white mb-3 line-clamp-1 overflow-hidden break-words">
-                        {email.subject}
-                      </h3>
-
-                      <div className="flex items-center gap-4 text-sm text-gray-300 mb-3 overflow-hidden flex-wrap">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <UserIcon className="h-4 w-4 text-gray-400 shrink-0" />
-                          <span className="truncate">{email.from}</span>
-                        </div>
-                        {email.attachments && email.attachments.length > 0 && (
-                          <div className="flex items-center gap-1.5 text-blue-300 bg-blue-500/10 px-3 py-1 rounded-md border border-blue-500/20">
-                            <Paperclip className="h-4 w-4" />
-                            <span className="font-medium">
-                              {email.attachments.length} fișier{email.attachments.length !== 1 ? 'e' : ''}
-                            </span>
-                            <span className="text-gray-400">
-                              ({formatFileSize(email.attachments.reduce((sum, att) => sum + att.fileSize, 0))})
-                            </span>
-                          </div>
-                        )}
-                      </div>
-
-                      {email.body && (
-                        <p className="text-gray-300 text-sm line-clamp-2 bg-slate-700/30 p-3 rounded-md border border-slate-600/30 overflow-hidden break-all">
-                          {email.body}
-                        </p>
-                      )}
-                    </div>
-
-                    <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => {
-                          setSelectedEmail(email);
-                          setShowAssignDialog(true);
-                        }}
-                        className="hover:bg-purple-600/20 hover:text-purple-300 text-gray-300 border border-transparent hover:border-purple-400/30"
-                        title="Atribuie"
-                      >
-                        <UserPlus className="h-5 w-5" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => {
-                          setSelectedEmail(email);
-                          setShowDetailsDialog(true);
-                        }}
-                        className="hover:bg-blue-600/20 hover:text-blue-300 text-gray-300 border border-transparent hover:border-blue-400/30"
-                        title="Vezi detalii"
-                      >
-                        <Eye className="h-5 w-5" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => {
-                          setSelectedEmail(email);
-                          setNewStatus(email.status);
-                          setObservatii(email.observatii || '');
-                          setShowStatusDialog(true);
-                        }}
-                        className="hover:bg-amber-600/20 hover:text-amber-300 text-gray-300 border border-transparent hover:border-amber-400/30"
-                        title="Modifică status"
-                      >
-                        <AlertCircle className="h-5 w-5" />
-                      </Button>
-                      {(email.status === 'rezolvat' || email.status === 'respins') && (
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="text-rose-300 hover:text-rose-200 hover:bg-rose-600/20 border border-transparent hover:border-rose-400/30"
-                          onClick={() => {
-                            setSelectedEmail(email);
-                            setShowDeleteDialog(true);
-                          }}
-                          title="Șterge document"
-                        >
-                          <Trash2 className="h-5 w-5" />
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
+          <RegistraturaTable
+            emails={visibleEmails}
+            sort={sort}
+            onSortChange={setSort}
+            selectedIds={selectedIds}
+            onSelectionChange={setSelectedIds}
+            favorites={favorites}
+            onToggleFavorite={toggleFavorite}
+            onOpen={openEmail}
+          />
+        </>
       )}
 
-      {/* Details Dialog */}
-      <Dialog open={showDetailsDialog} onOpenChange={setShowDetailsDialog}>
-        <DialogContent className="bg-slate-800 border-slate-700 max-w-4xl max-h-[90vh] overflow-y-auto">
-          {selectedEmail && (
-            <>
-              <DialogHeader>
-                <DialogTitle className="text-white text-2xl flex items-center gap-3">
-                  <Mail className="h-6 w-6 text-blue-400" />
-                  Detalii Document
-                </DialogTitle>
-                <DialogDescription className="text-gray-400 flex items-center gap-2">
-                  <code className="bg-slate-900 px-2 py-1 rounded text-blue-400">
-                    {selectedEmail.numarInregistrare}
-                  </code>
-                  •
-                  {formatDate(selectedEmail.dateReceived)}
-                </DialogDescription>
-              </DialogHeader>
-
-              <div className="space-y-6 mt-4">
-                {/* Status Badge */}
-                <div className="flex items-center gap-2">
-                  {getStatusBadge(selectedEmail.status)}
-                </div>
-
-                {/* Email Info */}
-                <Card className="bg-slate-900 border-slate-700">
-                  <CardHeader>
-                    <CardTitle className="text-white text-lg flex items-center gap-2">
-                      <Mail className="h-5 w-5" />
-                      Informații Email
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    <div>
-                      <span className="text-gray-400 text-sm">De la:</span>
-                      <p className="text-white font-medium">{selectedEmail.from}</p>
-                    </div>
-                    {selectedEmail.to && (
-                      <div>
-                        <span className="text-gray-400 text-sm">Către:</span>
-                        <p className="text-white font-medium">{selectedEmail.to}</p>
-                      </div>
-                    )}
-                    <div>
-                      <span className="text-gray-400 text-sm">Subiect:</span>
-                      <p className="text-white font-medium">{selectedEmail.subject}</p>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Email Body */}
-                <Card className="bg-slate-900 border-slate-700">
-                  <CardHeader>
-                    <CardTitle className="text-white text-lg">Conținut Email</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="bg-slate-950 rounded-lg p-4 max-h-64 overflow-y-auto">
-                      {selectedEmail.bodyHtml ? (
-                        <div
-                          className="text-gray-300 prose prose-invert max-w-none prose-sm"
-                          dangerouslySetInnerHTML={{ __html: selectedEmail.bodyHtml }}
-                        />
-                      ) : (
-                        <p className="text-gray-300 whitespace-pre-wrap text-sm">
-                          {selectedEmail.body}
-                        </p>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Attachments */}
-                {selectedEmail.attachments && selectedEmail.attachments.length > 0 && (
-                  <Card className="bg-slate-900 border-slate-700">
-                    <CardHeader>
-                      <div className="flex items-center justify-between">
-                        <CardTitle className="text-white text-lg flex items-center gap-2">
-                          <Paperclip className="h-5 w-5" />
-                          Atașamente Originale ({selectedEmail.attachments.length})
-                        </CardTitle>
-                        <Button
-                          onClick={() => handleProcessDocuments(selectedEmail)}
-                          disabled={processing}
-                          size="sm"
-                          className="bg-purple-600 hover:bg-purple-700 text-white"
-                        >
-                          {processing ? (
-                            <>
-                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                              Procesare...
-                            </>
-                          ) : (
-                            <>
-                              <Zap className="h-4 w-4 mr-2" />
-                              Procesează Documente
-                            </>
-                          )}
-                        </Button>
-                      </div>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-2">
-                        {selectedEmail.attachments.map((attachment, idx) => {
-                          const IconComponent = getIconComponent(getFileIcon(attachment.fileType, attachment.fileName));
-                          const iconColor = getFileTypeColor(attachment.fileType);
-
-                          return (
-                            <div
-                              key={idx}
-                              className="flex items-center justify-between bg-slate-950 rounded-lg p-4 hover:bg-slate-900 transition-colors group"
-                            >
-                              <div className="flex items-center gap-3 flex-1 min-w-0">
-                                <div className={`${iconColor}`}>
-                                  <IconComponent className="h-6 w-6" />
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-white font-medium truncate">
-                                    {attachment.fileName}
-                                  </p>
-                                  <div className="flex items-center gap-2 text-xs text-gray-400">
-                                    <span>{formatFileSize(attachment.fileSize)}</span>
-                                    <span>•</span>
-                                    <span className="uppercase">
-                                      {attachment.fileType.split('/')[1] || 'FILE'}
-                                    </span>
-                                  </div>
-                                </div>
-                              </div>
-
-                              <a
-                                href={attachment.downloadURL}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
-                              >
-                                <Download className="h-4 w-4" />
-                                Descarcă
-                              </a>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
-
-                {/* Official Document - Merged and Stamped */}
-                {selectedEmail.officialDocument && (
-                  <Card className="bg-gradient-to-br from-green-900/30 to-emerald-900/30 border-green-600/50 border-2">
-                    <CardHeader>
-                      <CardTitle className="text-green-300 text-xl flex items-center gap-2">
-                        <Award className="h-6 w-6" />
-                        Document Oficial Certificat
-                      </CardTitle>
-                      <p className="text-green-400/70 text-sm mt-1">
-                        Document îmbinat și timbrat cu ștampilă oficială
-                      </p>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="bg-green-950/40 rounded-lg p-6 border border-green-600/30">
-                        <div className="flex items-center justify-between mb-6">
-                          <div className="flex items-center gap-4">
-                            <div className="bg-green-600 rounded-full p-4">
-                              <FileText className="h-8 w-8 text-white" />
-                            </div>
-                            <div>
-                              <p className="text-white font-bold text-lg">
-                                {selectedEmail.officialDocument.fileName}
-                              </p>
-                              <div className="flex items-center gap-4 text-green-300 text-sm mt-1">
-                                <span>{selectedEmail.officialDocument.pageCount} pagini</span>
-                                <span>•</span>
-                                <span>{selectedEmail.officialDocument.sourceFileCount} atașamente îmbinate</span>
-                                <span>•</span>
-                                <span>{(selectedEmail.officialDocument.fileSize / 1024 / 1024).toFixed(2)} MB</span>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="flex gap-3">
-                          <a
-                            href={selectedEmail.officialDocument.downloadURL}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex-1 flex items-center justify-center gap-2 px-6 py-4 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition-colors shadow-lg hover:shadow-xl"
-                          >
-                            <Download className="h-5 w-5" />
-                            Descarcă Document Oficial
-                          </a>
-
-                          <a
-                            href={`/registratura/track/${encodeURIComponent(selectedEmail.numarInregistrare)}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex items-center justify-center gap-2 px-6 py-4 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors shadow-lg hover:shadow-xl"
-                          >
-                            <ExternalLink className="h-5 w-5" />
-                            Pagină Verificare
-                          </a>
-                        </div>
-
-                        <div className="mt-4 pt-4 border-t border-green-700/30">
-                          <p className="text-green-300/70 text-xs">
-                            Procesat: {selectedEmail.officialDocument.processedAt.toDate().toLocaleString('ro-RO')}
-                          </p>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
-
-                {/* Processed Attachments (Legacy - Individual Files) */}
-                {selectedEmail.processedAttachments && selectedEmail.processedAttachments.length > 0 && (
-                  <Card className="bg-green-950/20 border-green-700/30">
-                    <CardHeader>
-                      <CardTitle className="text-green-400 text-lg flex items-center gap-2">
-                        <CheckCheck className="h-5 w-5" />
-                        Documente Procesate ({selectedEmail.processedAttachments.length})
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-2">
-                        {selectedEmail.processedAttachments.map((attachment, idx) => (
-                          <div
-                            key={idx}
-                            className="flex items-center justify-between bg-green-950/30 rounded-lg p-4 hover:bg-green-950/40 transition-colors group border border-green-700/20"
-                          >
-                            <div className="flex items-center gap-3 flex-1 min-w-0">
-                              <div className="text-green-400">
-                                <FileText className="h-6 w-6" />
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <div className="text-white font-medium truncate flex items-center gap-2">
-                                  {attachment.fileName}
-                                  {attachment.wasConverted && (
-                                    <Badge variant="outline" className="text-xs bg-blue-500/20 text-blue-300 border-blue-500/30">
-                                      Convertit
-                                    </Badge>
-                                  )}
-                                  {attachment.wasStamped && (
-                                    <Badge variant="outline" className="text-xs bg-purple-500/20 text-purple-300 border-purple-500/30">
-                                      Timbrat
-                                    </Badge>
-                                  )}
-                                </div>
-                                <div className="flex items-center gap-2 text-xs text-gray-400">
-                                  <span>{formatFileSize(attachment.fileSize)}</span>
-                                  {attachment.pageCount && (
-                                    <>
-                                      <span>•</span>
-                                      <span>{attachment.pageCount} pagini</span>
-                                    </>
-                                  )}
-                                  <span>•</span>
-                                  <span>PDF</span>
-                                </div>
-                              </div>
-                            </div>
-
-                            <a
-                              href={attachment.downloadURL}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
-                            >
-                              <Download className="h-4 w-4" />
-                              Descarcă
-                            </a>
-                          </div>
-                        ))}
-                      </div>
-                      {selectedEmail.lastProcessed && (
-                        <p className="text-xs text-gray-400 mt-3">
-                          Ultima procesare: {formatDate(selectedEmail.lastProcessed)}
-                        </p>
-                      )}
-                    </CardContent>
-                  </Card>
-                )}
-
-                {/* Notes */}
-                {selectedEmail.observatii && (
-                  <Card className="bg-yellow-950/20 border-yellow-800/30">
-                    <CardHeader>
-                      <CardTitle className="text-yellow-400 text-lg">Observații</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <p className="text-yellow-200">{selectedEmail.observatii}</p>
-                    </CardContent>
-                  </Card>
-                )}
-              </div>
-
-              <DialogFooter className="mt-6">
-                <Button variant="outline" onClick={() => setShowDetailsDialog(false)}>
-                  Închide
-                </Button>
-                <Button
-                  onClick={() => {
-                    setShowDetailsDialog(false);
-                    setNewStatus(selectedEmail.status);
-                    setObservatii(selectedEmail.observatii || '');
-                    setShowStatusDialog(true);
-                  }}
-                  className="bg-blue-600 hover:bg-blue-700"
-                >
-                  <AlertCircle className="h-4 w-4 mr-2" />
-                  Modifică Status
-                </Button>
-              </DialogFooter>
-            </>
-          )}
-        </DialogContent>
-      </Dialog>
-
-      {/* Status Change Dialog */}
-      <Dialog open={showStatusDialog} onOpenChange={setShowStatusDialog}>
-        <DialogContent className="bg-slate-800 border-slate-700">
-          <DialogHeader>
-            <DialogTitle className="text-white">Actualizare Status</DialogTitle>
-            <DialogDescription className="text-gray-400">
-              {selectedEmail?.numarInregistrare}
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4">
-            <div>
-              <label className="text-sm text-gray-400 mb-2 block">Status nou</label>
-              <Select value={newStatus} onValueChange={(value) => setNewStatus(value as EmailStatus)}>
-                <SelectTrigger className="bg-slate-900 border-slate-600 text-white">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="bg-slate-800 border-slate-700">
-                  {(Object.keys(statusConfig) as EmailStatus[]).map((status) => {
-                    const config = statusConfig[status];
-                    const Icon = config.icon;
-                    return (
-                      <SelectItem key={status} value={status} className="text-gray-300">
-                        <div className="flex items-center gap-2">
-                          <Icon className="h-4 w-4" />
-                          {config.label}
-                        </div>
-                      </SelectItem>
-                    );
-                  })}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <label className="text-sm text-gray-400 mb-2 block">Observații (opțional)</label>
-              <Textarea
-                value={observatii}
-                onChange={(e) => setObservatii(e.target.value)}
-                placeholder="Adaugă observații despre procesarea acestui document..."
-                className="bg-slate-900 border-slate-600 text-white"
-                rows={4}
-              />
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setShowStatusDialog(false);
-                setNewStatus('nou');
-                setObservatii('');
-              }}
-            >
-              Anulează
-            </Button>
-            <Button onClick={handleStatusChange} className="bg-blue-600 hover:bg-blue-700">
-              Salvează
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Assignment Dialog */}
-      <AssignmentDialog
-        open={showAssignDialog}
-        onOpenChange={setShowAssignDialog}
-        emailSubject={selectedEmail?.subject}
+      <EmailDetailSheet
+        email={liveSelected}
+        open={sheetOpen}
+        onOpenChange={setSheetOpen}
         departments={departments}
         users={users}
-        currentAssignment={selectedEmail ? {
-          departmentId: selectedEmail.departmentId,
-          userId: selectedEmail.assignedToUserId,
-          priority: selectedEmail.priority || 'normal',
-        } : undefined}
-        onAssign={handleAssignment}
+        processing={processing}
+        onUpdateStatus={updateStatus}
+        onAssign={assign}
+        onSetTags={setTags}
+        onAddComment={addComment}
+        onProcess={handleProcess}
+        onDelete={(email) => setDeleteTarget(email)}
       />
 
-      {/* Delete Confirmation Dialog */}
-      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-        <AlertDialogContent className="bg-slate-800 border-slate-700">
+      {/* Delete confirmation */}
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <AlertDialogContent className="border-slate-700 bg-slate-800 text-white">
           <AlertDialogHeader>
-            <AlertDialogTitle className="text-white">
-              Confirmare ștergere
-            </AlertDialogTitle>
+            <AlertDialogTitle>Ștergi definitiv documentul?</AlertDialogTitle>
             <AlertDialogDescription className="text-gray-400">
-              Sigur vrei să ștergi definitiv documentul {selectedEmail?.numarInregistrare}?
-              Această acțiune nu poate fi anulată.
+              {deleteTarget?.numarInregistrare} — {deleteTarget?.subject || '(fără subiect)'}.
+              Acțiunea nu poate fi anulată; numărul de înregistrare rămâne consumat în registru.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setSelectedEmail(null)}>
+            <AlertDialogCancel className="border-slate-600 bg-slate-700 text-white hover:bg-slate-600">
               Anulează
             </AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} className="bg-red-600 hover:bg-red-700">
+            <AlertDialogAction onClick={confirmDelete} className="bg-red-600 text-white hover:bg-red-700">
               Șterge definitiv
             </AlertDialogAction>
           </AlertDialogFooter>
