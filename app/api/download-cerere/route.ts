@@ -38,6 +38,9 @@ export async function POST(request: NextRequest) {
     }
 
     const docData = docSnap.data();
+    if (!docData) {
+      return NextResponse.json({ error: 'Cerere is empty' }, { status: 404 });
+    }
 
     // Transform data to match RequestData interface
     const requestData: RequestData = {

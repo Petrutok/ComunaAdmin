@@ -82,6 +82,7 @@ export class RegistraturaService {
     // Use provided registration number or generate a new one
     const numarInregistrare = emailData.numarInregistrare || await this.generateRegistrationNumber();
 
+    const attachments = emailData.attachments || [];
     const docData: Omit<RegistraturaEmail, 'id'> = {
       numarInregistrare,
       from: emailData.from || '',
@@ -90,15 +91,22 @@ export class RegistraturaService {
       body: emailData.body || '',
       bodyHtml: emailData.bodyHtml,
       dateReceived: emailData.dateReceived || Timestamp.now(),
-      attachments: emailData.attachments || [],
+      attachments,
       status: 'nou',
       messageId: emailData.messageId,
+      // Assignment defaults: unassigned, normal priority, no deadline yet
+      assignedToUserId: emailData.assignedToUserId ?? null,
+      assignedToUserName: emailData.assignedToUserName ?? null,
+      departmentId: emailData.departmentId ?? null,
+      departmentName: emailData.departmentName ?? null,
+      priority: emailData.priority ?? 'normal',
+      deadline: emailData.deadline ?? null,
       createdAt: Timestamp.now(),
       updatedAt: Timestamp.now()
     };
 
     const docRef = await requireDb().collection(COLLECTION_NAME).add(docData);
-    console.log(`[REGISTRATURA] Created record ${numarInregistrare} with ${docData.attachments.length} attachment(s)`);
+    console.log(`[REGISTRATURA] Created record ${numarInregistrare} with ${attachments.length} attachment(s)`);
 
     // Unified registry: every email also gets an index entry in
     // registru_general, so staff find all documents in one place

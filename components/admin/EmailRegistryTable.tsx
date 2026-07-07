@@ -193,9 +193,9 @@ export function EmailRegistryTable({ emails, onStatusChange, onDelete }: EmailRe
                 <div className="mt-2 space-y-2">
                   {selectedEmail.attachments.map((att, index) => (
                     <div key={index} className="flex items-center justify-between p-2 border rounded">
-                      <span>{att.name}</span>
+                      <span>{att.fileName}</span>
                       <Button size="sm" asChild>
-                        <a href={att.url} target="_blank" rel="noopener noreferrer">
+                        <a href={att.downloadURL} target="_blank" rel="noopener noreferrer">
                           <Download className="h-4 w-4 mr-2" />
                           Descarcă
                         </a>

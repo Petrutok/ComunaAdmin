@@ -1,6 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
+
+// Page size for the paginated registry table
+const REGISTRU_PAGE_SIZE = 200;
 import { useRouter } from 'next/navigation';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -17,6 +20,8 @@ import {
   updateDoc,
   deleteDoc,
   orderBy,
+  limit,
+  startAfter,
   Timestamp,
 } from 'firebase/firestore';
 import { db, COLLECTIONS, RegistruDocument, StatusRegistru, TipDocument } from '@/lib/firebase';
@@ -73,6 +78,9 @@ export default function AdminRegistruPage() {
   const [documents, setDocuments] = useState<RegistruDocument[]>([]);
   const [filteredDocuments, setFilteredDocuments] = useState<RegistruDocument[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
+  const lastDocRef = useRef<any>(null);
   const [activeFilter, setActiveFilter] = useState<StatusRegistru | 'toate'>('toate');
   const [selectedDocument, setSelectedDocument] = useState<RegistruDocument | null>(null);
   const [editingDocument, setEditingDocument] = useState<RegistruDocument | null>(null);
@@ -93,21 +101,37 @@ export default function AdminRegistruPage() {
     filterDocuments();
   }, [documents, activeFilter, searchTerm, sortOrder]);
 
-  const loadDocuments = async () => {
-    setLoading(true);
+  const loadDocuments = async (loadMore = false) => {
+    if (loadMore) {
+      setLoadingMore(true);
+    } else {
+      setLoading(true);
+    }
     try {
-      const q = query(
-        collection(db, COLLECTIONS.REGISTRU_GENERAL),
-        orderBy('dataInregistrare', 'desc')
-      );
+      // Paginated: the registry grows with every document, never load it whole
+      const q = loadMore && lastDocRef.current
+        ? query(
+            collection(db, COLLECTIONS.REGISTRU_GENERAL),
+            orderBy('dataInregistrare', 'desc'),
+            startAfter(lastDocRef.current),
+            limit(REGISTRU_PAGE_SIZE)
+          )
+        : query(
+            collection(db, COLLECTIONS.REGISTRU_GENERAL),
+            orderBy('dataInregistrare', 'desc'),
+            limit(REGISTRU_PAGE_SIZE)
+          );
 
       const snapshot = await getDocs(q);
+      lastDocRef.current = snapshot.docs[snapshot.docs.length - 1] || lastDocRef.current;
+      setHasMore(snapshot.docs.length === REGISTRU_PAGE_SIZE);
+
       const data = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data(),
       } as RegistruDocument));
 
-      setDocuments(data);
+      setDocuments(prev => (loadMore ? [...prev, ...data] : data));
     } catch (error: any) {
       console.error('Error loading documents:', error);
       toast({
@@ -117,6 +141,7 @@ export default function AdminRegistruPage() {
       });
     } finally {
       setLoading(false);
+      setLoadingMore(false);
     }
   };
 
@@ -313,7 +338,7 @@ export default function AdminRegistruPage() {
                 <Plus className="h-4 w-4 mr-2" />
                 Iesire Nouă
               </Button>
-              <Button onClick={loadDocuments} className="bg-slate-700 hover:bg-slate-600 text-white font-medium">
+              <Button onClick={() => loadDocuments()} className="bg-slate-700 hover:bg-slate-600 text-white font-medium">
                 <RefreshCw className="h-4 w-4 mr-2" />
                 Reîncarcă
               </Button>
@@ -536,6 +561,21 @@ export default function AdminRegistruPage() {
                   </Table>
                 </div>
               </div>
+
+              {/* Pagination */}
+              {hasMore && (
+                <div className="flex justify-center py-4">
+                  <Button
+                    variant="outline"
+                    onClick={() => loadDocuments(true)}
+                    disabled={loadingMore}
+                    className="border-slate-600 text-gray-300 hover:bg-slate-700 hover:text-white"
+                  >
+                    {loadingMore && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Încarcă mai multe documente
+                  </Button>
+                </div>
+              )}
 
               {/* Empty State */}
               {filteredDocuments.length === 0 && (

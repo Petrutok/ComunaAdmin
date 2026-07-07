@@ -1,6 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
+
+// Page size for the paginated cereri list
+const PAGE_SIZE = 100;
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -16,6 +19,8 @@ import {
   updateDoc,
   deleteDoc,
   orderBy,
+  limit,
+  startAfter,
 } from 'firebase/firestore';
 import { db, auth, COLLECTIONS } from '@/lib/firebase';
 import { Department, User as UserType } from '@/types/departments';
@@ -97,6 +102,7 @@ interface Cerere {
   adresa: string;
   tipCerere: string;
   scopulCererii: string;
+  strada?: string;
   numarInregistrare?: string;
   adeverinta?: {
     numarIesire: string;
@@ -217,6 +223,9 @@ export default function AdminCereriPage() {
   const [showEmiteDialog, setShowEmiteDialog] = useState(false);
   const [adeverintaText, setAdeverintaText] = useState('');
   const [emitting, setEmitting] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
+  const lastDocRef = useRef<any>(null);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showAssignDialog, setShowAssignDialog] = useState(false);
   const [newStatus, setNewStatus] = useState<CerereStatus>('noua');
@@ -240,16 +249,31 @@ export default function AdminCereriPage() {
     filterCereri();
   }, [cereri, activeFilter, searchTerm, filterType, sortOrder]);
 
-  const loadCereri = async () => {
-    setLoading(true);
+  const loadCereri = async (loadMore = false) => {
+    if (loadMore) {
+      setLoadingMore(true);
+    } else {
+      setLoading(true);
+    }
 
     try {
-      const q = query(
-        collection(db, 'form_submissions'),
-        orderBy('createdAt', 'desc')
-      );
+      // Paginated: collections grow monthly, never load them whole
+      const q = loadMore && lastDocRef.current
+        ? query(
+            collection(db, 'form_submissions'),
+            orderBy('createdAt', 'desc'),
+            startAfter(lastDocRef.current),
+            limit(PAGE_SIZE)
+          )
+        : query(
+            collection(db, 'form_submissions'),
+            orderBy('createdAt', 'desc'),
+            limit(PAGE_SIZE)
+          );
 
       const snapshot = await getDocs(q);
+      lastDocRef.current = snapshot.docs[snapshot.docs.length - 1] || lastDocRef.current;
+      setHasMore(snapshot.docs.length === PAGE_SIZE);
 
       const data = snapshot.docs.map(doc => {
         const docData = doc.data();
@@ -279,7 +303,7 @@ export default function AdminCereriPage() {
         };
       }) as Cerere[];
 
-      setCereri(data);
+      setCereri(prev => (loadMore ? [...prev, ...data] : data));
     } catch (error: any) {
       console.error('Error loading cereri:', error);
       toast({
@@ -289,6 +313,7 @@ export default function AdminCereriPage() {
       });
     } finally {
       setLoading(false);
+      setLoadingMore(false);
     }
   };
 
@@ -627,7 +652,7 @@ export default function AdminCereriPage() {
             <span className="font-semibold text-amber-300"> {getStatusCount('in_lucru')}</span> în lucru
           </p>
         </div>
-        <Button onClick={loadCereri} className="bg-purple-600 hover:bg-purple-500 text-white font-medium shadow-lg hover:shadow-xl transition-all">
+        <Button onClick={() => loadCereri()} className="bg-purple-600 hover:bg-purple-500 text-white font-medium shadow-lg hover:shadow-xl transition-all">
           <RefreshCw className="h-4 w-4 mr-2" />
           Reîncarcă
         </Button>
@@ -907,6 +932,21 @@ export default function AdminCereriPage() {
               </Card>
             );
           })}
+        </div>
+      )}
+
+      {/* Pagination */}
+      {!loading && hasMore && (
+        <div className="flex justify-center pt-2">
+          <Button
+            variant="outline"
+            onClick={() => loadCereri(true)}
+            disabled={loadingMore}
+            className="border-slate-600 text-gray-300 hover:bg-slate-700 hover:text-white"
+          >
+            {loadingMore && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Încarcă mai multe cereri
+          </Button>
         </div>
       )}
 

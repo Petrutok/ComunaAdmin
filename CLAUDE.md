@@ -4,322 +4,74 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is "Primăria Digitală" - a digital platform for local government (Romanian commune/municipality) that provides online services for citizens. The application is a Next.js 15 PWA with Capacitor for mobile deployment, Firebase for backend services, and includes features like online forms, announcements, job postings, issue reporting, and an email registry system (registratură).
+"Primăria Digitală" is a digital platform for a Romanian commune (Filipești, Bacău). Next.js 15 PWA + Capacitor 7 mobile shell, Firebase backend. Citizens get accounts ("Dosarul meu"), online forms with automatic registry numbers, digitally issued certificates (adeverințe) with QR verification, issue reporting, appointments, urgent alerts and push notifications. Staff get a unified document registry with legal deadlines, email registratura (IMAP), certificate issuance and a decision dashboard.
 
 ## Commands
 
-### Development
 ```bash
-# Start dev server on port 9002 with Turbopack
-npm run dev
-
-# Type checking
-npm run typecheck
-
-# Linting (currently ignores errors during builds)
-npm run lint
+npm run dev          # Dev server on port 9002 (Turbopack)
+npm run build        # Production build - TypeScript errors BLOCK the build
+npm run typecheck    # tsc --noEmit (0 errors policy; CI enforces it)
+npm test             # vitest (tests/ - pure logic: slots, rate-limit, adeverinte, alerts)
+npm run mobile:update  # Next build + Capacitor sync
+npm run android:run    # Build and open in Android Studio
 ```
 
-### Build & Deploy
-```bash
-# Web build (exports static site)
-npm run build
-
-# Start production server
-npm start
-```
-
-### Mobile Development (Capacitor)
-```bash
-# Build for mobile and copy assets
-npm run mobile:build
-
-# Sync Capacitor plugins
-npm run mobile:sync
-
-# Full mobile update (build + sync)
-npm run mobile:update
-
-# Android specific
-npm run android:build    # Build and copy to Android
-npm run android:open     # Open Android Studio
-npm run android:run      # Build and open
-npm run android:dev      # Run with live reload
-
-# iOS specific
-npm run ios:build        # Build and copy to iOS
-npm run ios:open         # Open Xcode
-npm run ios:run          # Build and open
-npm run ios:dev          # Run with live reload
-
-# Setup (first time only)
-npm run mobile:init      # Initialize Capacitor and add platforms
-npm run mobile:clean     # Clean and re-add platforms
-```
-
-### AI Features (Genkit)
-```bash
-npm run genkit:dev       # Start Genkit development server
-npm run genkit:watch     # Start with watch mode
-```
+CI (`.github/workflows/ci.yml`) runs typecheck + tests on every PR to main.
 
 ## Architecture
 
-### Tech Stack
-- **Framework**: Next.js 15 with App Router, static export mode
-- **UI**: React 18 with Radix UI components, Tailwind CSS, Framer Motion
-- **Backend**: Firebase (Firestore, Auth, Storage, Cloud Messaging)
-- **Mobile**: Capacitor 5 for iOS/Android native apps
-- **Forms**: React Hook Form with Zod validation
-- **State**: TanStack Query for data fetching
-- **AI**: Google Genkit for AI features
-- **Email**: IMAP for email fetching, Resend for sending
+- **Framework**: Next.js 15 App Router, **server mode** (NOT static export - API routes are essential). Deployed on Vercel, project `v2`, production domain `primaria.digital`, auto-deploy on push to `main`.
+- **Mobile**: Capacitor 7 (target SDK 35), Android only for now. Thin shell loading `https://primaria.digital` (capacitor.config.json server.url), so web deploys update the app instantly. Command-line Gradle builds need Java 21 (Android Studio's bundled JDK).
+- **UI**: Radix UI + Tailwind, dark slate theme, Romanian language.
+- **Backend**: Firebase - Firestore, Auth, Storage, web-push (VAPID) + FCM, Resend for email sending, imapflow for IMAP fetching.
 
-### Key Configuration Notes
-- **Static Export**: Uses `output: 'export'` for PWABuilder compatibility
-- **Image Optimization**: Disabled (`unoptimized: true`)
-- **Build Errors**: TypeScript and ESLint errors are ignored during builds
-- **Service Worker**: Custom middleware handles SW headers and caching
-- **Port**: Development server runs on port 9002
+### Two authentication worlds
 
-### Firebase Structure
+- **Staff** (`contexts/AdminAuthContext.tsx`): Firebase Auth + `users/{uid}` doc with `role: 'admin'|'employee'` and `active: true`. The `users` doc is REQUIRED - API routes and Firestore rules check it; the hardcoded AUTHORIZED_ADMINS list is only a client-side login fallback.
+- **Citizens** (`contexts/CitizenAuthContext.tsx`): Firebase Auth + `citizens/{uid}` profile. Email verification is sent but non-blocking. Required for adeverinte and appointments; optional (but linking) for cereri/sesizari.
 
-**Client SDK** (`lib/firebase.ts`):
-- Exports: `auth`, `db`, `storage`, `messaging`
-- Collections defined in `COLLECTIONS` constant
-- Main collections:
-  - `announcements` - Community announcements with categories (terenuri, produse-locale, diverse, servicii, cumparare)
-  - `jobs` - Job postings
-  - `notifications` - Notification logs
-  - `fcm_tokens` - Firebase Cloud Messaging tokens
-  - `push_subscriptions` - Web push subscriptions
-  - `registratura_emails` - Email registry system
-  - `admins` - Admin user records
+### Server-side security model (lib/api-auth.ts)
 
-**Admin SDK** (`lib/firebase-admin.ts`):
-- Lazy initialization to avoid build-time errors
-- Use `getAdminDb()` to get Firestore instance
-- Requires env vars: `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY`
+- All staff API routes verify `Authorization: Bearer <Firebase ID token>` via `verifyStaffRequest(request, roles)` - checks token + `users/{uid}` role.
+- Public routes (report-issue, trimite-cerere, push/subscribe, programari, verifica) use `rateLimit()` from `lib/rate-limit.ts` (in-memory, per IP) + payload caps.
+- `getOptionalCitizenUid(request)` extracts a VERIFIED citizen uid; never trust a uid from the request body.
+- **API routes use the Admin SDK exclusively** (`getAdminDb/getAdminAuth/getAdminBucket` from `lib/firebase-admin.ts`) - the client SDK is unauthenticated on the server and blocked by rules.
+- `firestore.rules` + `storage.rules` are in the repo and deployed with `firebase deploy --only firestore:rules,storage` (project `village-hub-h1qiy`). Public content readable; personal data staff-only; citizens read their own docs (`citizenUid == auth.uid`); default deny.
 
-### Core Services
+### Unified registry (core domain concept)
 
-**Email Registry System** (`lib/registratura-service.ts`, `lib/email-service.ts`):
-- Automatic email fetching via IMAP
-- Generates unique registration numbers (format: `REG-YYYY-NNNNNN`)
-- Uploads attachments to Firebase Storage
-- Tracks email status: `nou`, `in_lucru`, `rezolvat`, `respins`
-- Uses transaction-based counter for registration numbers
-- API route: `/api/fetch-emails` - fetches new emails from IMAP
-- API route: `/api/registratura/count-new` - counts new emails
-- Type definitions in `types/registratura.ts`
+ONE counter (`registru_counters/{year}`, format `REG-YYYY-NNNNNN`) for everything: manual entries, IMAP emails, online form submissions, issued adeverinte. `registru_general` is the index - every document gets an entry with `sursa` (manual/email/cerere_online/adeverinta), `directie` (intrare/iesire), and a 30-day legal `termen` (OG 27/2002) highlighted red in the admin UI when overdue. `config/registratura_counter` remains ONLY for RAPORT- numbers (issues). Number generators: `lib/generateRegistruNumberAdmin.ts` (server) / `lib/utils/generateRegistruNumber.ts` (client, admin pages).
 
-**Notification System** (`lib/notificationSystem.ts`):
-- Web push notifications using service workers
-- FCM (Firebase Cloud Messaging) integration
-- Support for broadcast and targeted notifications
-- Subscription management with cleanup of inactive subscriptions
-- Notification history tracking
+### Key flows
 
-**Admin Authentication** (`contexts/AdminAuthContext.tsx`):
-- Firebase Auth based
-- Hardcoded list of authorized admins in `AUTHORIZED_ADMINS` array
-- Additional check in Firestore `admins` collection
-- Protects all `/admin/*` routes except `/admin/login`
-- Auto-redirects unauthorized users to login
+- **Cerere online** (`/api/trimite-cerere`): validate -> unified registry number -> `registru_general` intrare + `form_submissions` doc (linked both ways) -> confirmation screen shows the number -> visible in Dosarul meu.
+- **Adeverinte** (`lib/adeverinte.ts`, `/api/emite-adeverinta`, admin-only): request is a cerere with tipCerere `adeverinta-*` (account required) -> admin fills the prefilled legal template -> PDF (jsPDF + removeDiacritics convention) with letterhead, signature image (Storage `config/semnatura-primar.png`, settings in Firestore `config/adeverinta_settings`), QR verification -> outgoing registry number -> download in Dosarul meu. Public verification: `/verifica?nr=...&c=<secret>` via `adeverinte_emise` collection.
+- **Appointments** (`/api/programari`, `types/appointments.ts`): deterministic slot doc IDs (`service_date_HHmm`) make double-booking impossible (create() fails); one active appointment per citizen per service; cancel = delete (frees the slot).
+- **Status notifications** (`/api/notify-status-change`): admin status updates trigger push (subscriptions carry verified `citizenUid`) + Resend email. Set `RESEND_FROM` env var to a verified sender.
+- **Alerts** (`types/alerts.ts`): staff publish urgent alerts with auto-expiry; homepage banner + `/alerte` + optional push broadcast.
+- **Email registratura** (`lib/registratura-service.ts`, server-only): IMAP fetch -> dedupe by messageId -> unified number -> attachments to Storage -> `registratura_emails` + `registru_general` index entry.
 
-### Layout Structure
+### Firestore collections
 
-**Root Layout** (`app/layout.tsx`):
-- Wraps app with `NotificationProvider` and `Toaster`
-- Includes `ServiceWorkerRegistration` and `PWAInstallPrompt` components
-- PWA manifest and icons configuration
-- Romanian language (`lang="ro"`)
+`users` (staff), `citizens`, `form_submissions`, `reported_issues`, `registru_general`, `registru_counters`, `registratura_emails`, `adeverinte_emise`, `appointments`, `alerts`, `announcements`, `jobs`, `push_subscriptions`, `notifications`, `notification_history`, `departments`, `config` (counters + adeverinta settings).
 
-**Admin Layout** (`app/admin/layout.tsx`):
-- Protected layout with `AdminAuthProvider`
-- Admin sidebar navigation with badge for new emails
-- User session display and logout
-- Responsive mobile menu
+## Conventions & gotchas
 
-### Component Organization
+- **Timestamps**: shared types use `FirestoreTimestamp` (client | admin union) from `types/registratura.ts`. Server code imports Timestamp from `firebase-admin/firestore`, client from `firebase/firestore` - never mix instances across SDK boundaries.
+- **PDFs**: jsPDF with `removeDiacritics()` (standard fonts lack Romanian diacritics). Follow the existing pattern.
+- **Admin lists are paginated** (cursor + "Încarcă mai multe"); keep it that way for new lists.
+- **Dosarul meu queries** avoid composite indexes (filter on citizenUid only, sort client-side).
+- New cereri form types go in THREE places: `REQUEST_CONFIGS` (lib/simple-pdf-generator.ts), `formMetadata` + generateStaticParams (app/cereri-online/[formType]/page.tsx), and the listing (app/cereri-online/page.tsx).
+- Service worker (`public/sw.js`): Network First for HTML, Cache First for hashed assets, every fetch branch MUST return a real Response. Bump CACHE_NAME on SW changes.
+- ESLint is still advisory (`ignoreDuringBuilds: true`); TypeScript is NOT (`ignoreBuildErrors: false`).
 
-**UI Components** (`components/ui/`):
-- Radix UI primitives with custom styling
-- Consistent design system using Tailwind
-- Common components: Button, Card, Dialog, Form inputs, etc.
+## Environment variables
 
-**Admin Components** (`components/admin/`):
-- `AdminSidebar` - Navigation with new email badges
-- `EmailRegistryTable` - Display and manage registry emails
-- `RegistraturaStats` - Statistics dashboard for email registry
-
-**Notification Components**:
-- `NotificationProvider` - Context provider for notifications
-- `NotificationPermissionManager` - Handles push permission requests
-- `ServiceWorkerRegistration` - Registers service worker on client
-- `PWAInstallPrompt` - Install prompt for PWA
-
-### Request Forms System
-
-**Schema & Types** (`lib/schemas/request-schema.ts`, `lib/types/request-types.ts`):
-- Zod schemas for form validation
-- Dynamic form generation based on form type
-- File upload support with `FileUpload` component
-
-**Form Hook** (`lib/hooks/useSubmitRequest.ts`):
-- Handles form submission with file uploads
-- PDF generation using `lib/simple-pdf-generator.ts`
-- Firebase Storage integration
-
-**Dynamic Routes** (`app/cereri-online/[formType]/`):
-- `CerereFormularClient.tsx` - Client component for form rendering
-- Dynamic form generation based on route parameter
-
-### Mobile-Specific Features
-
-**Capacitor Configuration** (`capacitor.config.json`):
-- App ID: `digital.primaria.app`
-- Server URL: `https://primaria.digital`
-- Web dir: `public`
-
-**Mobile Detection**: Check `process.env.NEXT_PUBLIC_IS_MOBILE` or use Capacitor's platform detection APIs
-
-### Middleware (`middleware.ts`)
-
-- Sets Service Worker headers for all `.js` files
-- Cache control for service worker files
-- Security headers (X-Content-Type-Options)
-- Applies to all routes except Next.js internals
-
-## Important Patterns
-
-### Firebase Operations
-- Always check if admin DB is initialized before server-side operations
-- Use transactions for counter increments (registration numbers)
-- Handle Timestamp conversion between client/server
-
-### Email Registry Workflow
-1. Fetch emails via IMAP (API route triggered manually or by cron)
-2. Check for duplicates using `messageId`
-3. Generate unique registration number using transaction
-4. Upload attachments to Storage
-5. Create Firestore document with email data
-6. Display in admin panel with filtering by status
-
-### Notification Flow
-1. User grants permission via `NotificationPermissionManager`
-2. Subscribe to push notifications
-3. Save subscription to `push_subscriptions` collection
-4. Admin sends notifications via admin panel
-5. Service worker displays notifications
-6. Log sent notifications in `notification_history`
-
-### Form Submission Flow
-1. User fills form in `cereri-online/[formType]`
-2. Client-side validation with Zod
-3. File uploads to Firebase Storage
-4. Generate PDF with form data
-5. Save to Firestore
-6. Send confirmation (optional)
-
-## Environment Variables
-
-Required variables (see `.env.local`):
-```
-# Firebase Client
-NEXT_PUBLIC_FIREBASE_API_KEY
-NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
-NEXT_PUBLIC_FIREBASE_PROJECT_ID
-NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
-NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
-NEXT_PUBLIC_FIREBASE_APP_ID
-
-# Firebase Admin
-FIREBASE_PROJECT_ID
-FIREBASE_CLIENT_EMAIL
-FIREBASE_PRIVATE_KEY
-
-# Email (IMAP)
-EMAIL_USER
-EMAIL_PASSWORD
-EMAIL_HOST
-EMAIL_PORT
-EMAIL_TLS
-
-# Other
-NEXT_PUBLIC_API_URL
-NEXT_PUBLIC_IS_MOBILE
-```
-
-## Common Issues & Solutions
-
-### Firebase Admin Initialization
-- Admin SDK may fail during build time - this is expected
-- Always use `getAdminDb()` and check for null in API routes
-- Gracefully handle missing env vars in production builds
-
-### Service Worker Caching
-- Service worker files should never be cached
-- Middleware sets appropriate headers
-- Clear cache if SW updates don't apply
-
-### Mobile Build Process
-- Must build Next.js first (`mobile:build`)
-- Then sync with Capacitor (`mobile:sync`)
-- Use `mobile:update` for both steps
-- Web dir in capacitor config must match Next.js output
-
-### Type Errors During Build
-- TypeScript errors are currently ignored (`ignoreBuildErrors: true`)
-- This is intentional for rapid development
-- Consider fixing before production deployment
-
-## File Structure Highlights
-
-```
-app/
-├── admin/              # Admin panel pages
-│   ├── registratura/   # Email registry
-│   ├── cereri/         # Form submissions
-│   ├── issues/         # Issue reports
-│   └── ...
-├── cereri-online/      # Public form system
-│   └── [formType]/     # Dynamic form routes
-├── api/                # API routes
-│   ├── fetch-emails/   # IMAP email fetcher
-│   └── registratura/   # Registry APIs
-└── layout.tsx          # Root layout with providers
-
-lib/
-├── firebase.ts         # Client SDK & types
-├── firebase-admin.ts   # Admin SDK
-├── email-service.ts    # IMAP email fetching
-├── registratura-service.ts  # Email registry logic
-├── notificationSystem.ts    # Push notifications
-└── schemas/            # Form validation schemas
-
-components/
-├── admin/              # Admin-specific components
-└── ui/                 # Shared UI components
-
-types/
-└── registratura.ts     # Email registry types
-```
-
-## Testing
-
-No test suite is currently configured. When adding tests:
-- Use the build/lint commands to check for obvious errors
-- Test Firebase operations carefully (uses real database)
-- Test mobile builds on actual devices when possible
-- Verify service worker updates apply correctly
+See `.env.local` (also mirrored in Vercel project `v2`): `NEXT_PUBLIC_FIREBASE_*` (client), `FIREBASE_PROJECT_ID/CLIENT_EMAIL/PRIVATE_KEY` (Admin SDK), `NEXT_PUBLIC_VAPID_PUBLIC_KEY`/`VAPID_PRIVATE_KEY`/`VAPID_EMAIL` (push), `EMAIL_*` (IMAP), `RESEND_API_KEY`/`RESEND_FROM`, `CRON_SECRET` (fetch-emails cron).
 
 ## Deployment
 
-The app uses static export (`output: 'export'`) which means:
-- No server-side rendering (SSR)
-- No API routes in production (must use separate backend)
-- Suitable for static hosting (Vercel, Netlify, GitHub Pages)
-- For API routes, deploy to a platform that supports Next.js API routes or create separate backend
-
-Mobile apps are built separately using Capacitor and deployed to app stores.
+- **Web**: merge to `main` -> Vercel auto-deploys to primaria.digital. Vercel blocks Next.js versions with known CVEs - keep `next` updated.
+- **Firebase rules**: NOT deployed by Vercel; run `firebase deploy --only firestore:rules,storage` after changing rules files (non-interactive with a service-account via GOOGLE_APPLICATION_CREDENTIALS).
+- **Android**: `npm run mobile:update` then release from Android Studio (Play Store requires target API 34+; we ship 35).

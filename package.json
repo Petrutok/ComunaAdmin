@@ -10,6 +10,8 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "// Mobile Build Commands": "",
     "mobile:build": "CAPACITOR_BUILD=true next build && npx cap copy",
     "mobile:sync": "npx cap sync",
@@ -116,6 +118,7 @@
     "genkit-cli": "^1.0.4",
     "postcss": "^8",
     "tailwindcss": "^3.4.1",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.1.10"
   }
 }

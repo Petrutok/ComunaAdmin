@@ -355,10 +355,10 @@ export default function AdminDashboard() {
                             )}
                           </div>
                           <p className="text-sm text-gray-400">
-                            De la: {email.senderName || email.senderEmail}
+                            De la: {email.from}
                           </p>
                           <p className="text-xs text-gray-500 mt-1">
-                            Nr. înregistrare: {email.registrationNumber}
+                            Nr. înregistrare: {email.numarInregistrare}
                           </p>
                         </div>
                         <ChevronRight className="h-5 w-5 text-gray-400" />
