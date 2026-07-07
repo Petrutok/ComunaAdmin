@@ -4,6 +4,7 @@ import "./globals.css";
 import { NotificationProvider } from "@/components/NotificationProvider";
 import { CitizenAuthProvider } from "@/contexts/CitizenAuthContext";
 import { TENANT } from "@/lib/tenant";
+import { BottomNav } from "@/components/BottomNav";
 import { Toaster } from "@/components/ui/toaster";
 import { PWAInstallPrompt } from '@/components/PWAInstallPrompt';
 import { ServiceWorkerRegistration } from '@/components/ServiceWorkerRegistration';
@@ -67,6 +68,7 @@ export default function RootLayout({
         <CitizenAuthProvider>
           <NotificationProvider>
             {children}
+            <BottomNav />
             <PWAInstallPrompt />
           </NotificationProvider>
         </CitizenAuthProvider>

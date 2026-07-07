@@ -30,115 +30,33 @@ import { ActiveAlertsBanner } from '@/components/ActiveAlertsBanner';
 import { TENANT } from '@/lib/tenant';
 
 export default function HomePage() {
-  const cards = [
+  // Services grouped by intent - quick actions live above, in the hero
+  const serviceGroups = [
     {
-      title: "Dosarul Meu",
-      description: "Urmărește stadiul cererilor și sesizărilor tale la primărie",
-      icon: FolderOpen,
-      link: "/dosarul-meu",
-      buttonText: "Vezi Dosarul",
-      color: "text-indigo-400",
-      iconBg: "bg-indigo-500/10"
+      heading: "Servicii",
+      items: [
+        { title: "Programare la primărie", description: "Ghișeu sau audiență, fără așteptare", icon: CalendarDays, link: "/programari", color: "text-cyan-400", iconBg: "bg-cyan-500/10" },
+        { title: "Plată impozite", description: "Online, prin Ghișeul.ro", icon: Receipt, link: "/taxes", color: "text-purple-400", iconBg: "bg-purple-500/10" },
+        { title: "Colectare selectivă", description: "Calendar și reguli de reciclare", icon: Recycle, link: "/colectare-selectiva", color: "text-emerald-400", iconBg: "bg-emerald-500/10" },
+        { title: "Alerte locale", description: "Întreruperi, drumuri, urgențe", icon: Bell, link: "/alerte", color: "text-red-400", iconBg: "bg-red-500/10" },
+      ],
     },
     {
-      title: "Raportează o Problemă",
-      description: "Semnalează probleme din comună: gropi, iluminat defect, alte defecțiuni",
-      icon: AlertTriangle,
-      link: "/report-issue",
-      buttonText: "Raportează",
-      color: "text-red-400",
-      iconBg: "bg-red-500/10"
+      heading: "Comunitate",
+      items: [
+        { title: "Anunțuri locale", description: "Vânzare, cumpărare, servicii", icon: Newspaper, link: "/anunturi", color: "text-blue-400", iconBg: "bg-blue-500/10" },
+        { title: "Locuri de muncă", description: "Joburi din comună și împrejurimi", icon: Briefcase, link: "/joburi", color: "text-green-400", iconBg: "bg-green-500/10" },
+        { title: "Evenimente", description: "Ce se întâmplă în comună", icon: CalendarDays, link: "/events", color: "text-orange-400", iconBg: "bg-orange-500/10" },
+        { title: "Lucrări în desfășurare", description: "Proiecte și stadiul lor", icon: Construction, link: "/ongoing-works", color: "text-yellow-400", iconBg: "bg-yellow-500/10" },
+      ],
     },
     {
-      title: "Programare la Primărie",
-      description: "Rezervă-ți ora la ghișeu sau audiență la primar, fără așteptare",
-      icon: CalendarDays,
-      link: "/programari",
-      buttonText: "Programează-te",
-      color: "text-cyan-400",
-      iconBg: "bg-cyan-500/10"
+      heading: "Primărie",
+      items: [
+        { title: "Consilieri locali", description: "Contactele aleșilor tăi", icon: Users, link: "/representatives", color: "text-sky-400", iconBg: "bg-sky-500/10" },
+        { title: "Ședințe de consiliu", description: "Ordine de zi și hotărâri", icon: Calendar, link: "/meeting-summaries", color: "text-gray-400", iconBg: "bg-gray-500/10" },
+      ],
     },
-    {
-      title: "Anunțuri Locale",
-      description: "Publică și găsește anunțuri de vânzare, cumpărare sau schimb",
-      icon: Newspaper,
-      link: "/anunturi",
-      buttonText: "Vezi Anunțuri",
-      color: "text-blue-400",
-      iconBg: "bg-blue-500/10"
-    },
-    {
-      title: "Cereri Online",
-      description: "Completează și trimite cereri direct din aplicație",
-      icon: FileText,
-      link: "/cereri-online",
-      buttonText: "Completează Cerere",
-      color: "text-indigo-400",
-      iconBg: "bg-indigo-500/10"
-    },
-    {
-      title: "Locuri de Muncă",
-      description: "Oportunități de angajare în comună și împrejurimi",
-      icon: Briefcase,
-      link: "/joburi",
-      buttonText: "Vezi Joburi",
-      color: "text-green-400",
-      iconBg: "bg-green-500/10"
-    },
-    {
-      title: "Plată Impozite",
-      description: "Plătește online taxele și impozitele locale",
-      icon: Receipt,
-      link: "/taxes",
-      buttonText: "Plătește Online",
-      color: "text-purple-400",
-      iconBg: "bg-purple-500/10"
-    },
-    {
-      title: "Colectare Selectivă",
-      description: "Calendar colectare deșeuri și informații despre reciclare",
-      icon: Recycle,
-      link: "/colectare-selectiva",
-      buttonText: "Vezi Calendar",
-      color: "text-emerald-400",
-      iconBg: "bg-emerald-500/10"
-    },
-    {
-      title: "Evenimente",
-      description: "Evenimente culturale și activități în comunitate",
-      icon: CalendarDays,
-      link: "/events",
-      buttonText: "Vezi Evenimente",
-      color: "text-orange-400",
-      iconBg: "bg-orange-500/10"
-    },
-    {
-      title: "Lucrări în Desfășurare",
-      description: "Proiecte de infrastructură și modernizare în derulare",
-      icon: Construction,
-      link: "/ongoing-works",
-      buttonText: "Vezi Lucrări",
-      color: "text-yellow-400",
-      iconBg: "bg-yellow-500/10"
-    },
-    {
-      title: "Consilieri Locali",
-      description: "Găsește informații de contact pentru consilierii locali",
-      icon: Users,
-      link: "/representatives",
-      buttonText: "Vezi Lista",
-      color: "text-sky-400",
-      iconBg: "bg-sky-500/10"
-    },
-    {
-      title: "Ședințe Consiliu",
-      description: "Ordine de zi, hotărâri și procese verbale",
-      icon: Calendar,
-      link: "/meeting-summaries",
-      buttonText: "Vezi Ședințe",
-      color: "text-gray-400",
-      iconBg: "bg-gray-500/10"
-    }
   ];
     
   return (
@@ -200,81 +118,60 @@ export default function HomePage() {
 
       </header>
 
-      {/* Info Bar */}
-      <div className="bg-slate-900 border-b border-slate-800">
-        <div className="max-w-7xl mx-auto px-4 py-3">
-          <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm">
-            <div className="flex items-center gap-2">
-              <div className="h-1 w-8 bg-blue-400 rounded-full"></div>
-              <span className="text-blue-400 font-medium">Accesează rapid</span>
-              <span className="text-gray-400">serviciile locale</span>
+      {/* Quick actions - the three things citizens do most */}
+      <div className="max-w-7xl mx-auto px-4 -mt-2 pt-6">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <Link href="/report-issue" className="group">
+            <div className="h-full rounded-2xl bg-gradient-to-br from-red-600/90 to-rose-700/90 p-5 shadow-lg transition-transform group-hover:scale-[1.02] group-active:scale-[0.99]">
+              <AlertTriangle className="h-8 w-8 text-white mb-3" strokeWidth={1.8} />
+              <p className="text-lg font-bold text-white">Raportează o problemă</p>
+              <p className="text-sm text-red-100 mt-1">Groapă, iluminat, gunoi — cu poză și locație</p>
             </div>
-            <div className="flex items-center gap-2">
-              <div className="h-1 w-8 bg-green-400 rounded-full"></div>
-              <span className="text-green-400 font-medium">Economisește timp</span>
-              <span className="text-gray-400">cu soluții digitale</span>
+          </Link>
+          <Link href="/cereri-online" className="group">
+            <div className="h-full rounded-2xl bg-gradient-to-br from-blue-600/90 to-indigo-700/90 p-5 shadow-lg transition-transform group-hover:scale-[1.02] group-active:scale-[0.99]">
+              <FileText className="h-8 w-8 text-white mb-3" strokeWidth={1.8} />
+              <p className="text-lg font-bold text-white">Trimite o cerere</p>
+              <p className="text-sm text-blue-100 mt-1">Adeverințe și cereri, cu număr de înregistrare pe loc</p>
             </div>
-            <div className="flex items-center gap-2">
-              <div className="h-1 w-8 bg-purple-400 rounded-full"></div>
-              <span className="text-purple-400 font-medium">Fii informat</span>
-              <span className="text-gray-400">în timp real</span>
+          </Link>
+          <Link href="/dosarul-meu" className="group">
+            <div className="h-full rounded-2xl bg-gradient-to-br from-violet-600/90 to-purple-700/90 p-5 shadow-lg transition-transform group-hover:scale-[1.02] group-active:scale-[0.99]">
+              <FolderOpen className="h-8 w-8 text-white mb-3" strokeWidth={1.8} />
+              <p className="text-lg font-bold text-white">Dosarul meu</p>
+              <p className="text-sm text-violet-100 mt-1">Vezi stadiul cererilor și sesizărilor tale</p>
             </div>
-          </div>
+          </Link>
         </div>
       </div>
 
-      {/* Cards Grid - Stil similar cu imaginea */}
-      <div className="max-w-7xl mx-auto px-4 py-12">
-        <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
-          {cards.map((card, index) => {
-            const Icon = card.icon;
-            // Define border colors for each card based on new order
-            const borderColors = [
-              'border-t-red-500',      // Raportează o Problemă
-              'border-t-blue-500',     // Anunțuri Locale
-              'border-t-indigo-500',   // Cereri Online
-              'border-t-green-500',    // Locuri de Muncă
-              'border-t-purple-500',   // Plată Impozite
-              'border-t-emerald-500',  // Colectare Selectivă
-              'border-t-orange-500',   // Evenimente
-              'border-t-yellow-500',   // Lucrări în Desfășurare
-              'border-t-sky-500',      // Consilieri Locali
-              'border-t-gray-500'      // Ședințe Consiliu
-            ];
-            
-            return (
-              <Link href={card.link} key={index} className="block group">
-                <Card className={`h-full bg-slate-800 border border-slate-700 hover:border-slate-600 hover:bg-slate-800/80 transition-all duration-300 overflow-hidden rounded-2xl flex flex-col border-t-4 ${borderColors[index]}`}>
-                  <div className="p-6 sm:p-8 flex flex-col h-full">
-                    {/* Icon centered */}
-                    <div className="flex justify-center mb-6">
-                      <div className={`p-4 rounded-2xl ${card.iconBg} border border-slate-700`}>
-                        <Icon className={`h-8 w-8 sm:h-10 sm:w-10 ${card.color}`} strokeWidth={1.5} />
+      {/* Service groups */}
+      <div className="max-w-7xl mx-auto px-4 py-10 space-y-10">
+        {serviceGroups.map((group) => (
+          <section key={group.heading}>
+            <h2 className="mb-4 text-sm font-semibold uppercase tracking-widest text-gray-500">
+              {group.heading}
+            </h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              {group.items.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <Link href={item.link} key={item.link} className="group">
+                    <div className="flex h-full items-center gap-4 rounded-2xl border border-slate-800 bg-slate-800/60 p-4 transition-all group-hover:border-slate-600 group-hover:bg-slate-800">
+                      <div className={`shrink-0 rounded-xl p-3 ${item.iconBg}`}>
+                        <Icon className={`h-6 w-6 ${item.color}`} strokeWidth={1.8} />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="font-semibold text-white leading-snug">{item.title}</p>
+                        <p className="mt-0.5 text-sm text-gray-400 leading-snug">{item.description}</p>
                       </div>
                     </div>
-                    
-                    {/* Title centered */}
-                    <h3 className="text-lg sm:text-xl font-bold text-white text-center mb-4">
-                      {card.title}
-                    </h3>
-                    
-                    {/* Description centered */}
-                    <p className="text-sm text-gray-300 text-center mb-6 flex-1 line-clamp-3">
-                      {card.description}
-                    </p>
-
-                    {/* Button */}
-                    <Button 
-                      className="w-full bg-slate-100 hover:bg-white text-slate-900 font-semibold py-3 rounded-full transition-all group-hover:scale-105 border border-slate-600"
-                    >
-                      <span className="text-sm sm:text-base">{card.buttonText}</span>
-                    </Button>
-                  </div>
-                </Card>
-              </Link>
-            );
-          })}
-        </div>
+                  </Link>
+                );
+              })}
+            </div>
+          </section>
+        ))}
       </div>
 
       {/* Footer */}
