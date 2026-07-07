@@ -118,28 +118,25 @@ export default function HomePage() {
 
       </header>
 
-      {/* Quick actions - the three things citizens do most */}
+      {/* Quick actions - compact row, one step above the rest */}
       <div className="max-w-7xl mx-auto px-4 -mt-2 pt-6">
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <Link href="/report-issue" className="group">
-            <div className="h-full rounded-2xl bg-gradient-to-br from-red-600/90 to-rose-700/90 p-5 shadow-lg transition-transform group-hover:scale-[1.02] group-active:scale-[0.99]">
-              <AlertTriangle className="h-8 w-8 text-white mb-3" strokeWidth={1.8} />
-              <p className="text-lg font-bold text-white">Raportează o problemă</p>
-              <p className="text-sm text-red-100 mt-1">Groapă, iluminat, gunoi — cu poză și locație</p>
+            <div className="flex h-full items-center gap-3 rounded-xl bg-gradient-to-r from-red-600/80 to-rose-700/80 px-4 py-3.5 shadow transition-transform group-hover:scale-[1.01] group-active:scale-[0.99]">
+              <AlertTriangle className="h-6 w-6 shrink-0 text-white" strokeWidth={2} />
+              <p className="font-semibold text-white">Raportează o problemă</p>
             </div>
           </Link>
           <Link href="/cereri-online" className="group">
-            <div className="h-full rounded-2xl bg-gradient-to-br from-blue-600/90 to-indigo-700/90 p-5 shadow-lg transition-transform group-hover:scale-[1.02] group-active:scale-[0.99]">
-              <FileText className="h-8 w-8 text-white mb-3" strokeWidth={1.8} />
-              <p className="text-lg font-bold text-white">Trimite o cerere</p>
-              <p className="text-sm text-blue-100 mt-1">Adeverințe și cereri, cu număr de înregistrare pe loc</p>
+            <div className="flex h-full items-center gap-3 rounded-xl bg-gradient-to-r from-blue-600/80 to-indigo-700/80 px-4 py-3.5 shadow transition-transform group-hover:scale-[1.01] group-active:scale-[0.99]">
+              <FileText className="h-6 w-6 shrink-0 text-white" strokeWidth={2} />
+              <p className="font-semibold text-white">Trimite o cerere</p>
             </div>
           </Link>
           <Link href="/dosarul-meu" className="group">
-            <div className="h-full rounded-2xl bg-gradient-to-br from-violet-600/90 to-purple-700/90 p-5 shadow-lg transition-transform group-hover:scale-[1.02] group-active:scale-[0.99]">
-              <FolderOpen className="h-8 w-8 text-white mb-3" strokeWidth={1.8} />
-              <p className="text-lg font-bold text-white">Dosarul meu</p>
-              <p className="text-sm text-violet-100 mt-1">Vezi stadiul cererilor și sesizărilor tale</p>
+            <div className="flex h-full items-center gap-3 rounded-xl bg-gradient-to-r from-violet-600/80 to-purple-700/80 px-4 py-3.5 shadow transition-transform group-hover:scale-[1.01] group-active:scale-[0.99]">
+              <FolderOpen className="h-6 w-6 shrink-0 text-white" strokeWidth={2} />
+              <p className="font-semibold text-white">Dosarul meu</p>
             </div>
           </Link>
         </div>
@@ -152,18 +149,18 @@ export default function HomePage() {
             <h2 className="mb-4 text-sm font-semibold uppercase tracking-widest text-gray-500">
               {group.heading}
             </h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {group.items.map((item) => {
                 const Icon = item.icon;
                 return (
                   <Link href={item.link} key={item.link} className="group">
-                    <div className="flex h-full items-center gap-4 rounded-2xl border border-slate-800 bg-slate-800/60 p-4 transition-all group-hover:border-slate-600 group-hover:bg-slate-800">
-                      <div className={`shrink-0 rounded-xl p-3 ${item.iconBg}`}>
-                        <Icon className={`h-6 w-6 ${item.color}`} strokeWidth={1.8} />
+                    <div className="flex h-full items-center gap-4 rounded-2xl border border-slate-700 bg-slate-800/80 p-5 transition-all group-hover:border-slate-500 group-hover:bg-slate-800 group-hover:shadow-lg">
+                      <div className={`shrink-0 rounded-xl p-3.5 ${item.iconBg}`}>
+                        <Icon className={`h-8 w-8 ${item.color}`} strokeWidth={1.8} />
                       </div>
                       <div className="min-w-0">
-                        <p className="font-semibold text-white leading-snug">{item.title}</p>
-                        <p className="mt-0.5 text-sm text-gray-400 leading-snug">{item.description}</p>
+                        <p className="text-lg font-semibold text-white leading-snug">{item.title}</p>
+                        <p className="mt-1 text-sm text-gray-400 leading-snug">{item.description}</p>
                       </div>
                     </div>
                   </Link>
