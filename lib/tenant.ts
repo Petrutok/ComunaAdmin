@@ -30,6 +30,10 @@ export const TENANT = {
 
   /** Production URL of this tenant's deployment */
   siteUrl: process.env.NEXT_PUBLIC_API_URL || 'https://primaria.digital',
+
+  /** Commune coat of arms / logo. Absolute URL (e.g. Firebase Storage) or
+   *  repo asset path; defaults to the bundled logo for local dev. */
+  logoUrl: process.env.NEXT_PUBLIC_TENANT_LOGO_URL || '/logo.jpg',
 } as const;
 
 /**

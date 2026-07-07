@@ -1,6 +1,8 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { collection, getDocs } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -24,7 +26,9 @@ import {
 export default function OngoingWorksPage() {
   const [selectedFilter, setSelectedFilter] = useState('all');
 
-  const projects = [
+  // Built-in defaults: shown until the admin publishes works from
+  // Admin -> Conținut (the `ongoing_works` collection replaces them)
+  const DEFAULT_PROJECTS = [
     {
       id: 1,
       title: "Creșterea eficienței energetice la școala din satul Filipești",
@@ -139,14 +143,43 @@ export default function OngoingWorksPage() {
     }
   ];
 
+  const [projects, setProjects] = useState<any[]>(DEFAULT_PROJECTS);
+
+  useEffect(() => {
+    getDocs(collection(db, 'ongoing_works'))
+      .then((snap) => {
+        if (!snap.empty) {
+          setProjects(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+        }
+      })
+      .catch((error) => console.error('Error loading works:', error));
+  }, []);
+
   const categories = [
     { id: 'all', name: 'Toate', icon: Construction },
     { id: 'educatie', name: 'Educație', icon: School },
     { id: 'infrastructura', name: 'Infrastructură', icon: Bike },
     { id: 'utilitati', name: 'Utilități', icon: Droplets },
     { id: 'energie', name: 'Energie', icon: Zap },
-    { id: 'cultura', name: 'Cultură', icon: Building }
-  ];
+    { id: 'cultura', name: 'Cultură', icon: Building },
+    { id: 'sanatate', name: 'Sănătate', icon: Building },
+    { id: 'altele', name: 'Altele', icon: Construction },
+  ].filter(c => c.id === 'all' || projects.some(p => p.category === c.id));
+
+  // Style/icon derive from category so admin-created works render
+  // identically to the defaults (they store only the category string)
+  const categoryStyle = (categoryId: string) => {
+    const styles: Record<string, { color: string; border: string; icon: any }> = {
+      educatie: { color: 'bg-blue-500', border: 'border-blue-500', icon: School },
+      infrastructura: { color: 'bg-orange-500', border: 'border-orange-500', icon: Bike },
+      utilitati: { color: 'bg-cyan-500', border: 'border-cyan-500', icon: Droplets },
+      energie: { color: 'bg-yellow-500', border: 'border-yellow-500', icon: Zap },
+      cultura: { color: 'bg-purple-500', border: 'border-purple-500', icon: Building },
+      sanatate: { color: 'bg-rose-500', border: 'border-rose-500', icon: Building },
+      altele: { color: 'bg-gray-500', border: 'border-gray-500', icon: Construction },
+    };
+    return styles[categoryId] || styles.altele;
+  };
 
   const filteredProjects = selectedFilter === 'all' 
     ? projects 
@@ -162,7 +195,7 @@ export default function OngoingWorksPage() {
   };
 
   const totalBudget = projects.reduce((sum, project) => {
-    const budget = parseFloat(project.budget.replace(/[^\d]/g, ''));
+    const budget = parseFloat((project.budget || '0').replace(/[^\d]/g, '')) || 0;
     return sum + budget;
   }, 0);
 
@@ -264,14 +297,15 @@ export default function OngoingWorksPage() {
         {/* Projects Grid */}
         <div className="grid gap-6 mb-12">
           {filteredProjects.map((project) => {
-            const Icon = project.icon;
+            const style = categoryStyle(project.category);
+            const Icon = style.icon;
             return (
-              <Card key={project.id} className={`bg-slate-800 border-2 ${project.borderColor} overflow-hidden`}>
-                <div className={`${project.color} h-2`}></div>
+              <Card key={project.id} className={`bg-slate-800 border-2 ${style.border} overflow-hidden`}>
+                <div className={`${style.color} h-2`}></div>
                 <CardHeader>
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex items-start gap-4">
-                      <div className={`${project.color} bg-opacity-20 rounded-xl p-3`}>
+                      <div className={`${style.color} bg-opacity-20 rounded-xl p-3`}>
                         <Icon className="h-8 w-8 text-white" />
                       </div>
                       <div className="flex-1">
@@ -283,7 +317,7 @@ export default function OngoingWorksPage() {
                             <MapPin className="h-4 w-4" />
                             {project.location}
                           </span>
-                          <Badge className={`${project.color} text-white`}>
+                          <Badge className={`${style.color} text-white`}>
                             {project.program}
                           </Badge>
                           <span className={`flex items-center gap-1 ${getStatusColor(project.status)}`}>
@@ -311,8 +345,8 @@ export default function OngoingWorksPage() {
                       <span className="text-white font-medium">{project.progress}%</span>
                     </div>
                     <div className="w-full bg-slate-700 rounded-full h-3 overflow-hidden">
-                      <div 
-                        className={`${project.color} h-full rounded-full transition-all duration-500`}
+                      <div
+                        className={`${style.color} h-full rounded-full transition-all duration-500`}
                         style={{ width: `${project.progress}%` }}
                       />
                     </div>

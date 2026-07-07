@@ -45,13 +45,14 @@ Timp estimat pentru o comună nouă: **2–4 ore** (majoritatea așteptări pe D
 
 ## 5. Conținut și assets
 
-- `public/logo.jpg` — stema/logo-ul comunei. Notă: assets-urile sunt în repo,
-  deci momentan comun tuturor; pentru logo per comună folosește un asset per
-  domeniu (TODO: mutare logo în Storage per tenant) sau branch de assets.
-- Pagini cu conținut static de personalizat manual per comună (deocamdată):
-  `app/colectare-selectiva` (calendarul de colectare), `app/events`,
-  `app/ongoing-works`, `app/representatives`, `app/meeting-summaries`.
-- `public/manifest.json` (numele PWA) — vezi TODO logo.
+- **Logo**: urcă stema comunei ca imagine publică (ex. Firebase Storage) și
+  setează `NEXT_PUBLIC_TENANT_LOGO_URL`; fără el se folosește logo-ul din repo.
+- **Conținut editabil din admin** (Admin → Conținut, fără programator):
+  evenimente, lucrări în desfășurare, consilieri locali și linkul
+  calendarului de colectare. Până le completează primăria, paginile publice
+  afișează conținut demonstrativ implicit.
+- Rămase manuale (rare): `app/meeting-summaries` (ședințe consiliu) și
+  `public/manifest.json` (numele PWA).
 
 ## 6. Aplicația Android (opțional, per comună)
 

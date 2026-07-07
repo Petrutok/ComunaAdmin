@@ -1,6 +1,8 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -39,6 +41,26 @@ const TrashBin: React.FC<TrashBinProps> = ({ color, className }) => (
 
 export default function ColectareSelectivaPage() {
   const [selectedCategory, setSelectedCategory] = useState('all');
+  // Tenant-specific: the waste operator's published calendar link,
+  // editable from Admin -> Conținut (site_settings/colectare)
+  const [calendar, setCalendar] = useState({
+    calendarUrl: 'https://somabacau.ro/wp-content/uploads/2025/01/Filipesti2025-modificat.png',
+    calendarLabel: 'Descarcă Calendar',
+  });
+
+  useEffect(() => {
+    getDoc(doc(db, 'site_settings', 'colectare'))
+      .then((snap) => {
+        const data = snap.data();
+        if (data?.calendarUrl) {
+          setCalendar({
+            calendarUrl: data.calendarUrl,
+            calendarLabel: data.calendarLabel || 'Descarcă Calendar',
+          });
+        }
+      })
+      .catch((error) => console.error('Error loading colectare settings:', error));
+  }, []);
 
   const wasteCategories = [
     {
@@ -204,14 +226,14 @@ export default function ColectareSelectivaPage() {
               <p className="text-gray-300 mb-3">
                 Consultați programul complet cu zilele de colectare pentru fiecare tip de deșeu, organizat pe zone și tipuri de locuințe.
               </p>
-              <a 
-                href="https://somabacau.ro/wp-content/uploads/2025/01/Filipesti2025-modificat.png"
+              <a
+                href={calendar.calendarUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-2 bg-white text-slate-900 hover:bg-gray-100 font-semibold shadow-md hover:shadow-xl transition-all duration-200 px-5 py-2.5 rounded-lg"
               >
                 <FileText className="h-5 w-5" />
-                <span>Descarcă Calendar 2025</span>
+                <span>{calendar.calendarLabel}</span>
                 <ExternalLink className="h-4 w-4" />
               </a>
             </div>
