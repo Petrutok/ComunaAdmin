@@ -118,25 +118,41 @@ export default function HomePage() {
 
       </header>
 
-      {/* Quick actions - compact row, one step above the rest */}
+      {/* Quick actions - same tile size as the service cards below,
+          distinguished only by the gradient background */}
       <div className="max-w-7xl mx-auto px-4 -mt-2 pt-6">
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           <Link href="/report-issue" className="group">
-            <div className="flex h-full items-center gap-3 rounded-xl bg-gradient-to-r from-red-600/80 to-rose-700/80 px-4 py-3.5 shadow transition-transform group-hover:scale-[1.01] group-active:scale-[0.99]">
-              <AlertTriangle className="h-6 w-6 shrink-0 text-white" strokeWidth={2} />
-              <p className="font-semibold text-white">Raportează o problemă</p>
+            <div className="flex h-full items-center gap-4 rounded-2xl bg-gradient-to-r from-red-600/80 to-rose-700/80 p-5 shadow transition-all group-hover:shadow-lg group-hover:brightness-110">
+              <div className="shrink-0 rounded-xl bg-white/15 p-3.5">
+                <AlertTriangle className="h-8 w-8 text-white" strokeWidth={1.8} />
+              </div>
+              <div className="min-w-0">
+                <p className="text-lg font-semibold text-white leading-snug">Raportează o problemă</p>
+                <p className="mt-1 text-sm text-red-100 leading-snug">Groapă, iluminat, gunoi — cu poză</p>
+              </div>
             </div>
           </Link>
           <Link href="/cereri-online" className="group">
-            <div className="flex h-full items-center gap-3 rounded-xl bg-gradient-to-r from-blue-600/80 to-indigo-700/80 px-4 py-3.5 shadow transition-transform group-hover:scale-[1.01] group-active:scale-[0.99]">
-              <FileText className="h-6 w-6 shrink-0 text-white" strokeWidth={2} />
-              <p className="font-semibold text-white">Trimite o cerere</p>
+            <div className="flex h-full items-center gap-4 rounded-2xl bg-gradient-to-r from-blue-600/80 to-indigo-700/80 p-5 shadow transition-all group-hover:shadow-lg group-hover:brightness-110">
+              <div className="shrink-0 rounded-xl bg-white/15 p-3.5">
+                <FileText className="h-8 w-8 text-white" strokeWidth={1.8} />
+              </div>
+              <div className="min-w-0">
+                <p className="text-lg font-semibold text-white leading-snug">Trimite o cerere</p>
+                <p className="mt-1 text-sm text-blue-100 leading-snug">Adeverințe și cereri, cu număr pe loc</p>
+              </div>
             </div>
           </Link>
           <Link href="/dosarul-meu" className="group">
-            <div className="flex h-full items-center gap-3 rounded-xl bg-gradient-to-r from-violet-600/80 to-purple-700/80 px-4 py-3.5 shadow transition-transform group-hover:scale-[1.01] group-active:scale-[0.99]">
-              <FolderOpen className="h-6 w-6 shrink-0 text-white" strokeWidth={2} />
-              <p className="font-semibold text-white">Dosarul meu</p>
+            <div className="flex h-full items-center gap-4 rounded-2xl bg-gradient-to-r from-violet-600/80 to-purple-700/80 p-5 shadow transition-all group-hover:shadow-lg group-hover:brightness-110">
+              <div className="shrink-0 rounded-xl bg-white/15 p-3.5">
+                <FolderOpen className="h-8 w-8 text-white" strokeWidth={1.8} />
+              </div>
+              <div className="min-w-0">
+                <p className="text-lg font-semibold text-white leading-snug">Dosarul meu</p>
+                <p className="mt-1 text-sm text-violet-100 leading-snug">Stadiul cererilor și sesizărilor tale</p>
+              </div>
             </div>
           </Link>
         </div>
