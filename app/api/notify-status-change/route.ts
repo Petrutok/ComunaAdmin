@@ -17,10 +17,15 @@ type NotifiableCollection = (typeof ALLOWED_COLLECTIONS)[number];
 
 const STATUS_LABELS: Record<string, string> = {
   noua: 'În așteptare',
+  nou: 'Înregistrată',
+  in_analiza: 'În analiză',
+  repartizata: 'Repartizată',
   in_lucru: 'În lucru',
-  rezolvat: 'Rezolvată',
+  in_asteptare: 'În așteptare',
+  rezolvat: 'Soluționată',
   rezolvata: 'Rezolvată',
   respins: 'Respinsă',
+  arhivat: 'Arhivată',
 };
 
 let vapidConfigured = false;
