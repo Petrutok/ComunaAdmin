@@ -5,6 +5,7 @@ import { getDownloadURL } from 'firebase-admin/storage';
 import { getAdminDb, getAdminBucket } from '@/lib/firebase-admin';
 import { RegistraturaEmail, EmailStatus } from '@/types/registratura';
 import { generateRegistruNumberAdmin } from '@/lib/generateRegistruNumberAdmin';
+import { TENANT } from '@/lib/tenant';
 import { processAndMergeDocuments, generateTrackingUrl } from '@/lib/services/document-processor';
 
 const COLLECTION_NAME = 'registratura_emails';
@@ -264,7 +265,7 @@ export class RegistraturaService {
       const result = await processAndMergeDocuments(files, {
         registrationNumber,
         dateReceived,
-        organizationName: 'PRIMĂRIA DIGITALĂ',
+        organizationName: TENANT.antetOficial,
         departmentName,
         senderName,
         senderEmail,

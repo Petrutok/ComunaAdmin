@@ -8,6 +8,7 @@ import { verifyStaffRequest } from '@/lib/api-auth';
 import { generateRegistruNumberAdmin } from '@/lib/generateRegistruNumberAdmin';
 import { isAdeverintaType, ADEVERINTA_LABELS } from '@/lib/adeverinte';
 import { generateAdeverintaPDF } from '@/lib/pdf/generateAdeverintaPDF';
+import { TENANT } from '@/lib/tenant';
 
 /**
  * Issues a certificate (adeverinta) for an approved request:
@@ -93,8 +94,8 @@ export async function POST(request: NextRequest) {
       body: continut.trim(),
       numeComplet: cerere.numeComplet,
       primarNume: settings.primarNume || 'PRIMAR',
-      localitate: settings.localitate || 'PRIMĂRIA COMUNEI FILIPEȘTI',
-      judet: settings.judet || 'Județul Bacău',
+      localitate: settings.localitate || TENANT.antetOficial,
+      judet: settings.judet || TENANT.judet,
       semnaturaPngDataUrl,
       qrPngDataUrl,
       verifyUrl,

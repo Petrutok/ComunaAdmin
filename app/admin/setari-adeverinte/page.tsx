@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Settings, Loader2, Upload, CheckCircle } from 'lucide-react';
+import { TENANT } from '@/lib/tenant';
 
 const SETTINGS_DOC = 'config/adeverinta_settings';
 const SIGNATURE_PATH = 'config/semnatura-primar.png';
@@ -20,8 +21,8 @@ export default function SetariAdeverintePage() {
   const [saving, setSaving] = useState(false);
 
   const [primarNume, setPrimarNume] = useState('');
-  const [localitate, setLocalitate] = useState('PRIMĂRIA COMUNEI FILIPEȘTI');
-  const [judet, setJudet] = useState('Județul Bacău');
+  const [localitate, setLocalitate] = useState(TENANT.antetOficial);
+  const [judet, setJudet] = useState(TENANT.judet);
   const [hasSignature, setHasSignature] = useState(false);
   const [signatureFile, setSignatureFile] = useState<File | null>(null);
 
@@ -31,8 +32,8 @@ export default function SetariAdeverintePage() {
         const data = snap.data();
         if (data) {
           setPrimarNume(data.primarNume || '');
-          setLocalitate(data.localitate || 'PRIMĂRIA COMUNEI FILIPEȘTI');
-          setJudet(data.judet || 'Județul Bacău');
+          setLocalitate(data.localitate || TENANT.antetOficial);
+          setJudet(data.judet || TENANT.judet);
           setHasSignature(!!data.semnaturaPath);
         }
       })

@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 import Image from 'next/image';
 import { ActiveAlertsBanner } from '@/components/ActiveAlertsBanner';
+import { TENANT } from '@/lib/tenant';
 
 export default function HomePage() {
   const cards = [
@@ -172,7 +173,7 @@ export default function HomePage() {
                 <div className="relative bg-slate-900/60 backdrop-blur-md p-1 rounded-2xl border border-white/20 hover:border-white/40 transition-colors duration-300 shadow-2xl">
                   <Image
                     src="/logo.jpg"
-                    alt="Logo Primăria Filipești"
+                    alt={`Logo ${TENANT.numePrimarie}`}
                     width={100}
                     height={100}
                     className="w-20 h-20 md:w-24 md:h-24 object-cover rounded-xl"
@@ -187,7 +188,7 @@ export default function HomePage() {
                   Primăria Digitală
                 </h1>
                 <p className="text-base md:text-lg text-gray-200 font-medium">
-                  Comuna Filipești
+                  {TENANT.numeComuna}
                 </p>
                 <p className="text-xs md:text-sm text-gray-400 mt-1">
                   Servicii publice moderne • Online 24/7
@@ -305,7 +306,7 @@ export default function HomePage() {
                   <span>primaria.digital</span>
                 </a>
                 <span>for</span>
-                <span className="text-gray-300 font-medium">Primăria Filipești</span>
+                <span className="text-gray-300 font-medium">{TENANT.numePrimarie}</span>
               </div>
               <p className="text-xs text-gray-600 mt-2">
                 Digitalizarea administrației publice locale
