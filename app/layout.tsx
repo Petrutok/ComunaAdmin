@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { NotificationProvider } from "@/components/NotificationProvider";
 import { CitizenAuthProvider } from "@/contexts/CitizenAuthContext";
+import { TENANT } from "@/lib/tenant";
 import { Toaster } from "@/components/ui/toaster";
 import { PWAInstallPrompt } from '@/components/PWAInstallPrompt';
 import { ServiceWorkerRegistration } from '@/components/ServiceWorkerRegistration';
@@ -10,8 +11,8 @@ import { ServiceWorkerRegistration } from '@/components/ServiceWorkerRegistratio
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Primăria Digitală",
-  description: "Platformă digitală pentru cetățeni - Servicii online, plăți, cereri și informații",
+  title: `Primăria Digitală — ${TENANT.numeComuna}`,
+  description: `Platforma digitală a ${TENANT.numePrimarie} - servicii online, cereri, adeverințe, programări și informații pentru cetățeni`,
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,

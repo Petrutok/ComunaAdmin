@@ -1,6 +1,7 @@
 // app/cereri-online/[formType]/page.tsx
 import { notFound } from 'next/navigation';
 import dynamic from 'next/dynamic';
+import { TENANT } from '@/lib/tenant';
 
 // Import Client Component cu dynamic import pentru a evita probleme de hidratare
 const CerereFormularClient = dynamic(
@@ -238,10 +239,10 @@ export async function generateMetadata({ params }: PageProps) {
   }
 
   return {
-    title: `${metadata.title} | Primăria Digitală Filipești`,
+    title: `${metadata.title} | ${TENANT.numePrimarie}`,
     description: metadata.description,
     openGraph: {
-      title: `${metadata.title} | Primăria Digitală Filipești`,
+      title: `${metadata.title} | ${TENANT.numePrimarie}`,
       description: metadata.description,
       type: 'website',
     },

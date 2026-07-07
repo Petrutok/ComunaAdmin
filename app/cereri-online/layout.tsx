@@ -1,8 +1,9 @@
 import { Metadata } from 'next';
+import { TENANT } from '@/lib/tenant';
 
 export const metadata: Metadata = {
-  title: 'Cereri Online | Primăria Filipești',
-  description: 'Trimite cereri online către Primăria Filipești',
+  title: `Cereri Online | ${TENANT.numePrimarie}`,
+  description: `Trimite cereri online către ${TENANT.numePrimarie}`,
 };
 
 export const viewport = {

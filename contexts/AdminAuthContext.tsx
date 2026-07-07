@@ -12,14 +12,12 @@ import { auth, db, COLLECTIONS } from '@/lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import { useRouter, usePathname } from 'next/navigation';
 import { UserRole } from '@/types/departments';
+import { FALLBACK_ADMIN_EMAILS } from '@/lib/tenant';
 
-// LISTA DE ADMINISTRATORI AUTORIZAȚI
-// Poți adăuga/elimina email-uri aici sau le poți muta în Firestore
-const AUTHORIZED_ADMINS = [
-  'admin@primaria.ro',
-  'primar@filipesti.ro',
-  // Adaugă aici email-urile administratorilor autorizați
-];
+// Fallback list for the client-side login gate only (per-tenant, from env).
+// Real authorization is the `users` collection - checked by API routes and
+// Firestore rules.
+const AUTHORIZED_ADMINS = FALLBACK_ADMIN_EMAILS;
 
 interface AdminAuthContextType {
   user: User | null;

@@ -1,4 +1,5 @@
 import jsPDF from 'jspdf';
+import { TENANT } from '@/lib/tenant';
 
 export interface RequestData {
   numeComplet: string;
@@ -316,17 +317,17 @@ export async function generatePDF(data: RequestData): Promise<Blob> {
     return y;
   };
 
-  // ANTET INSTITUȚIE
+  // ANTET INSTITUȚIE (per-tenant, from lib/tenant.ts)
   pdf.setFontSize(14);
   pdf.setFont('helvetica', 'bold');
-  pdf.text(removeDiacritics('PRIMARIA COMUNEI FILIPESTI'), pageWidth / 2, yPosition, { align: 'center' });
+  pdf.text(removeDiacritics(TENANT.antetOficial), pageWidth / 2, yPosition, { align: 'center' });
   yPosition += 6;
-  
+
   pdf.setFontSize(10);
   pdf.setFont('helvetica', 'normal');
-  pdf.text(removeDiacritics('Judetul Bacau'), pageWidth / 2, yPosition, { align: 'center' });
+  pdf.text(removeDiacritics(TENANT.judet), pageWidth / 2, yPosition, { align: 'center' });
   yPosition += 5;
-  pdf.text(removeDiacritics('Tel: 0234/256.789 | Fax: 0234/256.790 | Email: contact@primariafilipesti.ro'), pageWidth / 2, yPosition, { align: 'center' });
+  pdf.text(removeDiacritics(`Tel: ${TENANT.telefon} | Email: ${TENANT.email}`), pageWidth / 2, yPosition, { align: 'center' });
   yPosition += 10;
 
   // Număr înregistrare și dată
