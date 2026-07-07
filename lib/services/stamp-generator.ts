@@ -12,6 +12,8 @@ export interface StampConfig {
   organizationName?: string;
   departmentName?: string;
   trackingUrl?: string; // URL for QR code (optional)
+  senderName?: string; // shown on the stamp when available
+  senderEmail?: string;
 }
 
 export interface StampOptions {

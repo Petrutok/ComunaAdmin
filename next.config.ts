@@ -28,12 +28,14 @@ const nextConfig = {
     NEXT_PUBLIC_IS_MOBILE: 'false',
   },
   
-  // IMPORTANT - Ignoră erorile pentru a permite build-ul
+  // ESLint still has legacy findings - lint stays advisory for now
   eslint: {
     ignoreDuringBuilds: true,
   },
+  // TypeScript errors BLOCK the build (codebase reached 0 errors on 2026-07-07;
+  // CI also runs `npm run typecheck` on every PR - keep it clean)
   typescript: {
-    ignoreBuildErrors: true,
+    ignoreBuildErrors: false,
   },
 }
 

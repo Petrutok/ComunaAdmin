@@ -77,10 +77,11 @@ export class EmailService {
 
     // Search for unseen emails from last 24 hours
     const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000);
-    const messages = await this.client.search({
-      unseen: true,
+    // imapflow returns false when the search fails / mailbox is empty
+    const messages = (await this.client.search({
+      seen: false,
       since: yesterday,
-    });
+    })) || [];
 
     const emails: EmailMessage[] = [];
 
@@ -91,7 +92,7 @@ export class EmailService {
           source: true, // Get full raw email
         });
 
-        if (!message.source) continue;
+        if (!message || !message.source) continue;
 
         // Parse the email
         const parsed = await simpleParser(message.source);
@@ -132,10 +133,10 @@ export class EmailService {
 
     await this.client.mailboxOpen('INBOX');
 
-    // Search for unseen emails
-    const messages = await this.client.search({
-      unseen: true,
-    });
+    // Search for unseen emails (imapflow returns false on failure)
+    const messages = (await this.client.search({
+      seen: false,
+    })) || [];
 
     const emails: EmailMessage[] = [];
     const messagesToProcess = messages.slice(0, limit);
@@ -146,7 +147,7 @@ export class EmailService {
           source: true,
         });
 
-        if (!message.source) continue;
+        if (!message || !message.source) continue;
 
         const parsed = await simpleParser(message.source);
 

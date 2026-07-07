@@ -129,9 +129,10 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
           }
         } else {
           console.log('[NotificationProvider] SW not active yet, retrying...');
-          if (registration?.controller) {
+          // controller lives on navigator.serviceWorker, not on the registration
+          if (navigator.serviceWorker.controller) {
             console.log('[NotificationProvider] But controller exists, might be okay');
-            return registration;
+            return registration ?? null;
           }
         }
 
