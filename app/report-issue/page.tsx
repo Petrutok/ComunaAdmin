@@ -349,187 +349,194 @@ export default function ReportIssuePage() {
         </div>
 
         {/* Form Card */}
-        <Card className="bg-slate-800 border-slate-700">
+        <Card className="bg-slate-800/80 border-slate-700 rounded-2xl">
           <CardContent className="p-6">
-            <form onSubmit={handleSubmit} className="space-y-6">
-              {/* Name Field */}
-              <div className="space-y-2">
-                <Label htmlFor="name" className="text-white">
-                  Nume complet *
-                </Label>
-                <Input
-                  type="text"
-                  id="name"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="Introduceți numele dvs."
-                  className="bg-slate-700 border-slate-600 text-white placeholder:text-gray-400 focus:border-blue-500 focus:ring-blue-500"
-                  required
-                />
-              </div>
-              
-              {/* Contact Field */}
-              <div className="space-y-2">
-                <Label htmlFor="contact" className="text-white">
-                  Contact (telefon/email) *
-                </Label>
-                <Input
-                  type="text"
-                  id="contact"
-                  value={contact}
-                  onChange={(e) => setContact(e.target.value)}
-                  placeholder="Ex: 0712345678 sau email@exemplu.ro"
-                  className="bg-slate-700 border-slate-600 text-white placeholder:text-gray-400 focus:border-blue-500 focus:ring-blue-500"
-                  required
-                />
-              </div>
-              
-              {/* Location Field */}
-              <div className="space-y-2">
-                <Label htmlFor="location" className="text-white">
-                  Locație *
-                </Label>
-                <div className="flex gap-2">
-                  <Input
-                    type="text"
-                    id="location"
-                    value={location}
-                    onChange={(e) => setLocation(e.target.value)}
-                    placeholder="Introduceți locația problemei"
-                    className="bg-slate-700 border-slate-600 text-white placeholder:text-gray-400 focus:border-blue-500 focus:ring-blue-500"
+            <form onSubmit={handleSubmit} className="space-y-8">
+              {/* --- Sectiunea 1: Problema --- */}
+              <div className="space-y-5">
+                <h2 className="text-sm font-semibold uppercase tracking-widest text-gray-500">
+                  Problema
+                </h2>
+
+                {/* Problem type - visual tile grid instead of dropdown */}
+                <div className="space-y-2">
+                  <Label className="text-white">Ce fel de problemă? *</Label>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {problemTypes.map((type) => (
+                      <button
+                        key={type.value}
+                        type="button"
+                        onClick={() => setProblemType(type.value)}
+                        className={`flex items-center gap-2.5 rounded-xl border px-3 py-3 text-left text-sm font-medium transition-all ${
+                          problemType === type.value
+                            ? 'border-red-500 bg-red-500/15 text-white'
+                            : 'border-slate-600 bg-slate-700/50 text-gray-300 hover:border-slate-500'
+                        }`}
+                      >
+                        <span className="text-xl">{type.icon}</span>
+                        <span>{type.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Description */}
+                <div className="space-y-2">
+                  <Label htmlFor="description" className="text-white">
+                    Descrie problema *
+                  </Label>
+                  <Textarea
+                    id="description"
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    placeholder="Ce s-a întâmplat, de când, cât de gravă e situația..."
+                    rows={4}
+                    className="bg-slate-700 border-slate-600 text-white placeholder:text-gray-500 focus:border-red-500 focus:ring-red-500 rounded-xl"
                     required
                   />
-                  {hasGeolocation && (
-                    <Button 
-                      type="button" 
-                      onClick={getCurrentLocation}
-                      className="bg-slate-700 hover:bg-slate-600 text-white border-slate-600"
-                    >
-                      <MapPin className="h-4 w-4 mr-2" />
-                      Locație curentă
-                    </Button>
-                  )}
                 </div>
-              </div>
 
-              {/* Problem Type Field */}
-              <div className="space-y-2">
-                <Label htmlFor="problemType" className="text-white">
-                  Tip problemă *
-                </Label>
-                <Select value={problemType} onValueChange={setProblemType}>
-                  <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
-                    <SelectValue placeholder="Selectează tipul problemei" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {problemTypes.map((type) => (
-                      <SelectItem key={type.value} value={type.value}>
-                        <span className="flex items-center gap-2">
-                          <span>{type.icon}</span>
-                          <span>{type.label}</span>
-                        </span>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Priority Field */}
-              <div className="space-y-2">
-                <Label htmlFor="priority" className="text-white">
-                  Prioritate
-                </Label>
-                <Select value={priority} onValueChange={setPriority}>
-                  <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
-                    <SelectValue placeholder="Selectează prioritatea" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="low">
-                      <span className="flex items-center gap-2">
-                        <span className="w-2 h-2 bg-gray-500 rounded-full"></span>
-                        Scăzută
-                      </span>
-                    </SelectItem>
-                    <SelectItem value="medium">
-                      <span className="flex items-center gap-2">
-                        <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
-                        Medie
-                      </span>
-                    </SelectItem>
-                    <SelectItem value="high">
-                      <span className="flex items-center gap-2">
-                        <span className="w-2 h-2 bg-orange-500 rounded-full"></span>
-                        Ridicată
-                      </span>
-                    </SelectItem>
-                    <SelectItem value="urgent">
-                      <span className="flex items-center gap-2">
-                        <span className="w-2 h-2 bg-red-500 rounded-full"></span>
-                        Urgentă
-                      </span>
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              
-              {/* Description Field */}
-              <div className="space-y-2">
-                <Label htmlFor="description" className="text-white">
-                  Descrierea problemei *
-                </Label>
-                <Textarea
-                  id="description"
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Descrieți problema în detaliu"
-                  rows={5}
-                  className="bg-slate-700 border-slate-600 text-white placeholder:text-gray-400 focus:border-blue-500 focus:ring-blue-500"
-                  required
-                />
-              </div>
-              
-              {/* Image Upload */}
-              <div className="space-y-2">
-                <Label htmlFor="image" className="text-white">
-                  Încărcare imagine (opțional)
-                </Label>
-                <div className="relative">
-                  <Input 
-                    type="file" 
-                    id="image" 
-                    accept="image/*" 
-                    onChange={handleImageChange}
-                    className="bg-slate-700 border-slate-600 text-white file:bg-slate-600 file:text-white file:border-0 file:mr-4"
-                  />
-                  {image && (
-                    <div className="mt-3">
-                      <p className="text-sm text-gray-400 mb-2">
-                        Selectat: {image.name} ({(image.size / 1024 / 1024).toFixed(2)} MB)
-                      </p>
-                      {imageUrl && (
-                        <div className="relative inline-block">
-                          <img 
-                            src={imageUrl} 
-                            alt="Preview" 
-                            className="max-w-xs h-auto rounded-lg border border-slate-600"
-                          />
-                          <div className="absolute top-2 right-2 bg-black/50 backdrop-blur-sm rounded-full p-2">
-                            <Camera className="h-4 w-4 text-white" />
-                          </div>
+                {/* Photo - friendly upload zone */}
+                <div className="space-y-2">
+                  <Label className="text-white">Poză (opțional, ajută mult)</Label>
+                  <label
+                    htmlFor="image"
+                    className="flex cursor-pointer items-center gap-4 rounded-xl border-2 border-dashed border-slate-600 bg-slate-700/30 p-4 transition-colors hover:border-slate-500 hover:bg-slate-700/50"
+                  >
+                    {imageUrl ? (
+                      <>
+                        <img
+                          src={imageUrl}
+                          alt="Preview"
+                          className="h-20 w-20 rounded-lg object-cover border border-slate-600"
+                        />
+                        <div className="min-w-0">
+                          <p className="font-medium text-white truncate">{image?.name}</p>
+                          <p className="text-sm text-gray-400">
+                            {image ? (image.size / 1024 / 1024).toFixed(2) : ''} MB · apasă pentru a schimba
+                          </p>
                         </div>
-                      )}
-                    </div>
-                  )}
+                      </>
+                    ) : (
+                      <>
+                        <div className="rounded-xl bg-slate-700 p-3">
+                          <Camera className="h-7 w-7 text-gray-300" />
+                        </div>
+                        <div>
+                          <p className="font-medium text-white">Adaugă o poză</p>
+                          <p className="text-sm text-gray-400">Fotografiază problema direct de pe telefon</p>
+                        </div>
+                      </>
+                    )}
+                  </label>
+                  <Input
+                    type="file"
+                    id="image"
+                    accept="image/*"
+                    onChange={handleImageChange}
+                    className="hidden"
+                  />
+                </div>
+
+                {/* Location */}
+                <div className="space-y-2">
+                  <Label htmlFor="location" className="text-white">
+                    Unde se află? *
+                  </Label>
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <Input
+                      type="text"
+                      id="location"
+                      value={location}
+                      onChange={(e) => setLocation(e.target.value)}
+                      placeholder="Strada, numărul sau un reper cunoscut"
+                      className="bg-slate-700 border-slate-600 text-white placeholder:text-gray-500 focus:border-red-500 focus:ring-red-500 rounded-xl"
+                      required
+                    />
+                    {hasGeolocation && (
+                      <Button
+                        type="button"
+                        onClick={getCurrentLocation}
+                        className="shrink-0 rounded-xl bg-slate-700 hover:bg-slate-600 text-white border border-slate-600"
+                      >
+                        <MapPin className="h-4 w-4 mr-2" />
+                        Folosește locația mea
+                      </Button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Priority - colored pills instead of dropdown */}
+                <div className="space-y-2">
+                  <Label className="text-white">Cât de urgentă e?</Label>
+                  <div className="grid grid-cols-4 gap-2">
+                    {[
+                      { value: 'low', label: 'Scăzută', dot: 'bg-gray-400', active: 'border-gray-400 bg-gray-500/15' },
+                      { value: 'medium', label: 'Medie', dot: 'bg-blue-400', active: 'border-blue-400 bg-blue-500/15' },
+                      { value: 'high', label: 'Ridicată', dot: 'bg-orange-400', active: 'border-orange-400 bg-orange-500/15' },
+                      { value: 'urgent', label: 'Urgentă', dot: 'bg-red-400', active: 'border-red-400 bg-red-500/15' },
+                    ].map((p) => (
+                      <button
+                        key={p.value}
+                        type="button"
+                        onClick={() => setPriority(p.value)}
+                        className={`flex items-center justify-center gap-1.5 rounded-xl border px-2 py-2.5 text-sm font-medium transition-all ${
+                          priority === p.value
+                            ? `${p.active} text-white`
+                            : 'border-slate-600 bg-slate-700/50 text-gray-400 hover:border-slate-500'
+                        }`}
+                      >
+                        <span className={`h-2 w-2 rounded-full ${p.dot}`}></span>
+                        {p.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
-              
-              <p className="text-sm text-gray-400">* Câmpuri obligatorii</p>
-              
-              {/* Submit Button */}
-              <Button 
-                type="submit" 
-                disabled={isSubmitting || uploadingImage} 
-                className="w-full bg-red-500 hover:bg-red-600 text-white font-semibold py-3 text-base disabled:opacity-50 disabled:cursor-not-allowed"
+
+              {/* --- Sectiunea 2: Datele tale --- */}
+              <div className="space-y-5">
+                <h2 className="text-sm font-semibold uppercase tracking-widest text-gray-500">
+                  Datele tale
+                </h2>
+
+                <div className="grid gap-5 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="name" className="text-white">
+                      Nume complet *
+                    </Label>
+                    <Input
+                      type="text"
+                      id="name"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      placeholder="Ion Popescu"
+                      className="bg-slate-700 border-slate-600 text-white placeholder:text-gray-500 focus:border-red-500 focus:ring-red-500 rounded-xl"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="contact" className="text-white">
+                      Telefon sau email *
+                    </Label>
+                    <Input
+                      type="text"
+                      id="contact"
+                      value={contact}
+                      onChange={(e) => setContact(e.target.value)}
+                      placeholder="07xx xxx xxx sau email@exemplu.ro"
+                      className="bg-slate-700 border-slate-600 text-white placeholder:text-gray-500 focus:border-red-500 focus:ring-red-500 rounded-xl"
+                      required
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Submit */}
+              <Button
+                type="submit"
+                disabled={isSubmitting || uploadingImage}
+                className="w-full rounded-xl bg-gradient-to-r from-red-600 to-rose-600 py-6 text-base font-semibold text-white shadow-lg transition-all hover:from-red-500 hover:to-rose-500 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {uploadingImage ? (
                   <>
@@ -544,7 +551,7 @@ export default function ReportIssuePage() {
                 ) : (
                   <>
                     <AlertTriangle className="mr-2 h-5 w-5" />
-                    Trimite raportul
+                    Trimite sesizarea
                   </>
                 )}
               </Button>

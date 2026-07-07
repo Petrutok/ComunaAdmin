@@ -62,7 +62,8 @@ import {
   ArrowRight,
   CheckCircle,
   Star,
-  ArrowLeft
+  ArrowLeft,
+  Newspaper
 } from 'lucide-react';
 import {
   Dialog,
@@ -476,120 +477,90 @@ export default function AnnouncementsPage() {
       </button>
 
       <div className="max-w-7xl mx-auto px-3 sm:px-4 py-6 sm:py-8">
-        {/* Header simplificat - responsive */}
-        <div className="mb-6 sm:mb-8 text-center pt-12 sm:pt-16">
-          <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold text-white mb-2 sm:mb-3">
+        {/* Header */}
+        <div className="mb-6 text-center pt-14 sm:pt-16">
+          <div className="inline-flex items-center justify-center p-3 bg-blue-500 rounded-xl mb-4">
+            <Newspaper className="h-7 w-7 text-white" />
+          </div>
+          <h1 className="text-3xl sm:text-4xl font-bold text-white mb-2">
             Anunțuri Locale
           </h1>
           <p className="text-gray-400 text-base sm:text-lg max-w-2xl mx-auto px-4">
-            Cumpără sau vinde în comunitatea noastră. Găsește servicii locale de încredere.
+            Cumpără, vinde și găsește servicii în comunitate
           </p>
         </div>
 
-        {/* Statistici categorii - grid optimizat pentru mobil */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-3 mb-4 sm:mb-6">
-          {Object.entries(ANNOUNCEMENT_CATEGORIES_LOCAL).map(([key, cat]) => {
-            const count = key === 'toate' 
-              ? announcements.length 
-              : announcements.filter(a => a.category === key).length;
-            
-            return (
-              <Card 
-                key={key}
-                className={cn(
-                  "bg-slate-800/50 border-slate-700 hover:bg-slate-800 transition-all cursor-pointer",
-                  selectedCategory === key && "ring-2 ring-blue-500 bg-slate-800"
-                )}
-                onClick={() => setSelectedCategory(key)}
+        {/* Search + publish */}
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row">
+          <div className="relative flex-1">
+            <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-500" />
+            <Input
+              type="text"
+              placeholder="Caută în anunțuri..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="h-12 rounded-xl border-slate-700 bg-slate-800/80 pl-12 text-base text-white placeholder:text-gray-500"
+            />
+          </div>
+          <div className="flex gap-2">
+            <div className="hidden sm:flex rounded-xl border border-slate-700 bg-slate-800/80 p-1">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setViewMode('grid')}
+                className={cn("rounded-lg px-3", viewMode === 'grid' && "bg-slate-700")}
               >
-                <CardContent className="p-2.5 sm:p-3">
-                  <div className="flex flex-col items-center text-center space-y-0.5 sm:space-y-1">
-                    <div className="text-xl sm:text-2xl">{cat.icon}</div>
-                    <p className="text-[10px] sm:text-xs text-gray-400 line-clamp-1">{cat.label}</p>
-                    <p className="text-base sm:text-lg font-bold text-white">{count}</p>
-                  </div>
-                </CardContent>
-              </Card>
+                <Grid3x3 className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setViewMode('list')}
+                className={cn("rounded-lg px-3", viewMode === 'list' && "bg-slate-700")}
+              >
+                <List className="h-4 w-4" />
+              </Button>
+            </div>
+            <Button
+              onClick={() => setShowAddDialog(true)}
+              className="h-12 flex-1 sm:flex-initial rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 px-6 text-base font-semibold text-white shadow-lg hover:from-blue-500 hover:to-indigo-500"
+            >
+              <Plus className="mr-2 h-5 w-5" />
+              Publică anunț
+            </Button>
+          </div>
+        </div>
+
+        {/* Category chips - horizontal, scrollable on mobile */}
+        <div className="mb-6 flex gap-2 overflow-x-auto pb-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          {Object.entries(ANNOUNCEMENT_CATEGORIES_LOCAL).map(([key, cat]) => {
+            const count = key === 'toate'
+              ? announcements.length
+              : announcements.filter(a => a.category === key).length;
+
+            return (
+              <button
+                key={key}
+                onClick={() => setSelectedCategory(key)}
+                className={cn(
+                  "flex shrink-0 items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium transition-all",
+                  selectedCategory === key
+                    ? "border-blue-500 bg-blue-500/20 text-white"
+                    : "border-slate-700 bg-slate-800/60 text-gray-300 hover:border-slate-500"
+                )}
+              >
+                <span>{cat.icon}</span>
+                <span>{cat.label}</span>
+                <span className={cn(
+                  "rounded-full px-1.5 py-0.5 text-xs font-bold",
+                  selectedCategory === key ? "bg-blue-500/40 text-white" : "bg-slate-700 text-gray-400"
+                )}>
+                  {count}
+                </span>
+              </button>
             );
           })}
         </div>
-
-        {/* Toolbar - stack pe mobil */}
-        <Card className="bg-slate-800/50 border-slate-700 mb-4 sm:mb-6">
-          <CardContent className="p-3 sm:p-4">
-            <div className="flex flex-col gap-2 sm:gap-3 lg:flex-row">
-              {/* Search - full width pe mobil */}
-              <div className="relative flex-1 order-1">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <Input
-                  type="text"
-                  placeholder="Caută în anunțuri..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 bg-slate-900 border-slate-600 text-white text-sm sm:text-base"
-                />
-              </div>
-
-              {/* Filters row - pe mobil sub search */}
-              <div className="flex gap-2 order-2 lg:order-2">
-                {/* Filter dropdown - mai mic pe mobil */}
-                <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                  <SelectTrigger className="flex-1 lg:w-[180px] bg-slate-900 border-slate-600 text-white text-sm">
-                    <Filter className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1.5 sm:mr-2" />
-                    <span className="truncate">
-                      {ANNOUNCEMENT_CATEGORIES_LOCAL[selectedCategory as keyof typeof ANNOUNCEMENT_CATEGORIES_LOCAL]?.label || 'Toate'}
-                    </span>
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Object.entries(ANNOUNCEMENT_CATEGORIES_LOCAL).map(([key, cat]) => (
-                      <SelectItem key={key} value={key}>
-                        <span className="flex items-center gap-2 text-sm">
-                          <span>{cat.icon}</span>
-                          <span>{cat.label}</span>
-                        </span>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-
-                {/* View mode toggle - ascuns pe mobil mic */}
-                <div className="hidden sm:flex bg-slate-900 rounded-lg border border-slate-600 p-0.5">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setViewMode('grid')}
-                    className={cn(
-                      "rounded px-2",
-                      viewMode === 'grid' && "bg-slate-700"
-                    )}
-                  >
-                    <Grid3x3 className="h-3.5 w-3.5" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setViewMode('list')}
-                    className={cn(
-                      "rounded px-2",
-                      viewMode === 'list' && "bg-slate-700"
-                    )}
-                  >
-                    <List className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
-              </div>
-
-              {/* Add button - full width pe mobil */}
-              <Button 
-                onClick={() => setShowAddDialog(true)}
-                className="bg-blue-600 hover:bg-blue-700 text-white order-3 lg:order-3 w-full lg:w-auto text-sm sm:text-base"
-              >
-                <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1.5 sm:mr-2" />
-                Publică anunț
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
 
         {/* Announcements Display - o singură coloană pe mobil */}
         {loading ? (
@@ -623,17 +594,17 @@ export default function AnnouncementsPage() {
               const categoryStyle = getCategoryStyle(announcement.category);
               
               return (
-                <Card 
-                  key={announcement.id} 
-                  className="bg-slate-800/50 border-slate-700 hover:bg-slate-800 transition-all h-full flex flex-col"
+                <Card
+                  key={announcement.id}
+                  className="group h-full flex flex-col overflow-hidden rounded-2xl border-slate-700 bg-slate-800/80 transition-all hover:border-slate-500 hover:shadow-lg"
                 >
-                  {/* Imagine preview - mai mică pe mobil */}
+                  {/* Imagine preview */}
                   {announcement.images && announcement.images.length > 0 && (
-                    <div className="relative h-40 sm:h-48 overflow-hidden rounded-t-lg">
-                      <img 
-                        src={announcement.images[0]} 
+                    <div className="relative h-44 sm:h-48 overflow-hidden">
+                      <img
+                        src={announcement.images[0]}
                         alt={announcement.title}
-                        className="w-full h-full object-cover"
+                        className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                       />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
                     </div>
@@ -676,30 +647,26 @@ export default function AnnouncementsPage() {
                       </div>
                     )}
                     
-                    <div className="border-t border-slate-700 pt-2 sm:pt-3 mt-auto">
-                      <div className="flex items-center justify-between mb-1.5 sm:mb-2">
-                        <div className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm text-gray-400">
-                          <User className="h-3 w-3 sm:h-4 sm:w-4" />
-                          <span className="truncate max-w-[120px] sm:max-w-none">{announcement.contact.name}</span>
-                        </div>
+                    <div className="border-t border-slate-700 pt-3 mt-auto space-y-2">
+                      <div className="flex items-center justify-between text-sm text-gray-400">
+                        <span className="flex items-center gap-2 min-w-0">
+                          <User className="h-4 w-4 shrink-0" />
+                          <span className="truncate">{announcement.contact.name}</span>
+                        </span>
+                        <span className="flex items-center gap-1.5 shrink-0">
+                          <Phone className="h-4 w-4" />
+                          {announcement.contact.phone}
+                        </span>
                       </div>
-                      
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm text-gray-400">
-                          <Phone className="h-3 w-3 sm:h-4 sm:w-4" />
-                          <span>{announcement.contact.phone}</span>
-                        </div>
-                        
-                        <Button 
-                          size="sm" 
-                          variant="ghost"
-                          onClick={() => handleViewDetails(announcement)}
-                          className="text-blue-400 hover:text-blue-300 text-xs sm:text-sm px-2 sm:px-3 h-7 sm:h-8"
-                        >
-                          Detalii
-                          <ChevronRight className="h-3 w-3 sm:h-4 sm:w-4 ml-0.5 sm:ml-1" />
-                        </Button>
-                      </div>
+
+                      <Button
+                        variant="outline"
+                        onClick={() => handleViewDetails(announcement)}
+                        className="w-full rounded-xl border-slate-600 text-gray-200 hover:bg-slate-700 hover:text-white"
+                      >
+                        Vezi detalii
+                        <ChevronRight className="h-4 w-4 ml-1" />
+                      </Button>
                     </div>
                   </CardContent>
                 </Card>
