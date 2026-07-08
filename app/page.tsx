@@ -19,7 +19,6 @@ import {
   Menu,
   MapPin,
   FolderOpen,
-  UserCircle,
   Phone,
   Shield,
   Heart,
@@ -27,6 +26,7 @@ import {
 } from 'lucide-react';
 import Image from 'next/image';
 import { ActiveAlertsBanner } from '@/components/ActiveAlertsBanner';
+import { AccountButton } from '@/components/AccountButton';
 import { TENANT } from '@/lib/tenant';
 
 export default function HomePage() {
@@ -73,15 +73,10 @@ export default function HomePage() {
         </div>
 
         {/* Main Header Content */}
-        <div className="relative max-w-7xl mx-auto px-4 py-8 md:py-10">
-          {/* Account button - top right */}
-          <div className="absolute top-4 right-4 z-10">
-            <Link href="/cont">
-              <div className="flex items-center gap-2 rounded-xl border border-white/20 bg-white/10 px-4 py-2 text-sm font-medium text-white backdrop-blur-md transition-all hover:bg-white/20">
-                <UserCircle className="h-5 w-5" />
-                <span>Contul meu</span>
-              </div>
-            </Link>
+        <div className="relative max-w-7xl mx-auto px-4 pb-8 pt-4 md:pb-10">
+          {/* Top bar: account chip in its own row (no overlap with the title) */}
+          <div className="mb-4 flex justify-end">
+            <AccountButton />
           </div>
           <div className="flex justify-center">
             {/* Logo Section - Centrat */}
