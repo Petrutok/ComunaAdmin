@@ -19,9 +19,54 @@ export interface TriajResult {
   etichete: string[];
 }
 
-const GEMINI_MODEL = 'gemini-2.0-flash';
+// Model is configurable so a tenant can switch without code changes.
+// Default is Gemini Flash - its free tier (Google AI Studio key) covers a
+// commune's email volume at zero cost.
+const GEMINI_MODEL = process.env.TRIAGE_GEMINI_MODEL || 'gemini-2.0-flash';
 const TIMEOUT_MS = 20_000;
 const MAX_BODY_CHARS = 4000;
+
+/**
+ * Pure, testable: validate and normalize the raw JSON returned by the model
+ * into a TriajResult, or null if it's unusable (caller then falls back to
+ * the keyword heuristic). Exposed separately so the gating logic that
+ * decides what enters the official registry is unit-tested.
+ */
+export function normalizeTriajResult(
+  raw: unknown,
+  departamente: string[]
+): TriajResult | null {
+  if (typeof raw !== 'object' || raw === null) return null;
+  const r = raw as Record<string, unknown>;
+
+  if (!['oficial', 'spam', 'reclama'].includes(r.clasificare as string)) return null;
+
+  const prioritate = ['urgent', 'normal', 'low'].includes(r.prioritateSugerata as string)
+    ? (r.prioritateSugerata as TriajResult['prioritateSugerata'])
+    : 'normal';
+
+  const etichete = Array.isArray(r.etichete)
+    ? r.etichete
+        .slice(0, 3)
+        .map((t) => String(t).toLowerCase().trim())
+        .filter(Boolean)
+    : [];
+
+  // Only keep a suggested department if it actually exists for this tenant
+  const departamentSugerat =
+    typeof r.departamentSugerat === 'string' && departamente.includes(r.departamentSugerat)
+      ? r.departamentSugerat
+      : null;
+
+  return {
+    clasificare: r.clasificare as TriajResult['clasificare'],
+    motiv: typeof r.motiv === 'string' ? r.motiv.slice(0, 300) : '',
+    rezumat: typeof r.rezumat === 'string' ? r.rezumat.slice(0, 500) : '',
+    departamentSugerat,
+    prioritateSugerata: prioritate,
+    etichete,
+  };
+}
 
 export async function triajeazaEmail(input: {
   from: string;
@@ -96,23 +141,16 @@ Conținut: ${input.body.slice(0, MAX_BODY_CHARS)}`;
     const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
     if (!text) return null;
 
-    const parsed = JSON.parse(text) as TriajResult;
-
-    // Defensive normalization - never trust model output blindly
-    if (!['oficial', 'spam', 'reclama'].includes(parsed.clasificare)) return null;
-    parsed.etichete = (parsed.etichete || [])
-      .slice(0, 3)
-      .map((t) => String(t).toLowerCase().trim())
-      .filter(Boolean);
-    parsed.departamentSugerat =
-      parsed.departamentSugerat && input.departamente.includes(parsed.departamentSugerat)
-        ? parsed.departamentSugerat
-        : null;
-    if (!['urgent', 'normal', 'low'].includes(parsed.prioritateSugerata)) {
-      parsed.prioritateSugerata = 'normal';
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(text);
+    } catch {
+      return null;
     }
 
-    return parsed;
+    // Validate/normalize in a pure, unit-tested function - never trust
+    // model output blindly on something that gates the official registry
+    return normalizeTriajResult(parsed, input.departamente);
   } catch (error) {
     console.error('[ai-triage] Triage failed (falling back to heuristic):', error);
     return null;
