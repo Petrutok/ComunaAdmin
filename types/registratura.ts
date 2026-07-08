@@ -44,6 +44,29 @@ export interface RegistraturaEmail {
 
   // Enterprise workflow extras
   etichete?: string[];       // free-form tags for grouping/filtering
+
+  // AI triage suggestions (advisory only - the clerk confirms via assignment)
+  aiTriaj?: {
+    rezumat: string;
+    departamentSugerat: string | null;
+    prioritateSugerata: EmailPriority;
+    etichete: string[];
+  };
+}
+
+/** Email held back from the registry (spam/ads) - never silently dropped.
+ *  Stored in `registratura_quarantine`; staff can register it anyway. */
+export interface QuarantinedEmail {
+  id: string;
+  from: string;
+  subject: string;
+  body: string;              // truncated
+  dateReceived: Timestamp;
+  clasificare: 'spam' | 'reclama';
+  motiv: string;             // why it was quarantined (AI reason or heuristic)
+  attachmentNames: string[]; // names only - attachments are not stored
+  messageId?: string;
+  createdAt: Timestamp;
 }
 
 export interface EmailAttachment {

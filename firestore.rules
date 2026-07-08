@@ -119,6 +119,12 @@ service cloud.firestore {
       }
     }
 
+    // Quarantine: spam/ads held back from the registry (written server-side
+    // via Admin SDK). Staff review and register false positives.
+    match /registratura_quarantine/{id} {
+      allow read, write: if isStaff();
+    }
+
     match /registru_general/{id} {
       allow read, write: if isStaff();
     }

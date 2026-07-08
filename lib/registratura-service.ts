@@ -66,6 +66,98 @@ export class RegistraturaService {
     }
   }
 
+  /** Department names for AI triage suggestions. */
+  async getDepartmentNames(): Promise<string[]> {
+    try {
+      const snap = await requireDb().collection('departments').get();
+      return snap.docs.map((d) => d.data().name).filter(Boolean);
+    } catch {
+      return [];
+    }
+  }
+
+  /**
+   * Quarantine instead of silently dropping: spam/ads never consume a
+   * registration number, but stay reviewable in the admin UI, from where
+   * staff can register a false positive with one click.
+   */
+  async quarantineEmail(
+    email: {
+      from: string;
+      subject: string;
+      body: string;
+      date: Date;
+      messageId?: string;
+      attachments?: Array<{ filename: string }>;
+    },
+    clasificare: 'spam' | 'reclama',
+    motiv: string
+  ): Promise<void> {
+    await requireDb().collection('registratura_quarantine').add({
+      from: email.from,
+      subject: email.subject || '(fără subiect)',
+      body: (email.body || '').slice(0, 2000),
+      dateReceived: Timestamp.fromDate(email.date),
+      clasificare,
+      motiv,
+      attachmentNames: (email.attachments || []).map((a) => a.filename),
+      messageId: email.messageId || null,
+      createdAt: Timestamp.now(),
+    });
+  }
+
+  /** Duplicate check must cover quarantine too, otherwise a quarantined
+   *  message reappears at every sync. */
+  async quarantineExists(messageId: string): Promise<boolean> {
+    if (!messageId) return false;
+    const snap = await requireDb()
+      .collection('registratura_quarantine')
+      .where('messageId', '==', messageId)
+      .limit(1)
+      .get();
+    return !snap.empty;
+  }
+
+  async getQuarantine(): Promise<any[]> {
+    const snap = await requireDb()
+      .collection('registratura_quarantine')
+      .orderBy('createdAt', 'desc')
+      .limit(200)
+      .get();
+    return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  }
+
+  /**
+   * False positive recovery: register a quarantined email into the real
+   * registry (gets a proper number + registru index) and remove it from
+   * quarantine. Attachments were not stored, so only the text is carried
+   * over - the clerk can request the sender re-send documents if needed.
+   */
+  async registerFromQuarantine(quarantineId: string): Promise<string> {
+    const ref = requireDb().collection('registratura_quarantine').doc(quarantineId);
+    const snap = await ref.get();
+    if (!snap.exists) throw new Error('Emailul din carantină nu mai există');
+    const q = snap.data()!;
+
+    await this.createEmailRecord({
+      from: q.from,
+      subject: q.subject,
+      body: q.body + (q.attachmentNames?.length
+        ? `\n\n[Atașamente în emailul original: ${q.attachmentNames.join(', ')}]`
+        : ''),
+      dateReceived: q.dateReceived,
+      attachments: [],
+      messageId: q.messageId || undefined,
+    });
+
+    await ref.delete();
+    return q.subject;
+  }
+
+  async deleteFromQuarantine(quarantineId: string): Promise<void> {
+    await requireDb().collection('registratura_quarantine').doc(quarantineId).delete();
+  }
+
   // Verifică dacă email-ul există deja (evită duplicate)
   async emailExists(messageId: string): Promise<boolean> {
     if (!messageId) return false;
@@ -102,6 +194,9 @@ export class RegistraturaService {
       departmentName: emailData.departmentName ?? null,
       priority: emailData.priority ?? 'normal',
       deadline: emailData.deadline ?? null,
+      // AI triage: tags pre-applied, suggestions advisory (clerk confirms)
+      ...(emailData.etichete?.length ? { etichete: emailData.etichete } : {}),
+      ...(emailData.aiTriaj ? { aiTriaj: emailData.aiTriaj } : {}),
       createdAt: Timestamp.now(),
       updatedAt: Timestamp.now()
     };

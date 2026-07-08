@@ -19,8 +19,9 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useToast } from '@/hooks/use-toast';
 import {
-  Mail, RefreshCw, Loader2, Download, Star, ChevronDown, Archive, X,
+  Mail, RefreshCw, Loader2, Download, Star, ChevronDown, Archive, X, ShieldAlert,
 } from 'lucide-react';
+import { QuarantinePanel } from '@/components/registratura/QuarantinePanel';
 import { syncEmailsAction } from '@/app/actions/sync-emails';
 import { useRegistratura } from '@/lib/hooks/useRegistratura';
 import { useAdminAuth } from '@/contexts/AdminAuthContext';
@@ -54,6 +55,7 @@ export default function RegistraturaPage() {
   const [deleteTarget, setDeleteTarget] = useState<RegistraturaEmail | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [processing, setProcessing] = useState(false);
+  const [quarantineOpen, setQuarantineOpen] = useState(false);
 
   // Per-user favorites, persisted locally
   const favKey = `registratura_favorites_${adminUser?.uid || 'anon'}`;
@@ -248,6 +250,14 @@ export default function RegistraturaPage() {
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
+            onClick={() => setQuarantineOpen(true)}
+            className="rounded-xl border-slate-700 bg-slate-800/80 text-gray-300 hover:bg-slate-700 hover:text-white"
+          >
+            <ShieldAlert className="mr-1.5 h-4 w-4 text-amber-400" />
+            Carantină
+          </Button>
+          <Button
+            variant="outline"
             onClick={() => setShowFavoritesOnly((v) => !v)}
             aria-pressed={showFavoritesOnly}
             className={`rounded-xl border-slate-700 ${
@@ -362,6 +372,12 @@ export default function RegistraturaPage() {
           />
         </>
       )}
+
+      <QuarantinePanel
+        open={quarantineOpen}
+        onOpenChange={setQuarantineOpen}
+        onRegistered={reload}
+      />
 
       <EmailDetailSheet
         email={liveSelected}
