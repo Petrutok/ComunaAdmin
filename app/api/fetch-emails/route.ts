@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { EmailService, isSpam } from '@/lib/email-service';
 import { RegistraturaService } from '@/lib/registratura-service';
+import { triajeazaEmail } from '@/lib/registratura/ai-triage';
 // Admin SDK Timestamp: RegistraturaService writes via the Admin SDK
 import { Timestamp } from 'firebase-admin/firestore';
 import { getAdminDb } from '@/lib/firebase-admin';
@@ -78,20 +79,44 @@ export async function GET(request: NextRequest) {
       errors: [],
     };
 
+    // Department names once per run, for AI triage suggestions
+    const departamente = await registraturaService.getDepartmentNames();
+
     // Process each email
     for (const email of newEmails) {
       try {
-        // Check for spam
-        if (isSpam(email.subject, email.body)) {
-          results.spamFiltered++;
-          console.log(`[FETCH-EMAILS] Spam filtered: ${email.subject}`);
+        // Check if email already exists (avoid duplicates, incl. quarantine)
+        if (email.messageId &&
+            (await registraturaService.emailExists(email.messageId) ||
+             await registraturaService.quarantineExists(email.messageId))) {
+          results.skipped++;
+          console.log(`[FETCH-EMAILS] Skipping duplicate: ${email.subject}`);
           continue;
         }
 
-        // Check if email already exists (avoid duplicates)
-        if (email.messageId && await registraturaService.emailExists(email.messageId)) {
-          results.skipped++;
-          console.log(`[FETCH-EMAILS] Skipping duplicate: ${email.subject}`);
+        // AI triage: classify + suggest department/priority/tags.
+        // Returns null without GEMINI_API_KEY or on error - then only the
+        // keyword heuristic applies. Nothing is ever silently dropped:
+        // spam/ads go to quarantine, reviewable in the admin UI.
+        const triaj = await triajeazaEmail({
+          from: email.from,
+          subject: email.subject,
+          body: email.body,
+          departamente,
+        });
+
+        if (triaj && triaj.clasificare !== 'oficial') {
+          await registraturaService.quarantineEmail(email, triaj.clasificare, triaj.motiv);
+          results.spamFiltered++;
+          console.log(`[FETCH-EMAILS] Quarantined (${triaj.clasificare}): ${email.subject}`);
+          continue;
+        }
+        if (!triaj && isSpam(email.subject, email.body)) {
+          await registraturaService.quarantineEmail(
+            email, 'spam', 'Detectat de filtrul de cuvinte-cheie'
+          );
+          results.spamFiltered++;
+          console.log(`[FETCH-EMAILS] Quarantined (heuristic): ${email.subject}`);
           continue;
         }
 
@@ -133,6 +158,18 @@ export async function GET(request: NextRequest) {
           dateReceived: Timestamp.fromDate(email.date),
           attachments,
           messageId: email.messageId,
+          // AI triage suggestions (advisory - the clerk confirms via assignment)
+          ...(triaj
+            ? {
+                etichete: triaj.etichete,
+                aiTriaj: {
+                  rezumat: triaj.rezumat,
+                  departamentSugerat: triaj.departamentSugerat,
+                  prioritateSugerata: triaj.prioritateSugerata,
+                  etichete: triaj.etichete,
+                },
+              }
+            : {}),
         });
 
         console.log(`[FETCH-EMAILS] Created email record: ${emailId}`);

@@ -20,7 +20,7 @@ import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
 import {
   Loader2, Paperclip, Download, FileCheck, Send, Trash2, Copy,
-  User as UserIcon, Mail, CalendarDays, MessageSquare, History,
+  User as UserIcon, Mail, CalendarDays, MessageSquare, History, Sparkles,
 } from 'lucide-react';
 import {
   RegistraturaEmail, EmailStatus, EmailPriority, ActivityEntry,
@@ -173,6 +173,38 @@ export function EmailDetailSheet({
         </SheetHeader>
 
         <div className="mt-5 space-y-6">
+          {/* AI triage suggestion */}
+          {email.aiTriaj && (
+            <section className="rounded-xl border border-violet-500/30 bg-violet-950/20 p-4">
+              <h3 className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-violet-300">
+                <Sparkles className="h-4 w-4" /> Sugestie AI
+              </h3>
+              <p className="text-sm text-gray-200">{email.aiTriaj.rezumat}</p>
+              <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-400">
+                {email.aiTriaj.departamentSugerat && (
+                  <span>Compartiment: <span className="text-white">{email.aiTriaj.departamentSugerat}</span></span>
+                )}
+                <span>Prioritate: <span className="text-white">{PRIORITY_CONFIG[email.aiTriaj.prioritateSugerata].label}</span></span>
+                {email.aiTriaj.etichete.length > 0 && (
+                  <span>Etichete: <span className="text-white">{email.aiTriaj.etichete.map((t) => `#${t}`).join(' ')}</span></span>
+                )}
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  const dept = departments.find((d) => d.name === email.aiTriaj!.departamentSugerat);
+                  setAssignDept(dept?.id || 'none');
+                  setAssignPriority(email.aiTriaj!.prioritateSugerata);
+                  toast({ title: 'Sugestie aplicată', description: 'Verifică și apasă „Repartizează".' });
+                }}
+                className="mt-3 rounded-lg border-violet-500/40 text-violet-200 hover:bg-violet-900/30"
+              >
+                Aplică sugestia în câmpurile de repartizare
+              </Button>
+            </section>
+          )}
+
           {/* Solicitant */}
           <section className="rounded-xl border border-slate-700 bg-slate-800/60 p-4">
             <h3 className="mb-3 text-xs font-semibold uppercase tracking-widest text-gray-500">Solicitant</h3>

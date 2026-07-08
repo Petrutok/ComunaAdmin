@@ -73,11 +73,19 @@ export function slotDocId(service: string, date: string, time: string): string {
 export function nextWorkingDays(count: number): string[] {
   const days: string[] = [];
   const d = new Date();
+  // Noon avoids DST/midnight edge cases. Both the weekday check and the
+  // stored string use LOCAL date parts, so they can never disagree (using
+  // toISOString() here would return the UTC date, which in a timezone ahead
+  // of UTC like Romania can be the previous day - potentially a weekend).
+  d.setHours(12, 0, 0, 0);
   while (days.length < count) {
     d.setDate(d.getDate() + 1);
     const dow = d.getDay();
     if (dow !== 0 && dow !== 6) {
-      days.push(d.toISOString().slice(0, 10));
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      days.push(`${y}-${m}-${day}`);
     }
   }
   return days;
