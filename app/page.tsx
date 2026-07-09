@@ -27,6 +27,7 @@ import {
 import Image from 'next/image';
 import { ActiveAlertsBanner } from '@/components/ActiveAlertsBanner';
 import { AccountButton } from '@/components/AccountButton';
+import { HeaderGreeting } from '@/components/HeaderGreeting';
 import { TENANT } from '@/lib/tenant';
 
 export default function HomePage() {
@@ -74,8 +75,9 @@ export default function HomePage() {
 
         {/* Main Header Content */}
         <div className="relative max-w-7xl mx-auto px-4 pb-8 pt-4 md:pb-10">
-          {/* Top bar: account chip in its own row (no overlap with the title) */}
-          <div className="mb-4 flex justify-end">
+          {/* Top bar: local greeting on the left, account chip on the right */}
+          <div className="mb-6 flex items-center justify-between gap-3">
+            <HeaderGreeting />
             <AccountButton />
           </div>
           <div className="flex justify-center">
