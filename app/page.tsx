@@ -22,7 +22,8 @@ import {
   Phone,
   Shield,
   Heart,
-  Code
+  Code,
+  ShoppingBasket
 } from 'lucide-react';
 import Image from 'next/image';
 import { ActiveAlertsBanner } from '@/components/ActiveAlertsBanner';
@@ -45,6 +46,7 @@ export default function HomePage() {
     {
       heading: "Comunitate",
       items: [
+        { title: "Piața locală", description: "Produse de la gospodarii din comună", icon: ShoppingBasket, link: "/piata-locala", color: "text-emerald-400", iconBg: "bg-emerald-500/10" },
         { title: "Anunțuri locale", description: "Vânzare, cumpărare, servicii", icon: Newspaper, link: "/anunturi", color: "text-blue-400", iconBg: "bg-blue-500/10" },
         { title: "Locuri de muncă", description: "Joburi din comună și împrejurimi", icon: Briefcase, link: "/joburi", color: "text-green-400", iconBg: "bg-green-500/10" },
         { title: "Evenimente", description: "Ce se întâmplă în comună", icon: CalendarDays, link: "/events", color: "text-orange-400", iconBg: "bg-orange-500/10" },

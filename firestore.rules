@@ -51,6 +51,13 @@ service cloud.firestore {
       allow update, delete: if isStaff();
     }
 
+    // Local produce market: anyone browses and lists; staff moderate
+    match /piata_locala/{id} {
+      allow read: if true;
+      allow create: if true;
+      allow update, delete: if isStaff();
+    }
+
     // Urgent local alerts: everyone reads, only staff issue/close them
     match /alerts/{id} {
       allow read: if true;
