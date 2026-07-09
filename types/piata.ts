@@ -29,7 +29,10 @@ export interface ProdusLocal {
   vanzator: string;              // household / seller name
   telefon: string;
   imageUrl?: string;
-  status?: 'activ' | 'inactiv';
+  // Moderation, same flow as announcements: posts start 'pending', staff
+  // approve/reject; only 'approved' products are shown publicly.
+  status?: 'pending' | 'approved' | 'rejected';
+  rejectionReason?: string;
   createdAt?: Timestamp;
 }
 

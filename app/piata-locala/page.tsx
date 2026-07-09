@@ -6,7 +6,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
-  collection, addDoc, getDocs, query, orderBy, limit, Timestamp,
+  collection, addDoc, getDocs, query, where, limit, Timestamp,
 } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '@/lib/firebase';
@@ -64,16 +64,12 @@ export default function PiataLocalaPage() {
   const load = async () => {
     setLoading(true);
     try {
-      // Single-field orderBy keeps this index-free; inactive items (hidden
-      // by staff moderation) are filtered client-side
+      // Only approved products, publicly. Single-field equality filter is
+      // index-free; sorted client-side (see the sort dropdown).
       const snap = await getDocs(
-        query(collection(db, 'piata_locala'), orderBy('createdAt', 'desc'), limit(200))
+        query(collection(db, 'piata_locala'), where('status', '==', 'approved'), limit(200))
       );
-      setProduse(
-        snap.docs
-          .map((d) => ({ id: d.id, ...d.data() } as ProdusLocal))
-          .filter((p) => p.status !== 'inactiv')
-      );
+      setProduse(snap.docs.map((d) => ({ id: d.id, ...d.data() } as ProdusLocal)));
     } catch (error) {
       console.error('Error loading piata:', error);
     } finally {
@@ -158,11 +154,14 @@ export default function PiataLocalaPage() {
         vanzator: form.vanzator.trim(),
         telefon: form.telefon.trim(),
         ...(imageUrl ? { imageUrl } : {}),
-        status: 'activ',
+        status: 'pending',
         createdAt: Timestamp.now(),
       });
 
-      toast({ title: 'Produs publicat', description: 'Anunțul tău e vizibil în Piața locală.' });
+      toast({
+        title: 'Produs trimis',
+        description: 'Va fi verificat de primărie înainte de publicare.',
+      });
       setAddOpen(false);
       setForm(EMPTY_FORM);
       setImage(null);

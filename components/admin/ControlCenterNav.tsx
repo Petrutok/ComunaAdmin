@@ -22,6 +22,7 @@ import {
   CalendarClock,
   BarChart3,
   LayoutList,
+  ShoppingBasket,
 } from 'lucide-react';
 
 export function ControlCenterNav() {
@@ -38,6 +39,7 @@ export function ControlCenterNav() {
     { href: '/admin/issues', label: 'Probleme', icon: AlertTriangle, gradient: 'from-orange-600/20 to-orange-800/20', border: 'border-orange-500/30 hover:border-orange-400/50', iconBg: 'bg-orange-500/20', iconColor: 'text-orange-400', roles: ['admin'] },
     { href: '/admin/send-notification', label: 'Notificări', icon: Bell, gradient: 'from-amber-600/20 to-amber-800/20', border: 'border-amber-500/30 hover:border-amber-400/50', iconBg: 'bg-amber-500/20', iconColor: 'text-amber-400', roles: ['admin'] },
     { href: '/admin/announcements', label: 'Anunțuri', icon: Newspaper, gradient: 'from-pink-600/20 to-pink-800/20', border: 'border-pink-500/30 hover:border-pink-400/50', iconBg: 'bg-pink-500/20', iconColor: 'text-pink-400', roles: ['admin'] },
+    { href: '/admin/piata', label: 'Piața locală', icon: ShoppingBasket, gradient: 'from-emerald-600/20 to-emerald-800/20', border: 'border-emerald-500/30 hover:border-emerald-400/50', iconBg: 'bg-emerald-500/20', iconColor: 'text-emerald-400', roles: ['admin'] },
     { href: '/admin/jobs', label: 'Joburi', icon: Briefcase, gradient: 'from-teal-600/20 to-teal-800/20', border: 'border-teal-500/30 hover:border-teal-400/50', iconBg: 'bg-teal-500/20', iconColor: 'text-teal-400', roles: ['admin'] },
     { href: '/admin/programari', label: 'Programări', icon: CalendarClock, gradient: 'from-cyan-600/20 to-cyan-800/20', border: 'border-cyan-500/30 hover:border-cyan-400/50', iconBg: 'bg-cyan-500/20', iconColor: 'text-cyan-400', roles: ['admin', 'employee'] },
     { href: '/admin/continut', label: 'Conținut', icon: LayoutList, gradient: 'from-teal-600/20 to-teal-800/20', border: 'border-teal-500/30 hover:border-teal-400/50', iconBg: 'bg-teal-500/20', iconColor: 'text-teal-400', roles: ['admin', 'employee'] },
