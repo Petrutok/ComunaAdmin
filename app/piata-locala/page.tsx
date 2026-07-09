@@ -52,6 +52,7 @@ export default function PiataLocalaPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState<ProduseCategorie | 'toate'>('toate');
+  const [sortBy, setSortBy] = useState<'noi' | 'vechi' | 'pret-asc' | 'pret-desc'>('noi');
 
   const [addOpen, setAddOpen] = useState(false);
   const [detail, setDetail] = useState<ProdusLocal | null>(null);
@@ -95,15 +96,26 @@ export default function PiataLocalaPage() {
     }
   }, [user, profile]);
 
-  const filtered = produse.filter((p) => {
-    if (category !== 'toate' && p.categorie !== category) return false;
-    if (search.trim()) {
-      const q = search.toLowerCase();
-      return [p.titlu, p.descriere, p.vanzator, p.localitate]
-        .join(' ').toLowerCase().includes(q);
-    }
-    return true;
-  });
+  const filtered = produse
+    .filter((p) => {
+      if (category !== 'toate' && p.categorie !== category) return false;
+      if (search.trim()) {
+        const q = search.toLowerCase();
+        return [p.titlu, p.descriere, p.vanzator, p.localitate]
+          .join(' ').toLowerCase().includes(q);
+      }
+      return true;
+    })
+    .sort((a, b) => {
+      const ta = a.createdAt?.toMillis?.() || 0;
+      const tb = b.createdAt?.toMillis?.() || 0;
+      switch (sortBy) {
+        case 'vechi': return ta - tb;
+        case 'pret-asc': return a.pret - b.pret;
+        case 'pret-desc': return b.pret - a.pret;
+        default: return tb - ta; // cele mai noi
+      }
+    });
 
   const handleImage = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -250,6 +262,26 @@ export default function PiataLocalaPage() {
             );
           })}
         </div>
+
+        {/* Result count + sort */}
+        {!loading && filtered.length > 0 && (
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <span className="text-sm text-gray-500">
+              {filtered.length} {filtered.length === 1 ? 'produs' : 'produse'}
+            </span>
+            <Select value={sortBy} onValueChange={(v) => setSortBy(v as typeof sortBy)}>
+              <SelectTrigger className="h-9 w-[190px] rounded-lg border-slate-700 bg-slate-800/80 text-sm text-white" aria-label="Sortează produsele">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="border-slate-700 bg-slate-800 text-white">
+                <SelectItem value="noi">Cele mai noi</SelectItem>
+                <SelectItem value="vechi">Cele mai vechi</SelectItem>
+                <SelectItem value="pret-asc">Preț: mic → mare</SelectItem>
+                <SelectItem value="pret-desc">Preț: mare → mic</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        )}
 
         {/* Grid */}
         {loading ? (
