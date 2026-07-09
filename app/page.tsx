@@ -65,59 +65,64 @@ export default function HomePage() {
       {/* Urgent alerts banner (renders only while an alert is live) */}
       <ActiveAlertsBanner />
 
-      {/* Modern Redesigned Header */}
-      <header className="relative bg-gradient-to-br from-slate-950 via-slate-900 to-blue-950 overflow-hidden">
-        {/* Animated Background Elements */}
-        <div className="absolute inset-0">
-          <div className="absolute top-0 right-0 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl"></div>
-          <div className="absolute bottom-0 left-0 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl"></div>
+      {/* Header - floating gradient hero card */}
+      <header className="relative overflow-hidden rounded-b-[2rem] bg-gradient-to-br from-slate-950 via-indigo-950/70 to-slate-900 shadow-2xl shadow-black/40 ring-1 ring-white/5">
+        {/* Layered depth: colored glow orbs + a faint dot grid for texture */}
+        <div className="pointer-events-none absolute inset-0">
+          <div className="absolute -top-16 -right-10 h-72 w-72 rounded-full bg-cyan-500/20 blur-3xl"></div>
+          <div className="absolute -bottom-24 -left-10 h-72 w-72 rounded-full bg-violet-600/20 blur-3xl"></div>
+          <div className="absolute left-1/3 top-1/2 h-56 w-56 rounded-full bg-blue-600/10 blur-3xl"></div>
+          <div className="absolute inset-0 opacity-[0.12] [background-image:radial-gradient(circle,rgba(255,255,255,0.4)_1px,transparent_1px)] [background-size:22px_22px]"></div>
         </div>
 
         {/* Main Header Content */}
-        <div className="relative max-w-7xl mx-auto px-4 pb-8 pt-4 md:pb-10">
+        <div className="relative max-w-7xl mx-auto px-4 pb-9 pt-[calc(env(safe-area-inset-top)+1rem)] md:pb-12">
           {/* Top bar: local greeting on the left, account chip on the right */}
-          <div className="mb-6 flex items-center justify-between gap-3">
+          <div className="mb-7 flex items-center justify-between gap-3">
             <HeaderGreeting />
             <AccountButton />
           </div>
-          <div className="flex justify-center">
-            {/* Logo Section - Centrat */}
-            <div className="flex items-center gap-4">
-              <div className="relative group">
-                <div className="absolute inset-0 bg-gradient-to-r from-cyan-500 to-blue-500 rounded-2xl blur-xl opacity-40 group-hover:opacity-60 transition-opacity duration-300"></div>
-                <div className="relative bg-slate-900/60 backdrop-blur-md p-1 rounded-2xl border border-white/20 hover:border-white/40 transition-colors duration-300 shadow-2xl">
-                  <Image
-                    src={TENANT.logoUrl}
-                    alt={`Logo ${TENANT.numePrimarie}`}
-                    width={100}
-                    height={100}
-                    className="w-20 h-20 md:w-24 md:h-24 object-cover rounded-xl"
-                    priority
-                  />
-                </div>
-              </div>
 
-              {/* Title and Subtitle */}
-              <div>
-                <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-white via-blue-100 to-cyan-100 bg-clip-text text-transparent mb-1">
-                  Primăria Digitală
-                </h1>
-                <p className="text-base md:text-lg text-gray-200 font-medium">
-                  {TENANT.numeComuna}
-                </p>
-                <p className="text-xs md:text-sm text-gray-400 mt-1">
-                  Servicii publice moderne • Online 24/7
-                </p>
+          {/* Brand lockup */}
+          <div className="flex items-center gap-4 sm:gap-5">
+            {/* Logo with a brand-gradient glow ring */}
+            <div className="relative shrink-0">
+              <div className="absolute -inset-1 rounded-3xl bg-gradient-to-br from-cyan-400 via-blue-500 to-violet-500 opacity-60 blur-md"></div>
+              <div className="relative rounded-3xl border border-white/20 bg-slate-900/70 p-1.5 shadow-xl backdrop-blur-md">
+                <Image
+                  src={TENANT.logoUrl}
+                  alt={`Logo ${TENANT.numePrimarie}`}
+                  width={100}
+                  height={100}
+                  className="h-16 w-16 rounded-2xl object-cover md:h-24 md:w-24"
+                  priority
+                />
+              </div>
+            </div>
+
+            {/* Title + live badge */}
+            <div className="min-w-0">
+              <h1 className="bg-gradient-to-r from-white via-blue-100 to-cyan-200 bg-clip-text text-2xl font-extrabold leading-tight tracking-tight text-transparent sm:text-3xl md:text-5xl">
+                Primăria Digitală
+              </h1>
+              <p className="mt-0.5 text-base font-semibold text-gray-200 sm:text-lg md:text-xl">
+                {TENANT.numeComuna}
+              </p>
+              <div className="mt-3 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs font-medium text-gray-200 backdrop-blur-md">
+                <span className="relative flex h-2 w-2">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-400"></span>
+                </span>
+                Servicii online 24/7
               </div>
             </div>
           </div>
         </div>
-
       </header>
 
       {/* Quick actions - same tile size as the service cards below,
           distinguished only by the gradient background */}
-      <div className="max-w-7xl mx-auto px-4 -mt-2 pt-6">
+      <div className="max-w-7xl mx-auto px-4 pt-8">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           <Link href="/report-issue" className="group">
             <div className="flex h-full items-center gap-4 rounded-2xl bg-gradient-to-r from-red-600/80 to-rose-700/80 p-5 shadow transition-all group-hover:shadow-lg group-hover:brightness-110">
