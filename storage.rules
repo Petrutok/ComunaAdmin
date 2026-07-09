@@ -33,6 +33,12 @@ service firebase.storage {
       allow write: if isImageUnder5MB();
     }
 
+    // Local produce market photos
+    match /piata/{allPaths=**} {
+      allow read: if true;
+      allow write: if isImageUnder5MB();
+    }
+
     // Registratura / registry documents: personal data, staff only.
     // Server-side processing uses the Admin SDK and bypasses these rules.
     match /registratura/{allPaths=**} {
