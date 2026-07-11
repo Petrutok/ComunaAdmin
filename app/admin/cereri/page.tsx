@@ -22,7 +22,8 @@ import {
   limit,
   startAfter,
 } from 'firebase/firestore';
-import { db, auth, COLLECTIONS } from '@/lib/firebase';
+import { db, auth, storage, COLLECTIONS } from '@/lib/firebase';
+import { ref, getDownloadURL } from 'firebase/storage';
 import { Department, User as UserType } from '@/types/departments';
 import {
   Phone,
@@ -121,7 +122,7 @@ interface Cerere {
   dataInregistrare?: string;
   timestamp?: any;
   observatii?: string;
-  fisiere?: any[];
+  fisiere?: { name: string; type?: string; size?: number; storagePath?: string }[];
   // Câmpuri adiționale opționale
   numeFirma?: string;
   cui?: string;
@@ -583,6 +584,23 @@ export default function AdminCereriPage() {
       toast({
         title: "Eroare",
         description: "Nu s-a putut descărca PDF-ul",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Citizen attachments live in Storage under cereri/{id}/; staff have
+  // read access via storage.rules
+  const handleDownloadAtasament = async (fisier: { name: string; storagePath?: string }) => {
+    if (!fisier.storagePath) return;
+    try {
+      const url = await getDownloadURL(ref(storage, fisier.storagePath));
+      window.open(url, '_blank');
+    } catch (error) {
+      console.error('Error downloading attachment:', error);
+      toast({
+        title: "Eroare",
+        description: `Nu s-a putut descărca ${fisier.name}`,
         variant: "destructive",
       });
     }
@@ -1084,6 +1102,49 @@ export default function AdminCereriPage() {
                     )}
                   </CardContent>
                 </Card>
+
+                {selectedCerere.fisiere && selectedCerere.fisiere.length > 0 && (
+                  <Card className="bg-slate-900 border-slate-700">
+                    <CardHeader>
+                      <CardTitle className="text-white text-lg flex items-center gap-2">
+                        <Paperclip className="h-5 w-5 text-blue-400" />
+                        Documente atașate ({selectedCerere.fisiere.length})
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-2">
+                      {selectedCerere.fisiere.map((fisier, idx) => (
+                        <div
+                          key={idx}
+                          className="flex items-center justify-between gap-3 rounded-md border border-slate-700 bg-slate-800/60 px-3 py-2"
+                        >
+                          <div className="min-w-0">
+                            <p className="text-white text-sm font-medium truncate">{fisier.name}</p>
+                            {typeof fisier.size === 'number' && (
+                              <p className="text-xs text-gray-400">
+                                {(fisier.size / 1024 / 1024).toFixed(1)}MB
+                              </p>
+                            )}
+                          </div>
+                          {fisier.storagePath ? (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleDownloadAtasament(fisier)}
+                              className="shrink-0 border-blue-500/40 text-blue-300 hover:bg-blue-600/20"
+                            >
+                              <Download className="h-4 w-4 mr-1" />
+                              Descarcă
+                            </Button>
+                          ) : (
+                            <span className="shrink-0 text-xs text-gray-500 italic">
+                              indisponibil (cerere veche)
+                            </span>
+                          )}
+                        </div>
+                      ))}
+                    </CardContent>
+                  </Card>
+                )}
 
                 {selectedCerere.observatii && (
                   <Card className="bg-yellow-950/20 border-yellow-800/30">
