@@ -71,8 +71,15 @@ export async function GET(request: NextRequest) {
 
     // --- Build the report
     const line = (d: FirebaseFirestore.DocumentData) => {
-      const zile = Math.ceil(Math.abs(d.termen.toMillis() - now) / (24 * 60 * 60 * 1000));
-      const stare = d.termen.toMillis() < now ? `DEPĂȘIT cu ${zile} zile` : `mai sunt ${zile} zile`;
+      const diffMs = d.termen.toMillis() - now;
+      // floor when overdue / ceil when upcoming: "3 days ago" stays 3
+      // regardless of the hours elapsed since, "in 2 days" stays 2
+      const zile = diffMs < 0
+        ? Math.floor(-diffMs / (24 * 60 * 60 * 1000))
+        : Math.ceil(diffMs / (24 * 60 * 60 * 1000));
+      const stare = diffMs < 0
+        ? (zile === 0 ? 'DEPĂȘIT astăzi' : `DEPĂȘIT cu ${zile} zile`)
+        : `mai sunt ${zile} zile`;
       const rezumat = String(d.continut || '').slice(0, 80);
       return `• ${d.numarInregistrare} — ${d.emitent} — termen ${formatTermen(d.termen)} (${stare})\n  ${rezumat}`;
     };
