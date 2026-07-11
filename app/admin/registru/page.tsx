@@ -95,6 +95,9 @@ export default function AdminRegistruPage() {
   const [showRaspunsDialog, setShowRaspunsDialog] = useState(false);
   const [raspunsText, setRaspunsText] = useState('');
   const [sendingRaspuns, setSendingRaspuns] = useState(false);
+  const [showExportAnDialog, setShowExportAnDialog] = useState(false);
+  const [exportYear, setExportYear] = useState(String(new Date().getFullYear()));
+  const [exporting, setExporting] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -303,6 +306,73 @@ export default function AdminRegistruPage() {
     return documents.filter(d => d.status === status).length;
   };
 
+  // Full-year export for the official archive: fetches ALL entries of the
+  // year in batches (the table itself stays paginated), oldest first, the
+  // order a printed registry uses
+  const handleExportAn = async (format: 'csv' | 'excel') => {
+    setExporting(true);
+    try {
+      const year = parseInt(exportYear, 10);
+      const start = Timestamp.fromDate(new Date(year, 0, 1));
+      const end = Timestamp.fromDate(new Date(year + 1, 0, 1));
+
+      const yearDocs: RegistruDocument[] = [];
+      let cursor: any = null;
+      for (;;) {
+        const q = cursor
+          ? query(
+              collection(db, COLLECTIONS.REGISTRU_GENERAL),
+              where('dataInregistrare', '>=', start),
+              where('dataInregistrare', '<', end),
+              orderBy('dataInregistrare', 'asc'),
+              startAfter(cursor),
+              limit(500)
+            )
+          : query(
+              collection(db, COLLECTIONS.REGISTRU_GENERAL),
+              where('dataInregistrare', '>=', start),
+              where('dataInregistrare', '<', end),
+              orderBy('dataInregistrare', 'asc'),
+              limit(500)
+            );
+        const snap = await getDocs(q);
+        yearDocs.push(...snap.docs.map(d => ({ id: d.id, ...d.data() } as RegistruDocument)));
+        if (snap.docs.length < 500) break;
+        cursor = snap.docs[snap.docs.length - 1];
+      }
+
+      if (yearDocs.length === 0) {
+        toast({
+          title: 'Registru gol',
+          description: `Nu există înregistrări în anul ${year}`,
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      const filename = `registru_general_${year}`;
+      if (format === 'csv') {
+        exportToCSV(yearDocs, filename);
+      } else {
+        exportToExcel(yearDocs, filename);
+      }
+      toast({
+        title: 'Export finalizat',
+        description: `${yearDocs.length} înregistrări din ${year} exportate pentru arhivare.`,
+      });
+      setShowExportAnDialog(false);
+    } catch (error) {
+      console.error('Error exporting year:', error);
+      toast({
+        title: 'Eroare',
+        description: 'Nu s-a putut exporta registrul',
+        variant: 'destructive',
+      });
+    } finally {
+      setExporting(false);
+    }
+  };
+
   return (
     <div className="flex h-screen bg-slate-900">
       {/* Left Sidebar */}
@@ -401,6 +471,12 @@ export default function AdminRegistruPage() {
               >
                 <Plus className="h-4 w-4 mr-2" />
                 Iesire Nouă
+              </Button>
+              <Button
+                onClick={() => setShowExportAnDialog(true)}
+                className="bg-blue-700 hover:bg-blue-600 text-white font-medium"
+              >
+                📦 Export an
               </Button>
               <Button onClick={() => loadDocuments()} className="bg-slate-700 hover:bg-slate-600 text-white font-medium">
                 <RefreshCw className="h-4 w-4 mr-2" />
@@ -665,6 +741,60 @@ export default function AdminRegistruPage() {
           )}
         </div>
       </div>
+
+      {/* Export an complet Dialog */}
+      <Dialog open={showExportAnDialog} onOpenChange={setShowExportAnDialog}>
+        <DialogContent className="bg-slate-800 border-slate-700">
+          <DialogHeader>
+            <DialogTitle className="text-white">📦 Export registru pentru arhivare</DialogTitle>
+          </DialogHeader>
+
+          <p className="text-sm text-gray-400">
+            Exportă toate înregistrările unui an, în ordinea numerelor, pentru arhivarea anuală a
+            registrului general de intrări-ieșiri.
+          </p>
+
+          <div>
+            <label className="text-sm text-gray-400 mb-2 block">Anul</label>
+            <Select value={exportYear} onValueChange={setExportYear}>
+              <SelectTrigger className="bg-slate-900 border-slate-600 text-white">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="bg-slate-800 border-slate-700 text-white">
+                {Array.from({ length: 5 }, (_, i) => String(new Date().getFullYear() - i)).map((y) => (
+                  <SelectItem key={y} value={y}>{y}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowExportAnDialog(false)}
+              className="border-slate-600 text-gray-300 hover:bg-slate-700 hover:text-white"
+            >
+              Anulează
+            </Button>
+            <Button
+              onClick={() => handleExportAn('csv')}
+              disabled={exporting}
+              className="bg-slate-600 hover:bg-slate-500"
+            >
+              {exporting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              CSV
+            </Button>
+            <Button
+              onClick={() => handleExportAn('excel')}
+              disabled={exporting}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              {exporting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Excel
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Emite raspuns oficial Dialog */}
       <Dialog open={showRaspunsDialog} onOpenChange={setShowRaspunsDialog}>
