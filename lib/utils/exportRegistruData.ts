@@ -4,7 +4,7 @@ import { TIP_DOCUMENT_CONFIG, STATUS_CONFIG } from '@/types/registru';
 /**
  * Exports registry documents to CSV format
  */
-export function exportToCSV(documents: RegistruDocument[]): void {
+export function exportToCSV(documents: RegistruDocument[], filename?: string): void {
   // Prepare CSV headers
   const headers = [
     'Nr. Înregistrare',
@@ -47,7 +47,7 @@ export function exportToCSV(documents: RegistruDocument[]): void {
   const link = document.createElement('a');
   const url = window.URL.createObjectURL(blob);
   link.setAttribute('href', url);
-  link.setAttribute('download', `registru_export_${new Date().getTime()}.csv`);
+  link.setAttribute('download', `${filename || `registru_export_${new Date().getTime()}`}.csv`);
   link.style.visibility = 'hidden';
   document.body.appendChild(link);
   link.click();
@@ -57,7 +57,7 @@ export function exportToCSV(documents: RegistruDocument[]): void {
 /**
  * Exports registry documents to Excel format (using CSV with .xlsx mimetype)
  */
-export function exportToExcel(documents: RegistruDocument[]): void {
+export function exportToExcel(documents: RegistruDocument[], filename?: string): void {
   // Use CSV format but with xlsx extension for better Excel compatibility
   // Create a more Excel-friendly structure
   const headers = [
@@ -108,7 +108,7 @@ export function exportToExcel(documents: RegistruDocument[]): void {
   const link = document.createElement('a');
   const url = window.URL.createObjectURL(blob);
   link.setAttribute('href', url);
-  link.setAttribute('download', `registru_export_${new Date().getTime()}.xlsx`);
+  link.setAttribute('download', `${filename || `registru_export_${new Date().getTime()}`}.xlsx`);
   link.style.visibility = 'hidden';
   document.body.appendChild(link);
   link.click();
