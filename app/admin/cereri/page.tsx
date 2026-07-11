@@ -890,6 +890,8 @@ export default function AdminCereriPage() {
                                 cnp: cerere.cnp,
                                 adresa: `${cerere.adresa || ''}, ${cerere.localitate || ''}`.replace(/^, /, ''),
                                 scopulCererii: cerere.scopulCererii,
+                                numarCerere: cerere.numarInregistrare,
+                                dataCerere: cerere.createdAt?.toDate?.()?.toLocaleDateString('ro-RO'),
                               })
                             );
                             setShowEmiteDialog(true);
