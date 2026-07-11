@@ -4,23 +4,7 @@ import { getAdminDb, getAdminBucket } from '@/lib/firebase-admin';
 import { generateRegistruNumberAdmin } from '@/lib/generateRegistruNumberAdmin';
 import { getOptionalCitizenUid } from '@/lib/api-auth';
 import { rateLimit, getClientIp } from '@/lib/rate-limit';
-
-// Attachments arrive as base64 in the JSON body; Vercel caps the whole
-// request at 4.5MB, so 3MB of raw file content is the practical maximum
-const MAX_FILES = 3;
-const MAX_TOTAL_FILE_BYTES = 3 * 1024 * 1024;
-const ALLOWED_FILE_TYPES = new Set([
-  'application/pdf',
-  'image/jpeg',
-  'image/png',
-  'application/msword',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-]);
-
-function sanitizeFileName(name: string): string {
-  const base = name.split(/[\\/]/).pop() || 'fisier';
-  return base.replace(/[^\w.\-()\s]/g, '_').slice(0, 80);
-}
+import { validateAndDecodeFiles } from '@/lib/cereri-files';
 
 interface CerereRequest {
   numeComplet: string;
@@ -75,43 +59,14 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate and decode attachments before touching Firestore
-    if (fisiereInput.length > MAX_FILES) {
+    const decodeResult = validateAndDecodeFiles(fisiereInput);
+    if (!decodeResult.ok) {
       return NextResponse.json(
-        { success: false, error: `Maxim ${MAX_FILES} fișiere atașate` },
-        { status: 400 }
+        { success: false, error: decodeResult.error },
+        { status: decodeResult.status }
       );
     }
-    const decodedFiles: { name: string; type: string; buffer: Buffer }[] = [];
-    let totalFileBytes = 0;
-    for (const f of fisiereInput) {
-      if (!f || typeof f.name !== 'string' || typeof f.content !== 'string' || !f.content) {
-        return NextResponse.json(
-          { success: false, error: 'Fișier atașat invalid' },
-          { status: 400 }
-        );
-      }
-      if (!ALLOWED_FILE_TYPES.has(f.type)) {
-        return NextResponse.json(
-          { success: false, error: 'Tip de fișier neacceptat. Formate permise: PDF, JPG, PNG, DOC, DOCX.' },
-          { status: 400 }
-        );
-      }
-      const buffer = Buffer.from(f.content, 'base64');
-      if (buffer.length === 0) {
-        return NextResponse.json(
-          { success: false, error: 'Fișier atașat invalid' },
-          { status: 400 }
-        );
-      }
-      totalFileBytes += buffer.length;
-      if (totalFileBytes > MAX_TOTAL_FILE_BYTES) {
-        return NextResponse.json(
-          { success: false, error: 'Fișierele atașate depășesc limita totală de 3MB' },
-          { status: 413 }
-        );
-      }
-      decodedFiles.push({ name: sanitizeFileName(f.name), type: f.type, buffer });
-    }
+    const decodedFiles = decodeResult.files;
 
     // Validate required fields
     const requiredFields = ['numeComplet', 'cnp', 'email', 'localitate', 'strada', 'tipCerere'];

@@ -67,6 +67,11 @@ service firebase.storage {
       allow read, write: if isStaff();
     }
 
+    // Official responses to cereri: same model as adeverinte
+    match /raspunsuri/{allPaths=**} {
+      allow read, write: if isStaff();
+    }
+
     // Default: deny
     match /{allPaths=**} {
       allow read, write: if false;

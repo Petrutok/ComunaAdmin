@@ -35,6 +35,13 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { REQUEST_CONFIGS } from '@/lib/simple-pdf-generator';
+import {
+  MAX_ATTACHMENT_FILES,
+  MAX_TOTAL_FILE_BYTES,
+  processSelectedFiles,
+  totalSize,
+  fileToBase64,
+} from '@/lib/utils/client-files';
 
 // Lista județelor din România
 const JUDETE = [
@@ -156,52 +163,21 @@ export default function CerereFormularClient({ formType }: CerereFormularClientP
     );
   }
 
-  // Vercel caps the request body at 4.5MB; base64 adds ~33%, so raw
-  // attachments must stay under ~3MB in total
-  const MAX_TOTAL_FILE_BYTES = 3 * 1024 * 1024;
-
-  // Downscale phone photos so they fit the upload limit
-  const compressImage = async (file: File): Promise<File> => {
-    const bitmap = await createImageBitmap(file);
-    const scale = Math.min(1, 1600 / Math.max(bitmap.width, bitmap.height));
-    const canvas = document.createElement('canvas');
-    canvas.width = Math.round(bitmap.width * scale);
-    canvas.height = Math.round(bitmap.height * scale);
-    canvas.getContext('2d')!.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-    const blob = await new Promise<Blob | null>((resolve) =>
-      canvas.toBlob(resolve, 'image/jpeg', 0.8)
-    );
-    if (!blob || blob.size >= file.size) return file;
-    return new File([blob], file.name.replace(/\.(png|jpe?g)$/i, '') + '.jpg', { type: 'image/jpeg' });
-  };
-
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
-    if (files.length > 3) {
+    if (files.length > MAX_ATTACHMENT_FILES) {
       toast({
         title: "Eroare",
-        description: "Poți încărca maxim 3 fișiere",
+        description: `Poți încărca maxim ${MAX_ATTACHMENT_FILES} fișiere`,
         variant: "destructive"
       });
       e.target.value = '';
       return;
     }
 
-    const processed: File[] = [];
-    for (const file of files) {
-      let f = file;
-      if (f.type.startsWith('image/') && f.size > 1024 * 1024) {
-        try {
-          f = await compressImage(f);
-        } catch {
-          // browser can't decode it - keep the original and let the size check decide
-        }
-      }
-      processed.push(f);
-    }
+    const processed = await processSelectedFiles(files);
 
-    const totalSize = processed.reduce((sum, f) => sum + f.size, 0);
-    if (totalSize > MAX_TOTAL_FILE_BYTES) {
+    if (totalSize(processed) > MAX_TOTAL_FILE_BYTES) {
       toast({
         title: "Fișiere prea mari",
         description: "Fișierele atașate depășesc limita totală de 3MB. Încearcă fișiere mai mici sau mai puține.",
@@ -258,8 +234,7 @@ const handleSubmit = async (e: React.FormEvent) => {
 
       // Safety net (selection already validates): the server and Vercel
       // reject anything over ~3MB of raw attachments
-      const totalSize = formData.fisiere.reduce((sum, f) => sum + f.size, 0);
-      if (totalSize > MAX_TOTAL_FILE_BYTES) {
+      if (totalSize(formData.fisiere) > MAX_TOTAL_FILE_BYTES) {
         toast({
           title: "Fișiere prea mari",
           description: "Fișierele atașate depășesc limita totală de 3MB.",
@@ -271,29 +246,8 @@ const handleSubmit = async (e: React.FormEvent) => {
 
       for (const file of formData.fisiere) {
         try {
-          const base64 = await new Promise<string>((resolve, reject) => {
-            const reader = new FileReader();
-            
-            // Timeout de 10 secunde
-            const timeout = setTimeout(() => {
-              reject(new Error('Timeout la citirea fișierului'));
-            }, 10000);
-            
-            reader.onload = () => {
-              clearTimeout(timeout);
-              const result = reader.result as string;
-              const base64String = result.split(',')[1];
-              resolve(base64String);
-            };
-            
-            reader.onerror = () => {
-              clearTimeout(timeout);
-              reject(reader.error);
-            };
-            
-            reader.readAsDataURL(file);
-          });
-          
+          const base64 = await fileToBase64(file);
+
           filesBase64.push({
             name: file.name,
             type: file.type,
