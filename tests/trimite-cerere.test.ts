@@ -47,6 +47,13 @@ vi.mock('@/lib/generateRegistruNumberAdmin', () => ({
 vi.mock('@/lib/api-auth', () => ({
   getOptionalCitizenUid: async () => null,
 }));
+const sentEmails: any[] = [];
+vi.mock('@/lib/email', () => ({
+  sendEmail: async (opts: any) => {
+    sentEmails.push(opts);
+    return true;
+  },
+}));
 
 import { POST } from '@/app/api/trimite-cerere/route';
 
@@ -78,6 +85,7 @@ function makeRequest(body: any) {
 
 beforeEach(() => {
   savedFiles.length = 0;
+  sentEmails.length = 0;
   for (const key of Object.keys(firestoreDocs)) delete firestoreDocs[key];
 });
 
@@ -116,6 +124,16 @@ describe('POST /api/trimite-cerere attachments', () => {
     expect(res.status).toBe(201);
     expect(savedFiles).toHaveLength(0);
     expect(firestoreDocs['form_submissions-id'].fisiere).toEqual([]);
+  });
+
+  it('sends a registration confirmation email with the REG number', async () => {
+    const res = await POST(makeRequest(validBody));
+    expect(res.status).toBe(201);
+    expect(sentEmails).toHaveLength(1);
+    expect(sentEmails[0].to).toBe('ion@example.com');
+    expect(sentEmails[0].subject).toContain('REG-2026-000001');
+    expect(sentEmails[0].text).toContain('REG-2026-000001');
+    expect(sentEmails[0].text).toContain('30 de zile');
   });
 
   it('sanitizes path characters out of file names', async () => {

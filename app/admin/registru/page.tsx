@@ -24,8 +24,9 @@ import {
   startAfter,
   Timestamp,
 } from 'firebase/firestore';
-import { db, COLLECTIONS, RegistruDocument, StatusRegistru, TipDocument } from '@/lib/firebase';
+import { db, auth, COLLECTIONS, RegistruDocument, StatusRegistru, TipDocument } from '@/lib/firebase';
 import { TIP_DOCUMENT_CONFIG, STATUS_CONFIG, DEPARTMENTS_LIST } from '@/types/registru';
+import { buildRaspunsBody } from '@/lib/raspuns';
 import {
   Plus,
   Search,
@@ -91,6 +92,9 @@ export default function AdminRegistruPage() {
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [newStatus, setNewStatus] = useState<StatusRegistru>('nou');
   const [observatii, setObservatii] = useState('');
+  const [showRaspunsDialog, setShowRaspunsDialog] = useState(false);
+  const [raspunsText, setRaspunsText] = useState('');
+  const [sendingRaspuns, setSendingRaspuns] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -233,6 +237,66 @@ export default function AdminRegistruPage() {
       month: '2-digit',
       year: 'numeric',
     });
+  };
+
+  // Official response to an email/manual intrare: outgoing number, signed
+  // PDF and delivery by email to the sender (server-side, /api/emite-raspuns)
+  const openRaspunsDialog = (document: RegistruDocument) => {
+    setSelectedDocument(document);
+    setRaspunsText(
+      buildRaspunsBody({
+        numeComplet: document.emitent,
+        adresa: document.adresaEmitent,
+        numarCerere: document.numarInregistrare,
+        dataCerere: formatDate(document.dataInregistrare),
+      })
+    );
+    setShowRaspunsDialog(true);
+  };
+
+  const handleEmiteRaspuns = async () => {
+    if (!selectedDocument || !raspunsText.trim()) return;
+    setSendingRaspuns(true);
+    try {
+      const idToken = await auth.currentUser?.getIdToken();
+      const response = await fetch('/api/emite-raspuns', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(idToken ? { Authorization: `Bearer ${idToken}` } : {}),
+        },
+        body: JSON.stringify({
+          registruDocId: selectedDocument.id,
+          continut: raspunsText.trim(),
+        }),
+      });
+      const result = await response.json();
+      if (!result.success) {
+        throw new Error(result.error || 'Emiterea răspunsului a eșuat');
+      }
+
+      toast({
+        title: 'Răspuns emis',
+        description: result.emailSent
+          ? `Nr. ieșire ${result.numarIesire} — trimis pe email către ${selectedDocument.emailEmitent}.`
+          : `Nr. ieșire ${result.numarIesire}. Emitentul nu are email — descarcă PDF-ul și transmite-l manual.`,
+      });
+      if (!result.emailSent && result.downloadURL) {
+        window.open(result.downloadURL, '_blank');
+      }
+      setShowRaspunsDialog(false);
+      setRaspunsText('');
+      loadDocuments();
+    } catch (error) {
+      console.error('Error issuing raspuns:', error);
+      toast({
+        title: 'Eroare',
+        description: error instanceof Error ? error.message : 'Nu s-a putut emite răspunsul',
+        variant: 'destructive',
+      });
+    } finally {
+      setSendingRaspuns(false);
+    }
   };
 
   const getStatusCount = (status: StatusRegistru) => {
@@ -542,6 +606,16 @@ export default function AdminRegistruPage() {
                               >
                                 ✏️
                               </Button>
+                              {(doc.directie || 'intrare') === 'intrare' && !doc.raspunsNumar && !doc.cerereId && (
+                                <Button
+                                  size="sm"
+                                  className="h-7 w-7 p-0 bg-sky-800 hover:bg-sky-700"
+                                  title="Trimite răspuns oficial"
+                                  onClick={() => openRaspunsDialog(doc)}
+                                >
+                                  ✉️
+                                </Button>
+                              )}
                               {doc.status === 'finalizat' && (
                                 <Button
                                   size="sm"
@@ -591,6 +665,62 @@ export default function AdminRegistruPage() {
           )}
         </div>
       </div>
+
+      {/* Emite raspuns oficial Dialog */}
+      <Dialog open={showRaspunsDialog} onOpenChange={setShowRaspunsDialog}>
+        <DialogContent className="bg-slate-800 border-slate-700 max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-white flex items-center gap-2">
+              ✉️ Trimite răspuns oficial
+            </DialogTitle>
+          </DialogHeader>
+
+          <p className="text-sm text-gray-400">
+            Răspuns la documentul{' '}
+            <span className="font-mono text-green-400">{selectedDocument?.numarInregistrare}</span> de la{' '}
+            <span className="text-white">{selectedDocument?.emitent}</span>. Primește număr de ieșire,
+            semnătura primarului și QR de verificare.{' '}
+            {selectedDocument?.emailEmitent ? (
+              <>PDF-ul va fi trimis pe email la{' '}
+                <span className="text-sky-300">{selectedDocument.emailEmitent}</span>.</>
+            ) : (
+              <span className="text-amber-400">
+                Emitentul nu are email înregistrat — PDF-ul se va deschide pentru descărcare și transmitere manuală.
+              </span>
+            )}
+          </p>
+
+          <Textarea
+            value={raspunsText}
+            onChange={(e) => setRaspunsText(e.target.value)}
+            rows={12}
+            className="bg-slate-700 border-slate-600 text-white font-mono text-sm"
+          />
+          {raspunsText.includes('[ ') && (
+            <p className="text-amber-400 text-sm">
+              ⚠️ Textul mai conține câmpuri necompletate [ ... ]
+            </p>
+          )}
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowRaspunsDialog(false)}
+              className="border-slate-600 text-gray-300 hover:bg-slate-700 hover:text-white"
+            >
+              Anulează
+            </Button>
+            <Button
+              onClick={handleEmiteRaspuns}
+              disabled={sendingRaspuns || !raspunsText.trim()}
+              className="bg-sky-600 hover:bg-sky-700"
+            >
+              {sendingRaspuns && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Emite cu număr de ieșire
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Status Change Dialog */}
       <Dialog open={showStatusDialog} onOpenChange={setShowStatusDialog}>
