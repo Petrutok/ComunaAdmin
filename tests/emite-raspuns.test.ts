@@ -7,6 +7,7 @@ const savedFiles: { path: string; buffer: Buffer; contentType?: string }[] = [];
 const added: Record<string, any[]> = {};
 const updates: Record<string, any[]> = {};
 let cerereData: any;
+let registruData: any;
 
 const mockBucket = {
   file: (path: string) => ({
@@ -22,15 +23,18 @@ const mockBucket = {
 const mockDb = {
   collection: (name: string) => ({
     doc: (id: string) => ({
-      get: async () => ({
-        exists: cerereData != null,
-        data: () => cerereData,
-        ref: {
-          update: async (patch: any) => {
-            (updates[`${name}/${id}`] ||= []).push(patch);
+      get: async () => {
+        const data = name === 'registru_general' ? registruData : cerereData;
+        return {
+          exists: data != null,
+          data: () => data,
+          ref: {
+            update: async (patch: any) => {
+              (updates[`${name}/${id}`] ||= []).push(patch);
+            },
           },
-        },
-      }),
+        };
+      },
       update: async (patch: any) => {
         (updates[`${name}/${id}`] ||= []).push(patch);
       },
@@ -58,6 +62,13 @@ vi.mock('@/lib/api-auth', () => ({
 vi.mock('firebase-admin/storage', () => ({
   getDownloadURL: async () => 'https://storage.example/raspuns.pdf?token=abc',
 }));
+const sentEmails: any[] = [];
+vi.mock('@/lib/email', () => ({
+  sendEmail: async (opts: any) => {
+    sentEmails.push(opts);
+    return true;
+  },
+}));
 
 import { POST } from '@/app/api/emite-raspuns/route';
 
@@ -71,8 +82,10 @@ function makeRequest(body: any) {
 
 beforeEach(() => {
   savedFiles.length = 0;
+  sentEmails.length = 0;
   for (const k of Object.keys(added)) delete added[k];
   for (const k of Object.keys(updates)) delete updates[k];
+  registruData = null;
   cerereData = {
     numeComplet: 'Ion Popescu',
     email: 'ion@example.com',
@@ -144,6 +157,72 @@ describe('POST /api/emite-raspuns', () => {
     cerereData = null;
     const res = await POST(makeRequest({ cerereId: 'nope', continut: 'text' }));
     expect(res.status).toBe(404);
+  });
+
+  it('does not email directly for cereri (notify-status-change handles delivery)', async () => {
+    const res = await POST(makeRequest({ cerereId: 'c1', continut: 'Răspuns.' }));
+    expect(res.status).toBe(200);
+    expect(sentEmails).toHaveLength(0);
+  });
+});
+
+describe('POST /api/emite-raspuns for registry entries (email/manual)', () => {
+  beforeEach(() => {
+    registruData = {
+      numarInregistrare: 'REG-2026-000020',
+      directie: 'intrare',
+      emitent: 'Maria Ionescu',
+      adresaEmitent: 'Str. Teiului 5, Filipești',
+      emailEmitent: 'maria@example.com',
+      emailId: 'email-imap-1',
+      sursa: 'email',
+    };
+  });
+
+  it('issues the response and emails the PDF to the sender', async () => {
+    const res = await POST(makeRequest({ registruDocId: 'r1', continut: 'Vă răspundem.' }));
+    const json = await res.json();
+    expect(res.status).toBe(200);
+    expect(json.numarIesire).toBe('REG-2026-000099');
+    expect(json.emailSent).toBe(true);
+
+    // PDF stored under the registry path
+    expect(savedFiles[0].path).toBe('raspunsuri/registru/r1/REG-2026-000099.pdf');
+
+    // emailed with the PDF attached
+    expect(sentEmails).toHaveLength(1);
+    expect(sentEmails[0].to).toBe('maria@example.com');
+    expect(sentEmails[0].attachments[0].filename).toBe('REG-2026-000099.pdf');
+    expect(sentEmails[0].attachments[0].content.subarray(0, 4).toString()).toBe('%PDF');
+
+    // iesire linked to the intrare; intrare closed
+    const iesire = added['registru_general'][0];
+    expect(iesire.raspunsLaDocId).toBe('r1');
+    expect(iesire.raspunsLaNumar).toBe('REG-2026-000020');
+    expect(iesire.destinatar).toBe('Maria Ionescu');
+    expect(updates['registru_general/r1'][0].raspunsNumar).toBe('REG-2026-000099');
+
+    // IMAP email doc marked resolved
+    expect(updates['registratura_emails/email-imap-1'][0].status).toBe('rezolvat');
+  });
+
+  it('refuses a second response for the same entry', async () => {
+    registruData.raspunsNumar = 'REG-2026-000050';
+    const res = await POST(makeRequest({ registruDocId: 'r1', continut: 'alt răspuns' }));
+    expect(res.status).toBe(409);
+  });
+
+  it('refuses iesire entries', async () => {
+    registruData.directie = 'iesire';
+    const res = await POST(makeRequest({ registruDocId: 'r1', continut: 'text' }));
+    expect(res.status).toBe(400);
+  });
+
+  it('redirects online cereri entries to the cereri flow', async () => {
+    registruData.cerereId = 'c1';
+    const res = await POST(makeRequest({ registruDocId: 'r1', continut: 'text' }));
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toContain('Admin → Cereri');
   });
 });
 

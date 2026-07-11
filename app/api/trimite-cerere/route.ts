@@ -5,6 +5,7 @@ import { generateRegistruNumberAdmin } from '@/lib/generateRegistruNumberAdmin';
 import { getOptionalCitizenUid } from '@/lib/api-auth';
 import { rateLimit, getClientIp } from '@/lib/rate-limit';
 import { validateAndDecodeFiles } from '@/lib/cereri-files';
+import { sendEmail } from '@/lib/email';
 
 interface CerereRequest {
   numeComplet: string;
@@ -209,6 +210,28 @@ export async function POST(request: NextRequest) {
 
     // Backlink so the registry entry can open the full submission
     await registruRef.update({ cerereId: submissionRef.id });
+
+    // OG 27/2002: confirm the registration to the petitioner. Best effort -
+    // the submission is already recorded, an email failure must not undo it
+    const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'https://primaria.digital';
+    const dataDepunerii = new Date().toLocaleDateString('ro-RO', {
+      day: '2-digit', month: '2-digit', year: 'numeric',
+    });
+    await sendEmail({
+      to: body.email,
+      subject: `Confirmare înregistrare cerere — ${numarInregistrare}`,
+      text:
+        `Bună ziua, ${body.numeComplet},\n\n` +
+        `Cererea dumneavoastră („${body.tipCerere}") a fost înregistrată la primărie.\n\n` +
+        `Număr de înregistrare: ${numarInregistrare}\n` +
+        `Data înregistrării: ${dataDepunerii}\n` +
+        `Fișiere atașate: ${fisiere.length}\n\n` +
+        `Conform OG 27/2002, veți primi un răspuns în cel mult 30 de zile.\n\n` +
+        `Puteți urmări stadiul cererii în aplicație, în secțiunea „Dosarul meu":\n` +
+        `${baseUrl}/dosarul-meu\n\n` +
+        `Păstrați numărul de înregistrare pentru orice corespondență cu primăria.\n\n` +
+        `Acest mesaj a fost trimis automat, vă rugăm să nu răspundeți.`,
+    });
 
     return NextResponse.json(
       {

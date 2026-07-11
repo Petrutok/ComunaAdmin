@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import webpush from 'web-push';
-import { Resend } from 'resend';
-import { getAdminDb } from '@/lib/firebase-admin';
+import { getAdminDb, getAdminBucket } from '@/lib/firebase-admin';
 import { verifyStaffRequest } from '@/lib/api-auth';
+import { sendEmail, isValidEmail, EmailAttachment } from '@/lib/email';
 
 /**
  * Notifies a citizen that the status of their cerere/sesizare changed.
@@ -115,28 +115,42 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // --- Email fallback (reaches citizens without the app installed)
+    // --- Email fallback (reaches citizens without the app installed).
+    // When the status closes the cerere and a document was issued
+    // (raspuns oficial / adeverinta), attach its PDF so the citizen gets
+    // it directly, without needing the app.
     const citizenEmail = data.email || data.reporterContact;
-    const emailLooksValid =
-      typeof citizenEmail === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(citizenEmail);
 
-    if (emailLooksValid && process.env.RESEND_API_KEY) {
-      try {
-        const resend = new Resend(process.env.RESEND_API_KEY);
-        await resend.emails.send({
-          from: process.env.RESEND_FROM || 'Primăria Digitală <onboarding@resend.dev>',
-          to: citizenEmail,
-          subject: `${title}: ${reference} — ${statusLabel}`,
-          text:
-            `Bună ziua,\n\n${message}.\n\n` +
-            `Puteți vedea detaliile în aplicație, în secțiunea „Dosarul meu":\n` +
-            `${process.env.NEXT_PUBLIC_API_URL || 'https://primaria.digital'}/dosarul-meu\n\n` +
-            `Acest mesaj a fost trimis automat, vă rugăm să nu răspundeți.`,
-        });
-        results.email = true;
-      } catch (error) {
-        console.error('[notify-status-change] Email send failed:', error);
+    if (isValidEmail(citizenEmail)) {
+      const attachments: EmailAttachment[] = [];
+      if (isCerere && ['rezolvat', 'respins'].includes(newStatus)) {
+        const bucket = getAdminBucket();
+        if (bucket) {
+          for (const emis of [data.raspuns, data.adeverinta]) {
+            if (!emis?.storagePath || !emis?.numarIesire) continue;
+            try {
+              const [buf] = await bucket.file(emis.storagePath).download();
+              attachments.push({ filename: `${emis.numarIesire}.pdf`, content: buf });
+            } catch (error) {
+              console.warn('[notify-status-change] Could not attach PDF:', emis.storagePath);
+            }
+          }
+        }
       }
+
+      results.email = await sendEmail({
+        to: citizenEmail,
+        subject: `${title}: ${reference} — ${statusLabel}`,
+        text:
+          `Bună ziua,\n\n${message}.\n\n` +
+          (attachments.length
+            ? `Documentul emis de primărie este atașat acestui email.\n\n`
+            : '') +
+          `Puteți vedea detaliile în aplicație, în secțiunea „Dosarul meu":\n` +
+          `${process.env.NEXT_PUBLIC_API_URL || 'https://primaria.digital'}/dosarul-meu\n\n` +
+          `Acest mesaj a fost trimis automat, vă rugăm să nu răspundeți.`,
+        attachments,
+      });
     }
 
     return NextResponse.json({ success: true, ...results });
