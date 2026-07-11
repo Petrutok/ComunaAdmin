@@ -20,10 +20,22 @@ import {
   XCircle,
   Hammer,
   CalendarClock,
+  FilePlus,
+  CornerUpRight,
+  Archive,
+  Upload,
 } from 'lucide-react';
 import { auth } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
 import { SERVICE_CONFIG, AppointmentService } from '@/types/appointments';
+import { Input } from '@/components/ui/input';
+import {
+  MAX_ATTACHMENT_FILES,
+  MAX_TOTAL_FILE_BYTES,
+  processSelectedFiles,
+  totalSize,
+  fileToBase64,
+} from '@/lib/utils/client-files';
 
 interface MyCerere {
   id: string;
@@ -34,7 +46,13 @@ interface MyCerere {
     numarIesire: string;
     downloadURL: string;
   };
+  raspuns?: {
+    numarIesire: string;
+    downloadURL: string;
+  };
   status: string;
+  observatii?: string;
+  redirectionatCatre?: string;
   createdAt?: Timestamp;
 }
 
@@ -63,9 +81,13 @@ interface MyAppointment {
 const STATUS_BADGE: Record<string, { label: string; className: string; icon: typeof Clock }> = {
   noua: { label: 'În așteptare', className: 'bg-blue-500/20 text-blue-300 border-blue-400/30', icon: Clock },
   in_lucru: { label: 'În lucru', className: 'bg-amber-500/20 text-amber-300 border-amber-400/30', icon: Hammer },
+  necesita_completare: { label: 'Necesită completare', className: 'bg-orange-500/20 text-orange-300 border-orange-400/30', icon: FilePlus },
+  prelungit: { label: 'Termen prelungit', className: 'bg-purple-500/20 text-purple-300 border-purple-400/30', icon: CalendarClock },
+  redirectionat: { label: 'Redirecționată', className: 'bg-cyan-500/20 text-cyan-300 border-cyan-400/30', icon: CornerUpRight },
   rezolvat: { label: 'Rezolvată', className: 'bg-emerald-500/20 text-emerald-300 border-emerald-400/30', icon: CheckCircle },
   rezolvata: { label: 'Rezolvată', className: 'bg-emerald-500/20 text-emerald-300 border-emerald-400/30', icon: CheckCircle },
   respins: { label: 'Respinsă', className: 'bg-red-500/20 text-red-300 border-red-400/30', icon: XCircle },
+  clasat: { label: 'Clasată', className: 'bg-gray-500/20 text-gray-300 border-gray-400/30', icon: Archive },
 };
 
 function StatusBadge({ status }: { status: string }) {
@@ -88,6 +110,109 @@ function formatDate(ts?: Timestamp): string {
   }
 }
 
+// Upload box shown on a cerere marked "necesita_completare": the citizen
+// sends the missing documents and the cerere goes back to processing
+// (the legal deadline restarts server-side).
+function CompletareUpload({ cerereId, onDone }: { cerereId: string; onDone: () => void }) {
+  const { toast } = useToast();
+  const [files, setFiles] = useState<File[]>([]);
+  const [sending, setSending] = useState(false);
+
+  const handleSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selected = Array.from(e.target.files || []);
+    if (selected.length > MAX_ATTACHMENT_FILES) {
+      toast({
+        title: 'Prea multe fișiere',
+        description: `Poți încărca maxim ${MAX_ATTACHMENT_FILES} fișiere`,
+        variant: 'destructive',
+      });
+      e.target.value = '';
+      return;
+    }
+    const processed = await processSelectedFiles(selected);
+    if (totalSize(processed) > MAX_TOTAL_FILE_BYTES) {
+      toast({
+        title: 'Fișiere prea mari',
+        description: 'Fișierele depășesc limita totală de 3MB. Încearcă fișiere mai mici sau mai puține.',
+        variant: 'destructive',
+      });
+      e.target.value = '';
+      return;
+    }
+    setFiles(processed);
+  };
+
+  const handleSend = async () => {
+    if (files.length === 0) return;
+    setSending(true);
+    try {
+      const fisiere = [];
+      for (const f of files) {
+        fisiere.push({ name: f.name, type: f.type, size: f.size, content: await fileToBase64(f) });
+      }
+      const idToken = await auth.currentUser?.getIdToken();
+      const response = await fetch('/api/completeaza-cerere', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(idToken ? { Authorization: `Bearer ${idToken}` } : {}),
+        },
+        body: JSON.stringify({ cerereId, fisiere }),
+      });
+      const result = await response.json().catch(() => ({ success: false }));
+      if (!result.success) {
+        throw new Error(result.error || 'Trimiterea documentelor a eșuat');
+      }
+      toast({
+        title: 'Documente trimise',
+        description: 'Cererea a revenit în lucru la primărie.',
+      });
+      setFiles([]);
+      onDone();
+    } catch (error) {
+      toast({
+        title: 'Eroare',
+        description: error instanceof Error ? error.message : 'Nu s-au putut trimite documentele',
+        variant: 'destructive',
+      });
+    } finally {
+      setSending(false);
+    }
+  };
+
+  return (
+    <div className="space-y-2">
+      <Input
+        type="file"
+        multiple
+        accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+        onChange={handleSelect}
+        className="bg-slate-900 border-slate-600 text-white file:mr-4 file:py-1 file:px-3 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-orange-500 file:text-white hover:file:bg-orange-600"
+      />
+      <p className="text-xs text-gray-400">
+        Maxim {MAX_ATTACHMENT_FILES} fișiere, în total maxim 3MB (pozele mari sunt comprimate automat).
+      </p>
+      {files.length > 0 && (
+        <ul className="text-sm text-gray-300 space-y-1">
+          {files.map((f, i) => (
+            <li key={i}>
+              📎 {f.name} <span className="text-gray-500">({(f.size / 1024 / 1024).toFixed(1)}MB)</span>
+            </li>
+          ))}
+        </ul>
+      )}
+      <Button
+        onClick={handleSend}
+        disabled={sending || files.length === 0}
+        className="w-full bg-orange-600 hover:bg-orange-700"
+      >
+        {sending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
+        Trimite documentele
+      </Button>
+    </div>
+  );
+}
+
 export default function DosarulMeuPage() {
   const { user, loading: authLoading } = useCitizenAuth();
   const router = useRouter();
@@ -96,6 +221,7 @@ export default function DosarulMeuPage() {
   const [appointments, setAppointments] = useState<MyAppointment[]>([]);
   const [loadingData, setLoadingData] = useState(true);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -136,7 +262,7 @@ export default function DosarulMeuPage() {
     };
 
     load();
-  }, [user, authLoading, router]);
+  }, [user, authLoading, router, reloadKey]);
 
   if (authLoading || (!user && typeof window !== 'undefined')) {
     return (
@@ -243,6 +369,35 @@ export default function DosarulMeuPage() {
                             📄 Descarcă adeverința ({cerere.adeverinta.numarIesire})
                           </Button>
                         </a>
+                      )}
+                      {cerere.raspuns?.downloadURL && (
+                        <a
+                          href={cerere.raspuns.downloadURL}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="mt-4 block"
+                        >
+                          <Button className="w-full bg-sky-600 hover:bg-sky-700 py-5 text-base">
+                            📄 Descarcă răspunsul oficial ({cerere.raspuns.numarIesire})
+                          </Button>
+                        </a>
+                      )}
+                      {cerere.status === 'necesita_completare' && (
+                        <div className="mt-4 rounded-md border border-orange-400/30 bg-orange-500/10 p-3 space-y-2">
+                          <p className="text-orange-300 text-sm font-semibold">
+                            Primăria are nevoie de documente suplimentare pentru această cerere:
+                          </p>
+                          {cerere.observatii && (
+                            <p className="text-orange-200/90 text-sm whitespace-pre-wrap">{cerere.observatii}</p>
+                          )}
+                          <CompletareUpload cerereId={cerere.id} onDone={() => setReloadKey((k) => k + 1)} />
+                        </div>
+                      )}
+                      {cerere.status === 'redirectionat' && cerere.redirectionatCatre && (
+                        <p className="mt-3 text-sm text-cyan-300 bg-cyan-500/10 border border-cyan-400/20 rounded-md p-3">
+                          Cererea nu este de competența primăriei și a fost transmisă către:{' '}
+                          <span className="font-semibold">{cerere.redirectionatCatre}</span>. Veți primi răspunsul de la această instituție.
+                        </p>
                       )}
                     </CardContent>
                   </Card>

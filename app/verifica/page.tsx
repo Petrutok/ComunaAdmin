@@ -83,7 +83,7 @@ function VerificaContent() {
                 <h1 className="text-2xl font-bold text-red-300">Document neverificabil</h1>
                 <p className="text-gray-300 text-sm">
                   {result?.error ||
-                    'Nu există nicio adeverință emisă cu acest număr și cod de verificare. Documentul poate fi fals sau linkul este greșit.'}
+                    'Nu există niciun document emis cu acest număr și cod de verificare. Documentul poate fi fals sau linkul este greșit.'}
                 </p>
               </>
             )}

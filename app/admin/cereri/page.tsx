@@ -15,12 +15,14 @@ import {
   query,
   where,
   getDocs,
+  getDoc,
   doc,
   updateDoc,
   deleteDoc,
   orderBy,
   limit,
   startAfter,
+  Timestamp,
 } from 'firebase/firestore';
 import { db, auth, storage, COLLECTIONS } from '@/lib/firebase';
 import { ref, getDownloadURL } from 'firebase/storage';
@@ -53,9 +55,16 @@ import {
   Zap,
   ArrowUpDown,
   BadgeCheck,
+  Send,
+  FilePlus,
+  CalendarClock,
+  CornerUpRight,
+  Archive,
 } from 'lucide-react';
 import { isAdeverintaType, buildAdeverintaBody, ADEVERINTA_LABELS } from '@/lib/adeverinte';
 import type { AdeverintaType } from '@/lib/adeverinte';
+import { buildRaspunsBody, RASPUNS_STATUS_LABELS } from '@/lib/raspuns';
+import type { RaspunsStatus } from '@/lib/raspuns';
 import {
   Dialog,
   DialogContent,
@@ -90,7 +99,21 @@ import {
   TableRow,
 } from '@/components/ui/table';
 
-type CerereStatus = 'noua' | 'in_lucru' | 'rezolvat' | 'respins';
+// Beyond the basic flow, OG 27/2002 statuses:
+// - necesita_completare: missing documents requested from the citizen
+//   (the legal deadline is suspended until they arrive)
+// - prelungit: deadline extended by max 15 days (art. 9)
+// - redirectionat: forwarded to the competent institution (art. 6^1)
+// - clasat: filed without response - anonymous/duplicate petition (art. 7)
+type CerereStatus =
+  | 'noua'
+  | 'in_lucru'
+  | 'necesita_completare'
+  | 'prelungit'
+  | 'redirectionat'
+  | 'rezolvat'
+  | 'respins'
+  | 'clasat';
 type CererePriority = 'urgent' | 'normal' | 'low';
 
 interface Cerere {
@@ -110,7 +133,14 @@ interface Cerere {
     downloadURL: string;
     emisLa?: any;
   };
+  raspuns?: {
+    numarIesire: string;
+    downloadURL: string;
+    emisLa?: any;
+  };
   status: CerereStatus;
+  redirectionatCatre?: string;
+  registruDocId?: string;
   priority?: CererePriority;
   departmentId?: string;
   departmentName?: string;
@@ -150,6 +180,30 @@ const statusConfig = {
     bgColor: 'bg-amber-500/20',
     borderColor: 'border-amber-400/30',
   },
+  'necesita_completare': {
+    label: 'Necesită completare',
+    icon: FilePlus,
+    color: 'bg-orange-600',
+    textColor: 'text-orange-300',
+    bgColor: 'bg-orange-500/20',
+    borderColor: 'border-orange-400/30',
+  },
+  'prelungit': {
+    label: 'Termen prelungit',
+    icon: CalendarClock,
+    color: 'bg-purple-600',
+    textColor: 'text-purple-300',
+    bgColor: 'bg-purple-500/20',
+    borderColor: 'border-purple-400/30',
+  },
+  'redirectionat': {
+    label: 'Redirecționată',
+    icon: CornerUpRight,
+    color: 'bg-cyan-600',
+    textColor: 'text-cyan-300',
+    bgColor: 'bg-cyan-500/20',
+    borderColor: 'border-cyan-400/30',
+  },
   'rezolvat': {
     label: 'Rezolvat',
     icon: CheckCircle,
@@ -165,6 +219,14 @@ const statusConfig = {
     textColor: 'text-rose-300',
     bgColor: 'bg-rose-500/20',
     borderColor: 'border-rose-400/30',
+  },
+  'clasat': {
+    label: 'Clasată',
+    icon: Archive,
+    color: 'bg-gray-600',
+    textColor: 'text-gray-300',
+    bgColor: 'bg-gray-500/20',
+    borderColor: 'border-gray-400/30',
   },
 };
 
@@ -224,12 +286,17 @@ export default function AdminCereriPage() {
   const [showEmiteDialog, setShowEmiteDialog] = useState(false);
   const [adeverintaText, setAdeverintaText] = useState('');
   const [emitting, setEmitting] = useState(false);
+  const [showRaspunsDialog, setShowRaspunsDialog] = useState(false);
+  const [raspunsText, setRaspunsText] = useState('');
+  const [raspunsStatus, setRaspunsStatus] = useState<RaspunsStatus>('rezolvat');
+  const [sendingRaspuns, setSendingRaspuns] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(false);
   const lastDocRef = useRef<any>(null);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showAssignDialog, setShowAssignDialog] = useState(false);
   const [newStatus, setNewStatus] = useState<CerereStatus>('noua');
+  const [redirectionatCatre, setRedirectionatCatre] = useState('');
   const [observatii, setObservatii] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('toate');
@@ -426,8 +493,52 @@ export default function AdminCereriPage() {
       });
     }
   };
+  // Keep the registry entry in sync with the cerere status:
+  // - prelungit: +15 days on the legal deadline (OG 27/2002 art. 9)
+  // - necesita_completare: deadline suspended until the citizen completes
+  //   (restarted by /api/completeaza-cerere)
+  // - closed statuses: finalize the registry entry
+  const syncRegistruWithStatus = async (cerere: Cerere, status: CerereStatus) => {
+    if (!cerere.registruDocId) return;
+    const registruRef = doc(db, 'registru_general', cerere.registruDocId);
+    try {
+      if (status === 'prelungit') {
+        const snap = await getDoc(registruRef);
+        const termenActual: Timestamp | null = snap.exists() ? snap.data().termen || null : null;
+        const baza = termenActual?.toMillis?.() || Date.now() + 30 * 24 * 60 * 60 * 1000;
+        await updateDoc(registruRef, {
+          termen: Timestamp.fromMillis(baza + 15 * 24 * 60 * 60 * 1000),
+          status: 'in_lucru',
+          updatedAt: Timestamp.now(),
+        });
+      } else if (status === 'necesita_completare') {
+        await updateDoc(registruRef, {
+          termen: null,
+          status: 'in_lucru',
+          updatedAt: Timestamp.now(),
+        });
+      } else if (['rezolvat', 'respins', 'redirectionat', 'clasat'].includes(status)) {
+        await updateDoc(registruRef, { status: 'finalizat', updatedAt: Timestamp.now() });
+      } else if (status === 'in_lucru') {
+        await updateDoc(registruRef, { status: 'in_lucru', updatedAt: Timestamp.now() });
+      }
+    } catch (error) {
+      // best effort: the cerere status change must not fail because of the registry
+      console.error('Error syncing registru entry:', error);
+    }
+  };
+
   const handleStatusChange = async () => {
     if (!selectedCerere || !newStatus) return;
+
+    if (newStatus === 'redirectionat' && !redirectionatCatre.trim()) {
+      toast({
+        title: "Instituție lipsă",
+        description: "Completează către ce instituție a fost redirecționată cererea.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     try {
       const updateData: any = {
@@ -435,12 +546,18 @@ export default function AdminCereriPage() {
         updatedAt: new Date(),
       };
 
+      if (newStatus === 'redirectionat') {
+        updateData.redirectionatCatre = redirectionatCatre.trim();
+      }
+
       const finalObservatii = observatii.trim() || selectedCerere.observatii || '';
       if (finalObservatii) {
         updateData.observatii = finalObservatii;
       }
 
       await updateDoc(doc(db, 'form_submissions', selectedCerere.id), updateData);
+
+      await syncRegistruWithStatus(selectedCerere, newStatus);
 
       // Notify the citizen (push + email) - best effort, never blocks the update
       try {
@@ -467,6 +584,7 @@ export default function AdminCereriPage() {
       setShowStatusDialog(false);
       setNewStatus('noua');
       setObservatii('');
+      setRedirectionatCatre('');
       loadCereri();
     } catch (error) {
       console.error('Error updating status:', error);
@@ -554,6 +672,63 @@ export default function AdminCereriPage() {
       });
     } finally {
       setEmitting(false);
+    }
+  };
+
+  const handleEmiteRaspuns = async () => {
+    if (!selectedCerere || !raspunsText.trim()) return;
+    setSendingRaspuns(true);
+    try {
+      const idToken = await auth.currentUser?.getIdToken();
+      const response = await fetch('/api/emite-raspuns', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(idToken ? { Authorization: `Bearer ${idToken}` } : {}),
+        },
+        body: JSON.stringify({
+          cerereId: selectedCerere.id,
+          continut: raspunsText.trim(),
+          status: raspunsStatus,
+        }),
+      });
+      const result = await response.json();
+
+      if (!result.success) {
+        throw new Error(result.error || 'Emiterea răspunsului a eșuat');
+      }
+
+      // Notify the citizen (push + email) about the outcome - best effort
+      fetch('/api/notify-status-change', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(idToken ? { Authorization: `Bearer ${idToken}` } : {}),
+        },
+        body: JSON.stringify({
+          collection: 'form_submissions',
+          docId: selectedCerere.id,
+          newStatus: raspunsStatus,
+        }),
+      }).catch(() => {});
+
+      toast({
+        title: 'Răspuns emis',
+        description: `Nr. ieșire ${result.numarIesire} — cetățeanul îl poate descărca din Dosarul meu.`,
+      });
+      setShowRaspunsDialog(false);
+      setRaspunsText('');
+      setRaspunsStatus('rezolvat');
+      loadCereri();
+    } catch (error) {
+      console.error('Error issuing raspuns:', error);
+      toast({
+        title: 'Eroare',
+        description: error instanceof Error ? error.message : 'Nu s-a putut emite răspunsul',
+        variant: 'destructive',
+      });
+    } finally {
+      setSendingRaspuns(false);
     }
   };
 
@@ -880,6 +1055,7 @@ export default function AdminCereriPage() {
                           setSelectedCerere(cerere);
                           setNewStatus(cerere.status);
                           setObservatii(cerere.observatii || '');
+                          setRedirectionatCatre(cerere.redirectionatCatre || '');
                           setShowStatusDialog(true);
                         }}
                         className="hover:bg-amber-600/20 hover:text-amber-300 text-gray-300 border border-transparent hover:border-amber-400/30"
@@ -929,6 +1105,42 @@ export default function AdminCereriPage() {
                             title={`Adeverință emisă: ${cerere.adeverinta.numarIesire}`}
                           >
                             <BadgeCheck className="h-5 w-5" />
+                          </Button>
+                        </a>
+                      )}
+                      {!cerere.raspuns && !cerere.adeverinta && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => {
+                            setSelectedCerere(cerere);
+                            setRaspunsStatus('rezolvat');
+                            setRaspunsText(
+                              buildRaspunsBody({
+                                numeComplet: cerere.numeComplet,
+                                adresa: `${cerere.adresa || ''}, ${cerere.localitate || ''}`.replace(/^, /, ''),
+                                numarCerere: cerere.numarInregistrare,
+                                dataCerere: cerere.createdAt?.toDate?.()?.toLocaleDateString('ro-RO'),
+                                tipCerere: tipuriCereri[cerere.tipCerere] || cerere.tipCerere,
+                              })
+                            );
+                            setShowRaspunsDialog(true);
+                          }}
+                          className="hover:bg-sky-600/20 hover:text-sky-300 text-sky-400 border border-transparent hover:border-sky-400/30"
+                          title="Trimite răspuns oficial"
+                        >
+                          <Send className="h-5 w-5" />
+                        </Button>
+                      )}
+                      {cerere.raspuns?.downloadURL && (
+                        <a href={cerere.raspuns.downloadURL} target="_blank" rel="noreferrer">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="text-sky-300 hover:bg-sky-600/20 border border-transparent hover:border-sky-400/30"
+                            title={`Răspuns emis: ${cerere.raspuns.numarIesire}`}
+                          >
+                            <Send className="h-5 w-5" />
                           </Button>
                         </a>
                       )}
@@ -1019,6 +1231,71 @@ export default function AdminCereriPage() {
         </DialogContent>
       </Dialog>
 
+      {/* Emite raspuns oficial Dialog */}
+      <Dialog open={showRaspunsDialog} onOpenChange={setShowRaspunsDialog}>
+        <DialogContent className="bg-slate-800 border-slate-700 max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-white text-xl flex items-center gap-2">
+              <Send className="h-5 w-5 text-sky-400" />
+              Trimite răspuns oficial
+            </DialogTitle>
+            <DialogDescription className="text-gray-400">
+              Răspuns scris pentru <span className="text-white">{selectedCerere?.numeComplet}</span>
+              {selectedCerere?.numarInregistrare && (
+                <> la cererea <span className="font-mono text-green-400">{selectedCerere.numarInregistrare}</span></>
+              )}
+              . Primește număr de ieșire, semnătura primarului și QR de verificare, apoi apare în Dosarul meu.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-1">
+            <label className="text-sm text-gray-300">Soluția cererii</label>
+            <Select value={raspunsStatus} onValueChange={(v) => setRaspunsStatus(v as RaspunsStatus)}>
+              <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="bg-slate-800 border-slate-600 text-white">
+                {(Object.keys(RASPUNS_STATUS_LABELS) as RaspunsStatus[]).map((s) => (
+                  <SelectItem key={s} value={s}>
+                    {RASPUNS_STATUS_LABELS[s]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <Textarea
+            value={raspunsText}
+            onChange={(e) => setRaspunsText(e.target.value)}
+            rows={12}
+            className="bg-slate-700 border-slate-600 text-white font-mono text-sm"
+          />
+          {raspunsText.includes('[ ') && (
+            <p className="text-amber-400 text-sm">
+              ⚠️ Textul mai conține câmpuri necompletate [ ... ]
+            </p>
+          )}
+
+          <div className="flex gap-3">
+            <Button
+              variant="outline"
+              onClick={() => setShowRaspunsDialog(false)}
+              className="flex-1 border-slate-600 text-gray-300 hover:bg-slate-700 hover:text-white"
+            >
+              Anulează
+            </Button>
+            <Button
+              onClick={handleEmiteRaspuns}
+              disabled={sendingRaspuns || !raspunsText.trim()}
+              className="flex-1 bg-sky-600 hover:bg-sky-700"
+            >
+              {sendingRaspuns && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Emite cu număr de ieșire
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Details Dialog */}
       <Dialog open={showDetailsDialog} onOpenChange={setShowDetailsDialog}>
         <DialogContent className="bg-slate-800 border-slate-700 max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -1100,6 +1377,12 @@ export default function AdminCereriPage() {
                         <p className="text-white font-medium">{selectedCerere.scopulCererii}</p>
                       </div>
                     )}
+                    {selectedCerere.redirectionatCatre && (
+                      <div>
+                        <span className="text-gray-400 text-sm">Redirecționată către:</span>
+                        <p className="text-cyan-300 font-medium">{selectedCerere.redirectionatCatre}</p>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
 
@@ -1142,6 +1425,26 @@ export default function AdminCereriPage() {
                           )}
                         </div>
                       ))}
+                    </CardContent>
+                  </Card>
+                )}
+
+                {selectedCerere.raspuns?.downloadURL && (
+                  <Card className="bg-sky-950/20 border-sky-800/30">
+                    <CardHeader>
+                      <CardTitle className="text-sky-300 text-lg flex items-center gap-2">
+                        <Send className="h-5 w-5" />
+                        Răspuns oficial emis
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="flex items-center justify-between gap-3">
+                      <span className="font-mono text-green-400">{selectedCerere.raspuns.numarIesire}</span>
+                      <a href={selectedCerere.raspuns.downloadURL} target="_blank" rel="noreferrer">
+                        <Button size="sm" variant="outline" className="border-sky-500/40 text-sky-300 hover:bg-sky-600/20">
+                          <Download className="h-4 w-4 mr-1" />
+                          Descarcă
+                        </Button>
+                      </a>
                     </CardContent>
                   </Card>
                 )}
@@ -1302,6 +1605,34 @@ export default function AdminCereriPage() {
               </Select>
             </div>
 
+            {newStatus === 'redirectionat' && (
+              <div>
+                <label className="text-sm text-gray-400 mb-2 block">
+                  Redirecționată către (instituția competentă) *
+                </label>
+                <Input
+                  value={redirectionatCatre}
+                  onChange={(e) => setRedirectionatCatre(e.target.value)}
+                  placeholder="ex: Consiliul Județean Bacău, Direcția de Sănătate Publică..."
+                  className="bg-slate-900 border-slate-600 text-white"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  OG 27/2002 art. 6¹: petițiile greșit îndreptate se trimit în 5 zile autorității competente, cu înștiințarea petentului.
+                </p>
+              </div>
+            )}
+
+            {newStatus === 'necesita_completare' && (
+              <p className="text-xs text-orange-300/80 bg-orange-500/10 border border-orange-400/20 rounded-md p-2">
+                Termenul legal se suspendă. Cetățeanul va putea încărca documentele lipsă din „Dosarul meu" — descrie în observații ce trebuie completat; observațiile îi sunt afișate.
+              </p>
+            )}
+            {newStatus === 'prelungit' && (
+              <p className="text-xs text-purple-300/80 bg-purple-500/10 border border-purple-400/20 rounded-md p-2">
+                OG 27/2002 art. 9: termenul se prelungește cu cel mult 15 zile. Termenul din registru se actualizează automat.
+              </p>
+            )}
+
             <div>
               <label className="text-sm text-gray-400 mb-2 block">Observații (opțional)</label>
               <Textarea
@@ -1321,6 +1652,7 @@ export default function AdminCereriPage() {
                 setShowStatusDialog(false);
                 setNewStatus('noua');
                 setObservatii('');
+                setRedirectionatCatre('');
               }}
             >
               Anulează

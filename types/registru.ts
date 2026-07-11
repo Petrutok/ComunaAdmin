@@ -16,7 +16,7 @@ export type TipDocument =
 export type StatusRegistru = 'nou' | 'in_lucru' | 'finalizat';
 
 // Where the registry entry came from (unified registry)
-export type SursaRegistru = 'manual' | 'email' | 'cerere_online' | 'adeverinta';
+export type SursaRegistru = 'manual' | 'email' | 'cerere_online' | 'adeverinta' | 'raspuns';
 
 // Real registries record both directions
 export type DirectieRegistru = 'intrare' | 'iesire';
@@ -56,7 +56,12 @@ export interface RegistruDocument {
   directie?: DirectieRegistru;       // intrare/iesire (default: intrare)
   termen?: Timestamp | null;         // legal response deadline (OG 27/2002: 30 days)
   emailId?: string;                  // link to registratura_emails doc (sursa=email)
-  cerereId?: string;                 // link to form_submissions doc (sursa=cerere_online/adeverinta)
+  cerereId?: string;                 // link to form_submissions doc (sursa=cerere_online/adeverinta/raspuns)
+
+  // Conexare intrare<->iesire (official response circuit)
+  raspunsLaDocId?: string | null;    // on iesire: registry doc id of the intrare being answered
+  raspunsLaNumar?: string | null;    // on iesire: registration number of that intrare
+  raspunsNumar?: string;             // on intrare: outgoing number of the issued response
 
   // Metadata
   creatDe: string;                   // user ID

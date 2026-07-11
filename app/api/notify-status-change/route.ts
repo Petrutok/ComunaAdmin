@@ -22,9 +22,13 @@ const STATUS_LABELS: Record<string, string> = {
   repartizata: 'Repartizată',
   in_lucru: 'În lucru',
   in_asteptare: 'În așteptare',
+  necesita_completare: 'Necesită completare — adăugați documentele solicitate din Dosarul meu',
+  prelungit: 'Termen prelungit cu 15 zile (OG 27/2002)',
+  redirectionat: 'Redirecționată către instituția competentă',
   rezolvat: 'Soluționată',
   rezolvata: 'Rezolvată',
   respins: 'Respinsă',
+  clasat: 'Clasată',
   arhivat: 'Arhivată',
 };
 

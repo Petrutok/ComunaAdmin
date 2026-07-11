@@ -456,7 +456,8 @@ export default function AdminRegistruPage() {
                         const sursaIcon =
                           doc.sursa === 'email' ? '📧 ' :
                           doc.sursa === 'cerere_online' ? '🌐 ' :
-                          doc.sursa === 'adeverinta' ? '📜 ' : '';
+                          doc.sursa === 'adeverinta' ? '📜 ' :
+                          doc.sursa === 'raspuns' ? '✉️ ' : '';
 
                         return (
                           <TableRow
