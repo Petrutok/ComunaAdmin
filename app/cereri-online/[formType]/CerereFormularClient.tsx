@@ -156,7 +156,26 @@ export default function CerereFormularClient({ formType }: CerereFormularClientP
     );
   }
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Vercel caps the request body at 4.5MB; base64 adds ~33%, so raw
+  // attachments must stay under ~3MB in total
+  const MAX_TOTAL_FILE_BYTES = 3 * 1024 * 1024;
+
+  // Downscale phone photos so they fit the upload limit
+  const compressImage = async (file: File): Promise<File> => {
+    const bitmap = await createImageBitmap(file);
+    const scale = Math.min(1, 1600 / Math.max(bitmap.width, bitmap.height));
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.round(bitmap.width * scale);
+    canvas.height = Math.round(bitmap.height * scale);
+    canvas.getContext('2d')!.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    const blob = await new Promise<Blob | null>((resolve) =>
+      canvas.toBlob(resolve, 'image/jpeg', 0.8)
+    );
+    if (!blob || blob.size >= file.size) return file;
+    return new File([blob], file.name.replace(/\.(png|jpe?g)$/i, '') + '.jpg', { type: 'image/jpeg' });
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     if (files.length > 3) {
       toast({
@@ -164,9 +183,35 @@ export default function CerereFormularClient({ formType }: CerereFormularClientP
         description: "Poți încărca maxim 3 fișiere",
         variant: "destructive"
       });
+      e.target.value = '';
       return;
     }
-    setFormData({ ...formData, fisiere: files });
+
+    const processed: File[] = [];
+    for (const file of files) {
+      let f = file;
+      if (f.type.startsWith('image/') && f.size > 1024 * 1024) {
+        try {
+          f = await compressImage(f);
+        } catch {
+          // browser can't decode it - keep the original and let the size check decide
+        }
+      }
+      processed.push(f);
+    }
+
+    const totalSize = processed.reduce((sum, f) => sum + f.size, 0);
+    if (totalSize > MAX_TOTAL_FILE_BYTES) {
+      toast({
+        title: "Fișiere prea mari",
+        description: "Fișierele atașate depășesc limita totală de 3MB. Încearcă fișiere mai mici sau mai puține.",
+        variant: "destructive"
+      });
+      e.target.value = '';
+      return;
+    }
+
+    setFormData({ ...formData, fisiere: processed });
   };
 
 // Alternativă pentru handleSubmit - trimite fișierele ca Base64 în JSON
@@ -210,18 +255,22 @@ const handleSubmit = async (e: React.FormEvent) => {
     const filesBase64 = [];
     if (formData.fisiere && formData.fisiere.length > 0) {
       console.log('📄 Procesare fișiere...');
+
+      // Safety net (selection already validates): the server and Vercel
+      // reject anything over ~3MB of raw attachments
+      const totalSize = formData.fisiere.reduce((sum, f) => sum + f.size, 0);
+      if (totalSize > MAX_TOTAL_FILE_BYTES) {
+        toast({
+          title: "Fișiere prea mari",
+          description: "Fișierele atașate depășesc limita totală de 3MB.",
+          variant: "destructive"
+        });
+        setIsSubmitting(false);
+        return;
+      }
+
       for (const file of formData.fisiere) {
         try {
-          // Verifică dimensiunea fișierului (max 5MB)
-          if (file.size > 5 * 1024 * 1024) {
-            toast({
-              title: "Fișier prea mare",
-              description: `${file.name} depășește 5MB`,
-              variant: "destructive"
-            });
-            continue;
-          }
-          
           const base64 = await new Promise<string>((resolve, reject) => {
             const reader = new FileReader();
             
@@ -256,9 +305,11 @@ const handleSubmit = async (e: React.FormEvent) => {
           console.error(`❌ Eroare la procesarea fișierului ${file.name}:`, error);
           toast({
             title: "Eroare fișier",
-            description: `Nu s-a putut procesa ${file.name}`,
+            description: `Nu s-a putut procesa ${file.name}. Elimină-l sau alege alt fișier.`,
             variant: "destructive"
           });
+          setIsSubmitting(false);
+          return;
         }
       }
     }
@@ -319,7 +370,13 @@ const handleSubmit = async (e: React.FormEvent) => {
       body: JSON.stringify(dataToSend),
     });
 
-    const result = await response.json();
+    // Vercel rejects oversized bodies with a non-JSON 413 - don't crash on it
+    const result = await response.json().catch(() => ({
+      success: false,
+      error: response.status === 413
+        ? 'Fișierele atașate sunt prea mari (limita totală este 3MB).'
+        : undefined,
+    }));
 
    if (result.success) {
   console.log('✅ Cerere trimisă cu succes!');
@@ -827,7 +884,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                       className="bg-slate-900 border-slate-600 text-white file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-500 file:text-white hover:file:bg-blue-600"
                     />
                     <p className="text-xs text-gray-400">
-                      Maxim 3 fișiere. Formate acceptate: PDF, JPG, PNG, DOC, DOCX
+                      Maxim 3 fișiere, în total maxim 3MB (pozele mari sunt comprimate automat). Formate acceptate: PDF, JPG, PNG, DOC, DOCX
                     </p>
                     {formData.fisiere.length > 0 && (
                       <div className="mt-2 space-y-1">
@@ -835,6 +892,9 @@ const handleSubmit = async (e: React.FormEvent) => {
                           <div key={idx} className="text-sm text-gray-300 flex items-center gap-2">
                             <FileCheck className="h-4 w-4 text-green-400" />
                             {file.name}
+                            <span className="text-xs text-gray-500">
+                              ({(file.size / 1024 / 1024).toFixed(1)}MB)
+                            </span>
                           </div>
                         ))}
                       </div>

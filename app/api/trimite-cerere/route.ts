@@ -1,9 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Timestamp } from 'firebase-admin/firestore';
-import { getAdminDb } from '@/lib/firebase-admin';
+import { getAdminDb, getAdminBucket } from '@/lib/firebase-admin';
 import { generateRegistruNumberAdmin } from '@/lib/generateRegistruNumberAdmin';
 import { getOptionalCitizenUid } from '@/lib/api-auth';
 import { rateLimit, getClientIp } from '@/lib/rate-limit';
+
+// Attachments arrive as base64 in the JSON body; Vercel caps the whole
+// request at 4.5MB, so 3MB of raw file content is the practical maximum
+const MAX_FILES = 3;
+const MAX_TOTAL_FILE_BYTES = 3 * 1024 * 1024;
+const ALLOWED_FILE_TYPES = new Set([
+  'application/pdf',
+  'image/jpeg',
+  'image/png',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+]);
+
+function sanitizeFileName(name: string): string {
+  const base = name.split(/[\\/]/).pop() || 'fisier';
+  return base.replace(/[^\w.\-()\s]/g, '_').slice(0, 80);
+}
 
 interface CerereRequest {
   numeComplet: string;
@@ -25,7 +42,7 @@ interface CerereRequest {
   judet: string;
   telefonMobil?: string;
   telefonFix?: string;
-  fisiere?: any[];
+  fisiere?: { name: string; type: string; size?: number; content: string }[];
   [key: string]: any;
 }
 
@@ -43,6 +60,11 @@ export async function POST(request: NextRequest) {
     // Parse request body
     const body: CerereRequest = await request.json();
 
+    // Attachments are validated separately (they are large by nature);
+    // everything else keeps the tight cap
+    const fisiereInput = Array.isArray(body.fisiere) ? body.fisiere : [];
+    delete body.fisiere;
+
     // Reject oversized payloads: the route stores unknown extra fields,
     // so cap the overall size before anything reaches Firestore
     if (JSON.stringify(body).length > 100_000 || Object.keys(body).length > 60) {
@@ -50,6 +72,45 @@ export async function POST(request: NextRequest) {
         { success: false, error: 'Payload too large' },
         { status: 413 }
       );
+    }
+
+    // Validate and decode attachments before touching Firestore
+    if (fisiereInput.length > MAX_FILES) {
+      return NextResponse.json(
+        { success: false, error: `Maxim ${MAX_FILES} fișiere atașate` },
+        { status: 400 }
+      );
+    }
+    const decodedFiles: { name: string; type: string; buffer: Buffer }[] = [];
+    let totalFileBytes = 0;
+    for (const f of fisiereInput) {
+      if (!f || typeof f.name !== 'string' || typeof f.content !== 'string' || !f.content) {
+        return NextResponse.json(
+          { success: false, error: 'Fișier atașat invalid' },
+          { status: 400 }
+        );
+      }
+      if (!ALLOWED_FILE_TYPES.has(f.type)) {
+        return NextResponse.json(
+          { success: false, error: 'Tip de fișier neacceptat. Formate permise: PDF, JPG, PNG, DOC, DOCX.' },
+          { status: 400 }
+        );
+      }
+      const buffer = Buffer.from(f.content, 'base64');
+      if (buffer.length === 0) {
+        return NextResponse.json(
+          { success: false, error: 'Fișier atașat invalid' },
+          { status: 400 }
+        );
+      }
+      totalFileBytes += buffer.length;
+      if (totalFileBytes > MAX_TOTAL_FILE_BYTES) {
+        return NextResponse.json(
+          { success: false, error: 'Fișierele atașate depășesc limita totală de 3MB' },
+          { status: 413 }
+        );
+      }
+      decodedFiles.push({ name: sanitizeFileName(f.name), type: f.type, buffer });
     }
 
     // Validate required fields
@@ -109,15 +170,6 @@ export async function POST(request: NextRequest) {
       tipCerere: body.tipCerere,
       scopulCererii: body.scopulCererii,
 
-      // Files (if any) - limit to metadata since we're not storing large base64 in Firestore
-      fisiere: body.fisiere?.map((f: any) => ({
-        name: f.name,
-        type: f.type,
-        size: f.size
-        // Don't store the base64 content in Firestore - it's too large
-        // In production, you'd upload to Cloud Storage instead
-      })) || [],
-
       // Additional fields (store any other fields provided)
       ...Object.keys(body).reduce((acc, key) => {
         if (![
@@ -140,6 +192,25 @@ export async function POST(request: NextRequest) {
     const db = getAdminDb();
     if (!db) {
       throw new Error('Firebase Admin not initialized');
+    }
+
+    // Upload attachments to Storage under the submission's future id,
+    // BEFORE generating the registry number so a failed upload doesn't
+    // burn an official number. Staff read access via storage.rules.
+    const submissionRef = db.collection('form_submissions').doc();
+    let fisiere: { name: string; type: string; size: number; storagePath: string }[] = [];
+    if (decodedFiles.length > 0) {
+      const bucket = getAdminBucket();
+      if (!bucket) {
+        throw new Error('Firebase Storage not initialized');
+      }
+      fisiere = await Promise.all(
+        decodedFiles.map(async (f, i) => {
+          const storagePath = `cereri/${submissionRef.id}/${i + 1}_${f.name}`;
+          await bucket.file(storagePath).save(f.buffer, { contentType: f.type });
+          return { name: f.name, type: f.type, size: f.buffer.length, storagePath };
+        })
+      );
     }
 
     // Register the request in the general registry: every online submission
@@ -173,20 +244,21 @@ export async function POST(request: NextRequest) {
     const citizenUid = await getOptionalCitizenUid(request);
 
     // Save the submission with its registration number and registry link
-    const docRef = await db.collection('form_submissions').add({
+    await submissionRef.set({
       ...submissionData,
+      fisiere,
       numarInregistrare,
       registruDocId: registruRef.id,
       ...(citizenUid ? { citizenUid } : {}),
     });
 
     // Backlink so the registry entry can open the full submission
-    await registruRef.update({ cerereId: docRef.id });
+    await registruRef.update({ cerereId: submissionRef.id });
 
     return NextResponse.json(
       {
         success: true,
-        id: docRef.id,
+        id: submissionRef.id,
         numarInregistrare,
         message: 'Cerere trimisă cu succes'
       },
