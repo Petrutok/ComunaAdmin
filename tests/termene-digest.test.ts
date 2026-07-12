@@ -4,6 +4,8 @@ import { Timestamp } from 'firebase-admin/firestore';
 // Mocked Firebase: tests never touch production data
 let registruDocs: any[] = [];
 let userDocs: any[] = [];
+// source docs holding the assignment: form_submissions / registratura_emails
+let sourceDocs: Record<string, any> = {};
 
 const mockDb = {
   collection: (name: string) => ({
@@ -13,9 +15,17 @@ const mockDb = {
           get: async () => ({ docs: registruDocs.map((d) => ({ data: () => d })) }),
         }),
       }),
-      get: async () => ({ docs: userDocs.map((d) => ({ data: () => d })) }),
+      get: async () => ({
+        docs: userDocs.map((d) => ({ id: d.id, data: () => d })),
+      }),
     }),
+    doc: (id: string) => ({ __key: `${name}/${id}` }),
   }),
+  getAll: async (...refs: any[]) =>
+    refs.map((r) => ({
+      exists: sourceDocs[r.__key] != null,
+      data: () => sourceDocs[r.__key],
+    })),
 };
 
 vi.mock('@/lib/firebase-admin', () => ({
@@ -59,9 +69,11 @@ function makeRequest(headers: Record<string, string> = {}) {
 beforeEach(() => {
   sentEmails.length = 0;
   registruDocs = [];
+  sourceDocs = {};
   userDocs = [
-    { email: 'secretar@primarie.ro', active: true },
-    { email: 'not-an-email', active: true },
+    { id: 'u-admin', email: 'secretar@primarie.ro', role: 'admin', active: true },
+    { id: 'u-emp', email: 'angajat@primarie.ro', role: 'employee', active: true },
+    { id: 'u-bad', email: 'not-an-email', role: 'employee', active: true },
   ];
   process.env.CRON_SECRET = 'test-cron-secret';
 });
@@ -79,25 +91,41 @@ describe('GET /api/termene-digest', () => {
     expect(res.status).toBe(200);
   });
 
-  it('sends the digest to valid staff emails, split into overdue and upcoming', async () => {
+  it('admins get everything; employees only their assignments', async () => {
     registruDocs = [
-      entry(-3, { numarInregistrare: 'REG-2026-000001' }),
-      entry(2, { numarInregistrare: 'REG-2026-000002' }),
+      entry(-3, { numarInregistrare: 'REG-2026-000001', cerereId: 'c1' }),
+      entry(2, { numarInregistrare: 'REG-2026-000002', emailId: 'e1' }),
       entry(5, { numarInregistrare: 'REG-2026-000003', status: 'finalizat' }), // excluded
       entry(1, { numarInregistrare: 'REG-2026-000004', directie: 'iesire' }),  // excluded
     ];
+    // the cerere is assigned to the employee; the email to nobody
+    sourceDocs['form_submissions/c1'] = { assignedToUserId: 'u-emp' };
+    sourceDocs['registratura_emails/e1'] = { assignedToUserId: null };
+
     const res = await GET(makeRequest(authed));
     const json = await res.json();
-    expect(json).toMatchObject({ success: true, sent: 1, depasite: 1, apropiate: 1 });
+    expect(json).toMatchObject({ success: true, sent: 2, depasite: 1, apropiate: 1 });
 
-    expect(sentEmails).toHaveLength(1);
-    expect(sentEmails[0].to).toBe('secretar@primarie.ro');
-    expect(sentEmails[0].subject).toContain('1 depășite');
-    expect(sentEmails[0].text).toContain('REG-2026-000001');
-    expect(sentEmails[0].text).toContain('DEPĂȘIT cu 3 zile');
-    expect(sentEmails[0].text).toContain('REG-2026-000002');
-    expect(sentEmails[0].text).not.toContain('REG-2026-000003');
-    expect(sentEmails[0].text).not.toContain('REG-2026-000004');
+    const adminEmail = sentEmails.find((e) => e.to === 'secretar@primarie.ro');
+    expect(adminEmail.subject).toContain('1 depășite');
+    expect(adminEmail.text).toContain('REG-2026-000001');
+    expect(adminEmail.text).toContain('DEPĂȘIT cu 3 zile');
+    expect(adminEmail.text).toContain('REG-2026-000002');
+    expect(adminEmail.text).not.toContain('REG-2026-000003');
+    expect(adminEmail.text).not.toContain('REG-2026-000004');
+
+    const empEmail = sentEmails.find((e) => e.to === 'angajat@primarie.ro');
+    expect(empEmail.text).toContain('repartizate ție');
+    expect(empEmail.text).toContain('REG-2026-000001');
+    expect(empEmail.text).not.toContain('REG-2026-000002');
+  });
+
+  it('employees with nothing assigned get no email', async () => {
+    registruDocs = [entry(2, { numarInregistrare: 'REG-2026-000010' })];
+    const res = await GET(makeRequest(authed));
+    const json = await res.json();
+    expect(json.sent).toBe(1); // only the admin
+    expect(sentEmails.map((e) => e.to)).toEqual(['secretar@primarie.ro']);
   });
 
   it('sends nothing when there are no deadlines to report', async () => {

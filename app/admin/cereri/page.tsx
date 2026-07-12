@@ -26,6 +26,7 @@ import {
 } from 'firebase/firestore';
 import { db, auth, storage, COLLECTIONS } from '@/lib/firebase';
 import { ref, getDownloadURL } from 'firebase/storage';
+import { useAdminAuth } from '@/contexts/AdminAuthContext';
 import { Department, User as UserType } from '@/types/departments';
 import {
   Phone,
@@ -280,6 +281,8 @@ export default function AdminCereriPage() {
   const [users, setUsers] = useState<UserType[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState<CerereStatus | 'toate'>('toate');
+  const [mineOnly, setMineOnly] = useState(false);
+  const [mineCount, setMineCount] = useState<number | null>(null);
   const [selectedCerere, setSelectedCerere] = useState<Cerere | null>(null);
   const [showDetailsDialog, setShowDetailsDialog] = useState(false);
   const [showStatusDialog, setShowStatusDialog] = useState(false);
@@ -307,6 +310,7 @@ export default function AdminCereriPage() {
     priority: 'normal' as CererePriority,
   });
   const { toast } = useToast();
+  const { user: adminUser } = useAdminAuth();
 
   useEffect(() => {
     loadCereri();
@@ -317,7 +321,31 @@ export default function AdminCereriPage() {
     filterCereri();
   }, [cereri, activeFilter, searchTerm, filterType, sortOrder]);
 
-  const loadCereri = async (loadMore = false) => {
+  // Statuses that still need action from the assignee
+  const OPEN_STATUSES: CerereStatus[] = ['noua', 'in_lucru', 'necesita_completare', 'prelungit'];
+
+  // Badge count for "Ale mele": my assigned cereri still needing action
+  useEffect(() => {
+    if (!adminUser?.uid) return;
+    const fetchMineCount = async () => {
+      try {
+        // Equality filter only, no orderBy: avoids a composite index
+        const snap = await getDocs(
+          query(collection(db, 'form_submissions'), where('assignedToUserId', '==', adminUser.uid))
+        );
+        const open = snap.docs.filter((d) =>
+          OPEN_STATUSES.includes((d.data().status || 'noua') as CerereStatus)
+        );
+        setMineCount(open.length);
+      } catch {
+        setMineCount(null);
+      }
+    };
+    fetchMineCount();
+  }, [adminUser?.uid, cereri]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const loadCereri = async (loadMore = false, mineOverride?: boolean) => {
+    const mine = mineOverride ?? mineOnly;
     if (loadMore) {
       setLoadingMore(true);
     } else {
@@ -325,8 +353,16 @@ export default function AdminCereriPage() {
     }
 
     try {
-      // Paginated: collections grow monthly, never load them whole
-      const q = loadMore && lastDocRef.current
+      // Paginated: collections grow monthly, never load them whole.
+      // "Ale mele" is a dedicated equality query (no orderBy - avoids a
+      // composite index; my open workload is small, sorted client-side)
+      const q = mine
+        ? query(
+            collection(db, 'form_submissions'),
+            where('assignedToUserId', '==', adminUser?.uid || '__none__'),
+            limit(300)
+          )
+        : loadMore && lastDocRef.current
         ? query(
             collection(db, 'form_submissions'),
             orderBy('createdAt', 'desc'),
@@ -340,8 +376,10 @@ export default function AdminCereriPage() {
           );
 
       const snapshot = await getDocs(q);
-      lastDocRef.current = snapshot.docs[snapshot.docs.length - 1] || lastDocRef.current;
-      setHasMore(snapshot.docs.length === PAGE_SIZE);
+      if (!mine) {
+        lastDocRef.current = snapshot.docs[snapshot.docs.length - 1] || lastDocRef.current;
+      }
+      setHasMore(mine ? false : snapshot.docs.length === PAGE_SIZE);
 
       const data = snapshot.docs.map(doc => {
         const docData = doc.data();
@@ -370,6 +408,12 @@ export default function AdminCereriPage() {
           ...docData
         };
       }) as Cerere[];
+
+      if (mine) {
+        data.sort(
+          (a, b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0)
+        );
+      }
 
       setCereri(prev => (loadMore ? [...prev, ...data] : data));
     } catch (error: any) {
@@ -476,6 +520,25 @@ export default function AdminCereriPage() {
       }
 
       await updateDoc(doc(db, 'form_submissions', selectedCerere.id), updateData);
+
+      // Push to the assigned employee (best effort, never blocks the assignment)
+      if (userId && userId !== selectedCerere.assignedToUserId) {
+        try {
+          const idToken = await auth.currentUser?.getIdToken();
+          fetch('/api/notify-assignment', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              ...(idToken ? { Authorization: `Bearer ${idToken}` } : {}),
+            },
+            body: JSON.stringify({
+              collection: 'form_submissions',
+              docId: selectedCerere.id,
+              assignedToUserId: userId,
+            }),
+          }).catch(() => {});
+        } catch {}
+      }
 
       toast({
         title: "Cerere atribuită",
@@ -880,6 +943,27 @@ export default function AdminCereriPage() {
 
       {/* Status Filters */}
       <div className="flex gap-3 overflow-x-auto pb-2">
+        <Button
+          variant={mineOnly ? 'default' : 'outline'}
+          onClick={() => {
+            const next = !mineOnly;
+            setMineOnly(next);
+            loadCereri(false, next);
+          }}
+          className={`${
+            mineOnly
+              ? 'bg-indigo-600 text-white border-transparent shadow-md'
+              : 'border-indigo-400/50 text-indigo-300 bg-slate-800/50 hover:bg-indigo-500/20'
+          } font-medium px-5 py-2.5 shadow-sm`}
+        >
+          <User className="h-4 w-4 mr-2" />
+          Ale mele
+          {mineCount !== null && mineCount > 0 && (
+            <Badge className={`ml-2 ${mineOnly ? 'bg-white/20' : 'bg-indigo-500/20'} font-semibold px-2 py-0.5`}>
+              {mineCount}
+            </Badge>
+          )}
+        </Button>
         <Button
           variant={activeFilter === 'toate' ? 'default' : 'outline'}
           onClick={() => setActiveFilter('toate')}

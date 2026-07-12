@@ -21,7 +21,7 @@ import {
   limit,
   Timestamp,
 } from 'firebase/firestore';
-import { db, COLLECTIONS } from '@/lib/firebase';
+import { db, auth, COLLECTIONS } from '@/lib/firebase';
 import { useAdminAuth } from '@/contexts/AdminAuthContext';
 import { calculateDeadline } from '@/lib/utils/deadline-utils';
 import { logActivity } from '@/lib/registratura/audit';
@@ -136,6 +136,25 @@ export function useRegistratura() {
         mesaj: `Repartizat: ${[department?.name, assignee?.fullName].filter(Boolean).join(' / ') || 'nimeni'} · prioritate ${priority}`,
         ...actor,
       });
+
+      // Push to the assigned employee (best effort, never blocks the assignment)
+      if (userId && userId !== email.assignedToUserId) {
+        try {
+          const idToken = await auth.currentUser?.getIdToken();
+          fetch('/api/notify-assignment', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              ...(idToken ? { Authorization: `Bearer ${idToken}` } : {}),
+            },
+            body: JSON.stringify({
+              collection: 'registratura_emails',
+              docId: email.id,
+              assignedToUserId: userId,
+            }),
+          }).catch(() => {});
+        } catch {}
+      }
     },
     [actor, departments, users, patchLocal]
   );

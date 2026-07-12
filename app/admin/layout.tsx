@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { AlertTriangle } from 'lucide-react';
 import { AdminAuthProvider, useAdminAuth } from '@/contexts/AdminAuthContext';
 import { ControlCenterNav } from '@/components/admin/ControlCenterNav';
+import { StaffPushSetup } from '@/components/admin/StaffPushSetup';
 
 function ProtectedContent({ children }: { children: React.ReactNode }) {
   const { loading, isAdmin, isEmployee, userRole } = useAdminAuth();
@@ -50,7 +51,12 @@ function ProtectedContent({ children }: { children: React.ReactNode }) {
     );
   }
 
-  return <>{children}</>;
+  return (
+    <>
+      {userRole && <StaffPushSetup />}
+      {children}
+    </>
+  );
 }
 
 export default function AdminLayout({
