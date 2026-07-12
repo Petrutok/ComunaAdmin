@@ -1,4 +1,4 @@
-// lib/firebase.ts - Updated with FCM
+// lib/firebase.ts - client SDK init (web push runs on VAPID, no FCM)
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { 
@@ -16,7 +16,6 @@ import {
   Timestamp
 } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
-import { getMessaging, isSupported } from 'firebase/messaging';
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY!,
@@ -34,18 +33,6 @@ const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 export const storage = getStorage(app);
-
-// Initialize messaging only in browser
-let messaging: any = null;
-if (typeof window !== 'undefined') {
-  isSupported().then(supported => {
-    if (supported) {
-      messaging = getMessaging(app);
-    }
-  });
-}
-
-export { messaging };
 
 // Re-export Firestore functions
 export const collection = firestoreCollection;
@@ -65,7 +52,6 @@ export const COLLECTIONS = {
   JOBS: 'jobs',
   NOTIFICATIONS: 'notifications',
   ADMINS: 'admins',
-  FCM_TOKENS: 'fcm_tokens',
   REGISTRATURA_EMAILS: 'registratura_emails',
   DEPARTMENTS: 'departments',
   USERS: 'users',
@@ -179,16 +165,6 @@ export interface NotificationLog {
   type: 'announcement' | 'job' | 'general' | 'emergency' | 'manual';
   status?: 'sent' | 'failed' | 'pending';
   error?: string;
-}
-
-export interface FCMToken {
-  id?: string;
-  token: string;
-  createdAt: any;
-  lastUsed?: any;
-  platform: 'web' | 'ios' | 'android';
-  userAgent?: string;
-  active: boolean;
 }
 
 // Import and re-export Registru types
