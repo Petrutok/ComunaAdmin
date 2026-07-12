@@ -134,6 +134,17 @@ export async function POST(request: NextRequest) {
       updatedAt: Timestamp.now(),
     });
 
+    // Audit trail (best effort)
+    try {
+      await db.collection('form_submissions').doc(cerereId).collection('istoric').add({
+        tip: 'adeverinta',
+        mesaj: `Adeverință emisă, nr. ieșire ${numarIesire} (${tipLabel})`,
+        autorId: auth.uid || 'sistem',
+        autorNume: auth.email || 'Staff',
+        createdAt: Timestamp.now(),
+      });
+    } catch {}
+
     // --- Registry: the issued certificate is an iesire entry
     await db.collection('registru_general').add({
       numarInregistrare: numarIesire,

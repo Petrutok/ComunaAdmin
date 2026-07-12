@@ -96,6 +96,17 @@ export async function POST(request: NextRequest) {
       updatedAt: Timestamp.now(),
     });
 
+    // Audit trail (best effort)
+    try {
+      await cerereRef.collection('istoric').add({
+        tip: 'completare',
+        mesaj: `Cetățeanul a adăugat ${uploaded.length} document(e) solicitat(e); termenul legal a fost repornit`,
+        autorId: citizenUid,
+        autorNume: 'Cetățean (Dosarul meu)',
+        createdAt: Timestamp.now(),
+      });
+    } catch {}
+
     // --- Restart the legal deadline: the petition is complete only now
     if (cerere.registruDocId) {
       await db
