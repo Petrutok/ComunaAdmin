@@ -23,6 +23,8 @@ import {
   BarChart3,
   LayoutList,
   ShoppingBasket,
+  Search,
+  FileSignature,
 } from 'lucide-react';
 
 export function ControlCenterNav() {
@@ -32,6 +34,7 @@ export function ControlCenterNav() {
 
   const allNavItems = [
     { href: '/admin', label: 'Dashboard', icon: Home, gradient: 'from-blue-600/20 to-blue-800/20', border: 'border-blue-500/30 hover:border-blue-400/50', iconBg: 'bg-blue-500/20', iconColor: 'text-blue-400', roles: ['admin', 'employee'] },
+    { href: '/admin/cautare', label: 'Căutare', icon: Search, gradient: 'from-sky-600/20 to-sky-800/20', border: 'border-sky-500/30 hover:border-sky-400/50', iconBg: 'bg-sky-500/20', iconColor: 'text-sky-400', roles: ['admin', 'employee'] },
     { href: '/admin/cereri', label: 'Cereri', icon: FileText, gradient: 'from-cyan-600/20 to-cyan-800/20', border: 'border-cyan-500/30 hover:border-cyan-400/50', iconBg: 'bg-cyan-500/20', iconColor: 'text-cyan-400', roles: ['admin', 'employee'] },
     { href: '/admin/registratura', label: 'Registratură', icon: Mail, gradient: 'from-purple-600/20 to-purple-800/20', border: 'border-purple-500/30 hover:border-purple-400/50', iconBg: 'bg-purple-500/20', iconColor: 'text-purple-400', roles: ['admin', 'employee'] },
     { href: '/admin/departments', label: 'Departamente', icon: Building2, gradient: 'from-violet-600/20 to-violet-800/20', border: 'border-violet-500/30 hover:border-violet-400/50', iconBg: 'bg-violet-500/20', iconColor: 'text-violet-400', roles: ['admin'] },
@@ -46,6 +49,7 @@ export function ControlCenterNav() {
     { href: '/admin/statistici', label: 'Statistici', icon: BarChart3, gradient: 'from-violet-600/20 to-violet-800/20', border: 'border-violet-500/30 hover:border-violet-400/50', iconBg: 'bg-violet-500/20', iconColor: 'text-violet-400', roles: ['admin'] },
     { href: '/admin/alerte', label: 'Alerte', icon: Siren, gradient: 'from-red-600/20 to-red-800/20', border: 'border-red-500/30 hover:border-red-400/50', iconBg: 'bg-red-500/20', iconColor: 'text-red-400', roles: ['admin'] },
     { href: '/admin/setari-adeverinte', label: 'Setări adeverințe', icon: Settings, gradient: 'from-slate-600/20 to-slate-800/20', border: 'border-slate-500/30 hover:border-slate-400/50', iconBg: 'bg-slate-500/20', iconColor: 'text-slate-300', roles: ['admin'] },
+    { href: '/admin/sabloane-raspuns', label: 'Șabloane răspuns', icon: FileSignature, gradient: 'from-sky-600/20 to-sky-800/20', border: 'border-sky-500/30 hover:border-sky-400/50', iconBg: 'bg-sky-500/20', iconColor: 'text-sky-300', roles: ['admin'] },
   ];
 
   // Filter navigation items based on user role

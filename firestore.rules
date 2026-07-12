@@ -113,6 +113,13 @@ service cloud.firestore {
     match /form_submissions/{id} {
       allow read: if request.auth != null && resource.data.citizenUid == request.auth.uid;
       allow read, write: if isStaff();
+
+      // Per-cerere audit trail (who changed what, when): staff only.
+      // Entries are immutable once written; server routes write theirs
+      // through the Admin SDK and bypass these rules.
+      match /istoric/{entryId} {
+        allow read, create: if isStaff();
+      }
     }
 
     match /registratura_emails/{id} {

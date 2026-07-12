@@ -211,6 +211,17 @@ export async function POST(request: NextRequest) {
     // Backlink so the registry entry can open the full submission
     await registruRef.update({ cerereId: submissionRef.id });
 
+    // Audit trail: first entry in the cerere's istoric (best effort)
+    try {
+      await submissionRef.collection('istoric').add({
+        tip: 'creare',
+        mesaj: `Cerere depusă online (nr. ${numarInregistrare})${fisiere.length ? `, ${fisiere.length} fișier(e) atașat(e)` : ''}`,
+        autorId: 'sistem',
+        autorNume: 'Depunere online',
+        createdAt: Timestamp.now(),
+      });
+    } catch {}
+
     // OG 27/2002: confirm the registration to the petitioner. Best effort -
     // the submission is already recorded, an email failure must not undo it
     const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'https://primaria.digital';

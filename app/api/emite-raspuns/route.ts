@@ -179,6 +179,17 @@ export async function POST(request: NextRequest) {
         },
         updatedAt: Timestamp.now(),
       });
+
+      // Audit trail (best effort)
+      try {
+        await db.collection('form_submissions').doc(cerereId).collection('istoric').add({
+          tip: 'raspuns',
+          mesaj: `Răspuns oficial emis, nr. ieșire ${numarIesire} (${finalStatus === 'respins' ? 'respingere motivată' : 'soluționare'})`,
+          autorId: auth.uid || 'sistem',
+          autorNume: auth.email || 'Staff',
+          createdAt: Timestamp.now(),
+        });
+      } catch {}
     }
 
     // --- Registry: the response is an iesire entry, linked to the intrare

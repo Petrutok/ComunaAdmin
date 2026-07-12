@@ -66,6 +66,9 @@ import { isAdeverintaType, buildAdeverintaBody, ADEVERINTA_LABELS } from '@/lib/
 import type { AdeverintaType } from '@/lib/adeverinte';
 import { buildRaspunsBody, RASPUNS_STATUS_LABELS } from '@/lib/raspuns';
 import type { RaspunsStatus } from '@/lib/raspuns';
+import { REQUEST_CONFIGS } from '@/lib/simple-pdf-generator';
+import { logIstoric, fetchIstoric } from '@/lib/cereri-audit';
+import type { IstoricEntry } from '@/lib/cereri-audit';
 import {
   Dialog,
   DialogContent,
@@ -283,6 +286,7 @@ export default function AdminCereriPage() {
   const [activeFilter, setActiveFilter] = useState<CerereStatus | 'toate'>('toate');
   const [mineOnly, setMineOnly] = useState(false);
   const [mineCount, setMineCount] = useState<number | null>(null);
+  const [istoric, setIstoric] = useState<IstoricEntry[]>([]);
   const [selectedCerere, setSelectedCerere] = useState<Cerere | null>(null);
   const [showDetailsDialog, setShowDetailsDialog] = useState(false);
   const [showStatusDialog, setShowStatusDialog] = useState(false);
@@ -320,6 +324,21 @@ export default function AdminCereriPage() {
   useEffect(() => {
     filterCereri();
   }, [cereri, activeFilter, searchTerm, filterType, sortOrder]);
+
+  // Audit trail shown in the details dialog
+  useEffect(() => {
+    if (!showDetailsDialog || !selectedCerere) {
+      setIstoric([]);
+      return;
+    }
+    fetchIstoric(selectedCerere.id).then(setIstoric).catch(() => setIstoric([]));
+  }, [showDetailsDialog, selectedCerere?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Actor identity for audit entries
+  const actorInfo = () => ({
+    autorId: adminUser?.uid || 'necunoscut',
+    autorNume: adminUser?.displayName || adminUser?.email || 'Staff',
+  });
 
   // Statuses that still need action from the assignee
   const OPEN_STATUSES: CerereStatus[] = ['noua', 'in_lucru', 'necesita_completare', 'prelungit'];
@@ -521,6 +540,13 @@ export default function AdminCereriPage() {
 
       await updateDoc(doc(db, 'form_submissions', selectedCerere.id), updateData);
 
+      logIstoric({
+        cerereId: selectedCerere.id,
+        tip: 'atribuire',
+        mesaj: `Repartizat: ${[department?.name, user?.fullName].filter(Boolean).join(' / ') || 'nimeni'} · prioritate ${priority}`,
+        ...actorInfo(),
+      });
+
       // Push to the assigned employee (best effort, never blocks the assignment)
       if (userId && userId !== selectedCerere.assignedToUserId) {
         try {
@@ -619,6 +645,16 @@ export default function AdminCereriPage() {
       }
 
       await updateDoc(doc(db, 'form_submissions', selectedCerere.id), updateData);
+
+      logIstoric({
+        cerereId: selectedCerere.id,
+        tip: 'status',
+        mesaj:
+          `Status: ${statusConfig[selectedCerere.status]?.label || selectedCerere.status} → ${statusConfig[newStatus].label}` +
+          (newStatus === 'redirectionat' && redirectionatCatre.trim() ? ` (către ${redirectionatCatre.trim()})` : '') +
+          (observatii.trim() ? ` · ${observatii.trim()}` : ''),
+        ...actorInfo(),
+      });
 
       await syncRegistruWithStatus(selectedCerere, newStatus);
 
@@ -736,6 +772,40 @@ export default function AdminCereriPage() {
     } finally {
       setEmitting(false);
     }
+  };
+
+  // Per-category templates for the response body (config/raspuns_templates,
+  // edited in Admin -> Sabloane raspuns), loaded once per session
+  const raspunsTemplatesRef = useRef<Record<string, string> | null>(null);
+
+  const openRaspunsDialog = async (cerere: Cerere) => {
+    setSelectedCerere(cerere);
+    setRaspunsStatus('rezolvat');
+
+    if (raspunsTemplatesRef.current === null) {
+      try {
+        const snap = await getDoc(doc(db, 'config', 'raspuns_templates'));
+        raspunsTemplatesRef.current = (snap.data() as Record<string, string>) || {};
+      } catch {
+        raspunsTemplatesRef.current = {};
+      }
+    }
+    const category = REQUEST_CONFIGS[cerere.tipCerere]?.category as string | undefined;
+    const corp = category ? raspunsTemplatesRef.current[category] : undefined;
+
+    setRaspunsText(
+      buildRaspunsBody(
+        {
+          numeComplet: cerere.numeComplet,
+          adresa: `${cerere.adresa || ''}, ${cerere.localitate || ''}`.replace(/^, /, ''),
+          numarCerere: cerere.numarInregistrare,
+          dataCerere: cerere.createdAt?.toDate?.()?.toLocaleDateString('ro-RO'),
+          tipCerere: tipuriCereri[cerere.tipCerere] || cerere.tipCerere,
+        },
+        corp
+      )
+    );
+    setShowRaspunsDialog(true);
   };
 
   const handleEmiteRaspuns = async () => {
@@ -1196,20 +1266,7 @@ export default function AdminCereriPage() {
                         <Button
                           size="sm"
                           variant="ghost"
-                          onClick={() => {
-                            setSelectedCerere(cerere);
-                            setRaspunsStatus('rezolvat');
-                            setRaspunsText(
-                              buildRaspunsBody({
-                                numeComplet: cerere.numeComplet,
-                                adresa: `${cerere.adresa || ''}, ${cerere.localitate || ''}`.replace(/^, /, ''),
-                                numarCerere: cerere.numarInregistrare,
-                                dataCerere: cerere.createdAt?.toDate?.()?.toLocaleDateString('ro-RO'),
-                                tipCerere: tipuriCereri[cerere.tipCerere] || cerere.tipCerere,
-                              })
-                            );
-                            setShowRaspunsDialog(true);
-                          }}
+                          onClick={() => openRaspunsDialog(cerere)}
                           className="hover:bg-sky-600/20 hover:text-sky-300 text-sky-400 border border-transparent hover:border-sky-400/30"
                           title="Trimite răspuns oficial"
                         >
@@ -1540,6 +1597,31 @@ export default function AdminCereriPage() {
                     </CardHeader>
                     <CardContent>
                       <p className="text-yellow-200">{selectedCerere.observatii}</p>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {istoric.length > 0 && (
+                  <Card className="bg-slate-900 border-slate-700">
+                    <CardHeader>
+                      <CardTitle className="text-white text-lg flex items-center gap-2">
+                        <Clock className="h-5 w-5 text-gray-400" />
+                        Istoric ({istoric.length})
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-3">
+                        {istoric.map((entry) => (
+                          <div key={entry.id} className="flex gap-3 text-sm border-l-2 border-slate-700 pl-3">
+                            <div className="min-w-0">
+                              <p className="text-gray-200 break-words">{entry.mesaj}</p>
+                              <p className="text-xs text-gray-500 mt-0.5">
+                                {entry.autorNume} · {formatDate(entry.createdAt)}
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
                     </CardContent>
                   </Card>
                 )}

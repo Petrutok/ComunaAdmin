@@ -247,4 +247,16 @@ describe('buildRaspunsBody', () => {
     expect(body).toContain('Ca urmare a cererii dumneavoastră,');
     expect(body).not.toContain('Adresa:');
   });
+
+  it('uses the per-category template as the body when provided', () => {
+    const body = buildRaspunsBody(
+      { numeComplet: 'Ion Popescu' },
+      'Certificatul de urbanism solicitat se eliberează în [ N ] zile.'
+    );
+    expect(body).toContain('Certificatul de urbanism solicitat');
+    expect(body).not.toContain('[ Completați răspunsul instituției ]');
+    // header and legal footer stay in place
+    expect(body).toContain('Către: Ion Popescu');
+    expect(body).toContain('Ordonanței Guvernului nr. 27/2002');
+  });
 });
