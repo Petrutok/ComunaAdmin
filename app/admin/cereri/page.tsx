@@ -29,12 +29,7 @@ import { ref, getDownloadURL } from 'firebase/storage';
 import { useAdminAuth } from '@/contexts/AdminAuthContext';
 import { Department, User as UserType } from '@/types/departments';
 import {
-  Phone,
   Mail,
-  MapPin,
-  Calendar,
-  Check,
-  X,
   Trash2,
   AlertCircle,
   FileText,
@@ -46,13 +41,10 @@ import {
   Search,
   Filter,
   User,
-  CreditCard,
-  Home,
   Paperclip,
   RefreshCw,
   Loader2,
   UserPlus,
-  Building2,
   Zap,
   ArrowUpDown,
   BadgeCheck,
@@ -942,8 +934,11 @@ export default function AdminCereriPage() {
     const config = statusConfig[status];
     const Icon = config.icon;
     return (
-      <Badge className={`${config.color} text-white flex items-center gap-2 px-4 py-2 text-sm font-semibold shadow-sm`}>
-        <Icon className="h-4 w-4" />
+      <Badge
+        variant="outline"
+        className={`${config.bgColor} ${config.textColor} ${config.borderColor} inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-medium whitespace-nowrap`}
+      >
+        <Icon className="h-3 w-3" />
         {config.label}
       </Badge>
     );
@@ -962,89 +957,91 @@ export default function AdminCereriPage() {
   };
 
   return (
-    <div className="space-y-6 p-6 bg-slate-900 min-h-screen">
-      {/* Header */}
-      <div className="flex items-center justify-between bg-gradient-to-r from-slate-800 to-slate-800/50 p-6 rounded-xl border border-slate-700/50 shadow-lg">
+    <div className="space-y-4 p-6 bg-slate-900 min-h-screen">
+      {/* Header + toolbar */}
+      <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-3xl font-bold text-white flex items-center gap-3">
-            <div className="bg-purple-500/30 rounded-xl p-3 border border-purple-400/20">
-              <FileText className="h-8 w-8 text-purple-300" />
+          <h1 className="text-2xl font-bold text-white flex items-center gap-2.5">
+            <div className="bg-purple-500/15 rounded-lg p-2">
+              <FileText className="h-5 w-5 text-purple-400" />
             </div>
             Gestiune Cereri
           </h1>
-          <p className="text-gray-300 mt-2 text-lg">
-            <span className="font-semibold text-white">{cereri.length}</span> cereri totale •
-            <span className="font-semibold text-blue-300"> {getStatusCount('noua')}</span> noi •
-            <span className="font-semibold text-amber-300"> {getStatusCount('in_lucru')}</span> în lucru
+          <p className="text-sm text-gray-400 mt-1">
+            <span className="font-semibold text-gray-200">{cereri.length}</span> cereri ·{' '}
+            <span className="font-semibold text-blue-300">{getStatusCount('noua')}</span> noi ·{' '}
+            <span className="font-semibold text-amber-300">{getStatusCount('in_lucru')}</span> în lucru
           </p>
         </div>
-        <Button onClick={() => loadCereri()} className="bg-purple-600 hover:bg-purple-500 text-white font-medium shadow-lg hover:shadow-xl transition-all">
-          <RefreshCw className="h-4 w-4 mr-2" />
-          Reîncarcă
-        </Button>
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="relative">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Input
+              placeholder="Caută nume, CNP, email..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-8 h-9 w-64 bg-slate-800 border-slate-600 text-white text-sm placeholder:text-gray-500 focus:border-blue-400 focus:ring-1 focus:ring-blue-400/20"
+            />
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setSortOrder(sortOrder === 'desc' ? 'asc' : 'desc')}
+            className="h-9 bg-slate-800 border-slate-600 text-gray-300 hover:bg-slate-700 hover:text-white"
+          >
+            <ArrowUpDown className="h-3.5 w-3.5 mr-1.5" />
+            {sortOrder === 'desc' ? 'Nou → Vechi' : 'Vechi → Nou'}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => loadCereri()}
+            className="h-9 bg-slate-800 border-slate-600 text-gray-300 hover:bg-slate-700 hover:text-white"
+          >
+            <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
+            Reîncarcă
+          </Button>
+        </div>
       </div>
 
-      {/* Search and Filters */}
-      <Card className="bg-slate-800/80 border-slate-600/50 shadow-md">
-        <CardContent className="p-5">
-          <div className="flex flex-col md:flex-row gap-4">
-            <div className="flex-1">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-300" />
-                <Input
-                  placeholder="Caută după nume, CNP, email, tip cerere..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-11 bg-slate-700/50 border-slate-500 text-white placeholder:text-gray-400 focus:border-blue-400 focus:ring-2 focus:ring-blue-400/20 h-11"
-                />
-              </div>
-            </div>
-            <Button
-              variant="outline"
-              onClick={() => setSortOrder(sortOrder === 'desc' ? 'asc' : 'desc')}
-              className="bg-slate-700/50 border-slate-500 text-white hover:bg-slate-600 font-medium h-11"
-            >
-              <ArrowUpDown className="h-4 w-4 mr-2" />
-              {sortOrder === 'desc' ? 'Nou → Vechi' : 'Vechi → Nou'}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
       {/* Status Filters */}
-      <div className="flex gap-3 overflow-x-auto pb-2">
+      <div className="flex gap-2 overflow-x-auto pb-1">
         <Button
-          variant={mineOnly ? 'default' : 'outline'}
+          size="sm"
+          variant="outline"
           onClick={() => {
             const next = !mineOnly;
             setMineOnly(next);
             loadCereri(false, next);
           }}
-          className={`${
+          className={`h-8 shrink-0 text-xs font-medium ${
             mineOnly
-              ? 'bg-indigo-600 text-white border-transparent shadow-md'
-              : 'border-indigo-400/50 text-indigo-300 bg-slate-800/50 hover:bg-indigo-500/20'
-          } font-medium px-5 py-2.5 shadow-sm`}
+              ? 'bg-indigo-600 text-white border-indigo-500 hover:bg-indigo-500 hover:text-white'
+              : 'bg-slate-800/60 border-slate-600 text-indigo-300 hover:bg-indigo-500/15 hover:text-indigo-200'
+          }`}
         >
-          <User className="h-4 w-4 mr-2" />
+          <User className="h-3.5 w-3.5 mr-1.5" />
           Ale mele
           {mineCount !== null && mineCount > 0 && (
-            <Badge className={`ml-2 ${mineOnly ? 'bg-white/20' : 'bg-indigo-500/20'} font-semibold px-2 py-0.5`}>
+            <span className={`ml-1.5 rounded-full px-1.5 py-0 text-[11px] font-semibold ${mineOnly ? 'bg-white/20' : 'bg-indigo-500/20'}`}>
               {mineCount}
-            </Badge>
+            </span>
           )}
         </Button>
         <Button
-          variant={activeFilter === 'toate' ? 'default' : 'outline'}
+          size="sm"
+          variant="outline"
           onClick={() => setActiveFilter('toate')}
-          className={`${
+          className={`h-8 shrink-0 text-xs font-medium ${
             activeFilter === 'toate'
-              ? 'bg-slate-700 text-white border-slate-600'
-              : 'border-slate-500 text-gray-300 bg-slate-800/50 hover:bg-slate-700/50'
-          } font-medium px-5 py-2.5 shadow-sm`}
+              ? 'bg-slate-600 text-white border-slate-500 hover:bg-slate-600 hover:text-white'
+              : 'bg-slate-800/60 border-slate-600 text-gray-300 hover:bg-slate-700 hover:text-white'
+          }`}
         >
           Toate
-          <Badge className="ml-2 bg-slate-600 text-white font-semibold px-2 py-0.5">{cereri.length}</Badge>
+          <span className="ml-1.5 rounded-full bg-slate-500/40 px-1.5 py-0 text-[11px] font-semibold">
+            {cereri.length}
+          </span>
         </Button>
         {(Object.keys(statusConfig) as CerereStatus[]).map((status) => {
           const config = statusConfig[status];
@@ -1054,27 +1051,28 @@ export default function AdminCereriPage() {
           return (
             <Button
               key={status}
-              variant={activeFilter === status ? 'default' : 'outline'}
+              size="sm"
+              variant="outline"
               onClick={() => setActiveFilter(status)}
-              className={`${
+              className={`h-8 shrink-0 text-xs font-medium ${
                 activeFilter === status
-                  ? `${config.color} text-white border-transparent shadow-md`
-                  : `border-slate-500 ${config.textColor} bg-slate-800/50 hover:${config.bgColor}`
-              } font-medium px-5 py-2.5`}
+                  ? `${config.color} text-white border-transparent hover:${config.color} hover:text-white`
+                  : `bg-slate-800/60 border-slate-600 ${config.textColor} hover:bg-slate-700`
+              }`}
             >
-              <Icon className={`h-4 w-4 mr-2 ${activeFilter === status ? 'animate-pulse' : ''}`} />
+              <Icon className="h-3.5 w-3.5 mr-1.5" />
               {config.label}
               {count > 0 && (
-                <Badge className={`ml-2 ${activeFilter === status ? 'bg-white/20' : config.bgColor} font-semibold px-2 py-0.5`}>
+                <span className={`ml-1.5 rounded-full px-1.5 py-0 text-[11px] font-semibold ${activeFilter === status ? 'bg-white/20' : config.bgColor}`}>
                   {count}
-                </Badge>
+                </span>
               )}
             </Button>
           );
         })}
       </div>
 
-      {/* Cereri Grid */}
+      {/* Cereri List */}
       {loading ? (
         <div className="flex items-center justify-center py-12">
           <Loader2 className="h-8 w-8 animate-spin text-blue-400" />
@@ -1082,230 +1080,203 @@ export default function AdminCereriPage() {
       ) : filteredCereri.length === 0 ? (
         <Card className="bg-slate-800 border-slate-700">
           <CardContent className="text-center py-12">
-            <FileText className="h-16 w-16 text-gray-600 mx-auto mb-4" />
-            <p className="text-gray-400 text-lg">
+            <FileText className="h-12 w-12 text-gray-600 mx-auto mb-4" />
+            <p className="text-gray-400">
               Nu există cereri {activeFilter !== 'toate' ? `cu statusul "${statusConfig[activeFilter as CerereStatus].label}"` : ''}.
             </p>
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-4">
-          {filteredCereri.map((cerere) => {
-            const config = statusConfig[cerere.status];
-            const Icon = config.icon;
-
-            return (
-              <Card key={cerere.id} className={`bg-slate-800/90 border-slate-600/50 hover:border-slate-500 hover:shadow-lg transition-all duration-200 hover:scale-[1.01]`}>
-                <CardContent className="p-6">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1 min-w-0 overflow-hidden">
-                      <div className="flex items-center gap-2 mb-4 flex-wrap">
-                        <code className="text-sm font-mono bg-slate-700/70 px-3 py-1.5 rounded-md text-blue-300 border border-slate-600 font-semibold">
-                          {cerere.id.slice(0, 12)}...
-                        </code>
-                        {getStatusBadge(cerere.status)}
-
-                        {/* Priority Badge */}
-                        {cerere.priority && (
-                          <Badge className={`${priorityConfig[cerere.priority].color} text-white flex items-center gap-1.5`}>
-                            {(() => {
-                              const PriorityIcon = priorityConfig[cerere.priority].icon;
-                              return <PriorityIcon className="h-3.5 w-3.5" />;
-                            })()}
-                            {priorityConfig[cerere.priority].label}
-                          </Badge>
-                        )}
-
-                        <div className="flex items-center gap-2 text-sm text-gray-300 bg-slate-700/50 px-3 py-1 rounded-md">
-                          <Calendar className="h-4 w-4 text-gray-400" />
-                          {formatShortDate(cerere.createdAt)}
-                        </div>
-                      </div>
-
-                      {/* Assignment Info */}
-                      {(cerere.departmentName || cerere.assignedToUserName) && (
-                        <div className="flex items-center gap-3 mb-3 text-sm">
-                          {cerere.departmentName && (
-                            <div className="flex items-center gap-1.5 bg-purple-500/10 px-2 py-1 rounded border border-purple-500/20">
-                              <Building2 className="h-3.5 w-3.5 text-purple-400" />
-                              <span className="text-purple-300">{cerere.departmentName}</span>
-                            </div>
-                          )}
-                          {cerere.assignedToUserName && (
-                            <div className="flex items-center gap-1.5 bg-blue-500/10 px-2 py-1 rounded border border-blue-500/20">
-                              <User className="h-3.5 w-3.5 text-blue-400" />
-                              <span className="text-blue-300">{cerere.assignedToUserName}</span>
-                            </div>
-                          )}
-                        </div>
-                      )}
-
-                      <h3 className="text-lg font-semibold text-white mb-3 line-clamp-1 overflow-hidden break-words">
-                        {cerere.numarInregistrare && (
-                          <span className="mr-2 rounded bg-green-500/15 px-2 py-0.5 text-sm font-mono text-green-400 align-middle">
-                            {cerere.numarInregistrare}
-                          </span>
-                        )}
+        <Card className="bg-slate-800/60 border-slate-700/60 overflow-hidden">
+          <div className="divide-y divide-slate-700/60">
+            {filteredCereri.map((cerere) => (
+              <div
+                key={cerere.id}
+                className="px-4 py-3 hover:bg-slate-700/30 transition-colors"
+              >
+                <div className="flex items-center justify-between gap-4">
+                  {/* Info */}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-mono text-xs text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded px-1.5 py-0.5 shrink-0">
+                        {cerere.numarInregistrare || `${cerere.id.slice(0, 8)}…`}
+                      </span>
+                      <span className="text-sm font-semibold text-white truncate">
                         {tipuriCereri[cerere.tipCerere] || cerere.tipCerere}
-                      </h3>
-
-                      <div className="flex items-center gap-4 text-sm text-gray-300 mb-3 overflow-hidden flex-wrap">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <User className="h-4 w-4 text-gray-400 shrink-0" />
-                          <span className="truncate">{cerere.numeComplet}</span>
-                        </div>
-                        {cerere.email && (
-                          <div className="flex items-center gap-2 min-w-0">
-                            <Mail className="h-4 w-4 text-gray-400 shrink-0" />
-                            <span className="truncate">{cerere.email}</span>
-                          </div>
-                        )}
-                        {cerere.fisiere && cerere.fisiere.length > 0 && (
-                          <div className="flex items-center gap-1.5 text-blue-300 bg-blue-500/10 px-3 py-1 rounded-md border border-blue-500/20">
-                            <Paperclip className="h-4 w-4" />
-                            <span className="font-medium">
-                              {cerere.fisiere.length} fișier{cerere.fisiere.length !== 1 ? 'e' : ''}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-
-                      {cerere.scopulCererii && (
-                        <p className="text-gray-300 text-sm line-clamp-2 bg-slate-700/30 p-3 rounded-md border border-slate-600/30 overflow-hidden break-all">
-                          {cerere.scopulCererii}
-                        </p>
+                      </span>
+                      {getStatusBadge(cerere.status)}
+                      {cerere.priority === 'urgent' && (
+                        <Badge
+                          variant="outline"
+                          className="bg-rose-500/15 text-rose-300 border-rose-500/30 inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium"
+                        >
+                          <Zap className="h-3 w-3" />
+                          Urgent
+                        </Badge>
+                      )}
+                      {cerere.fisiere && cerere.fisiere.length > 0 && (
+                        <span className="inline-flex items-center gap-1 text-xs text-blue-300/90">
+                          <Paperclip className="h-3 w-3" />
+                          {cerere.fisiere.length}
+                        </span>
                       )}
                     </div>
-
-                    <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => {
-                          setSelectedCerere(cerere);
-                          setShowAssignDialog(true);
-                        }}
-                        className="hover:bg-purple-600/20 hover:text-purple-300 text-gray-300 border border-transparent hover:border-purple-400/30"
-                        title="Atribuie"
-                      >
-                        <UserPlus className="h-5 w-5" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => {
-                          setSelectedCerere(cerere);
-                          setShowDetailsDialog(true);
-                        }}
-                        className="hover:bg-blue-600/20 hover:text-blue-300 text-gray-300 border border-transparent hover:border-blue-400/30"
-                        title="Vezi detalii"
-                      >
-                        <Eye className="h-5 w-5" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => {
-                          setSelectedCerere(cerere);
-                          setNewStatus(cerere.status);
-                          setObservatii(cerere.observatii || '');
-                          setRedirectionatCatre(cerere.redirectionatCatre || '');
-                          setShowStatusDialog(true);
-                        }}
-                        className="hover:bg-amber-600/20 hover:text-amber-300 text-gray-300 border border-transparent hover:border-amber-400/30"
-                        title="Modifică status"
-                      >
-                        <AlertCircle className="h-5 w-5" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => handleDownloadPDF(cerere)}
-                        className="hover:bg-green-600/20 hover:text-green-300 text-gray-300 border border-transparent hover:border-green-400/30"
-                        title="Descarcă PDF"
-                      >
-                        <Download className="h-5 w-5" />
-                      </Button>
-                      {isAdeverintaType(cerere.tipCerere) && !cerere.adeverinta && (
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => {
-                            setSelectedCerere(cerere);
-                            setAdeverintaText(
-                              buildAdeverintaBody(cerere.tipCerere as AdeverintaType, {
-                                numeComplet: cerere.numeComplet,
-                                cnp: cerere.cnp,
-                                adresa: `${cerere.adresa || ''}, ${cerere.localitate || ''}`.replace(/^, /, ''),
-                                scopulCererii: cerere.scopulCererii,
-                                numarCerere: cerere.numarInregistrare,
-                                dataCerere: cerere.createdAt?.toDate?.()?.toLocaleDateString('ro-RO'),
-                              })
-                            );
-                            setShowEmiteDialog(true);
-                          }}
-                          className="hover:bg-emerald-600/20 hover:text-emerald-300 text-emerald-400 border border-transparent hover:border-emerald-400/30"
-                          title="Emite adeverința"
-                        >
-                          <BadgeCheck className="h-5 w-5" />
-                        </Button>
+                    <div className="flex items-center gap-1.5 text-xs text-gray-500 mt-1 min-w-0">
+                      <span className="text-gray-400 font-medium shrink-0">{cerere.numeComplet}</span>
+                      {cerere.email && (
+                        <>
+                          <span>·</span>
+                          <span className="truncate">{cerere.email}</span>
+                        </>
                       )}
-                      {cerere.adeverinta?.downloadURL && (
-                        <a href={cerere.adeverinta.downloadURL} target="_blank" rel="noreferrer">
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="text-emerald-300 hover:bg-emerald-600/20 border border-transparent hover:border-emerald-400/30"
-                            title={`Adeverință emisă: ${cerere.adeverinta.numarIesire}`}
-                          >
-                            <BadgeCheck className="h-5 w-5" />
-                          </Button>
-                        </a>
+                      <span>·</span>
+                      <span className="shrink-0">{formatShortDate(cerere.createdAt)}</span>
+                      {(cerere.departmentName || cerere.assignedToUserName) && (
+                        <>
+                          <span>·</span>
+                          <span className="text-purple-300/80 truncate shrink-0">
+                            {[cerere.departmentName, cerere.assignedToUserName].filter(Boolean).join(' / ')}
+                          </span>
+                        </>
                       )}
-                      {!cerere.raspuns && !cerere.adeverinta && (
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => openRaspunsDialog(cerere)}
-                          className="hover:bg-sky-600/20 hover:text-sky-300 text-sky-400 border border-transparent hover:border-sky-400/30"
-                          title="Trimite răspuns oficial"
-                        >
-                          <Send className="h-5 w-5" />
-                        </Button>
-                      )}
-                      {cerere.raspuns?.downloadURL && (
-                        <a href={cerere.raspuns.downloadURL} target="_blank" rel="noreferrer">
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="text-sky-300 hover:bg-sky-600/20 border border-transparent hover:border-sky-400/30"
-                            title={`Răspuns emis: ${cerere.raspuns.numarIesire}`}
-                          >
-                            <Send className="h-5 w-5" />
-                          </Button>
-                        </a>
-                      )}
-                      {(cerere.status === 'rezolvat' || cerere.status === 'respins') && (
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="text-rose-300 hover:text-rose-200 hover:bg-rose-600/20 border border-transparent hover:border-rose-400/30"
-                          onClick={() => {
-                            setSelectedCerere(cerere);
-                            setShowDeleteDialog(true);
-                          }}
-                          title="Șterge cerere"
-                        >
-                          <Trash2 className="h-5 w-5" />
-                        </Button>
+                      {cerere.scopulCererii && (
+                        <>
+                          <span className="hidden md:inline">·</span>
+                          <span className="hidden md:inline truncate italic">{cerere.scopulCererii}</span>
+                        </>
                       )}
                     </div>
                   </div>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
+
+                  {/* Actions */}
+                  <div className="flex gap-0.5 shrink-0">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => {
+                        setSelectedCerere(cerere);
+                        setShowAssignDialog(true);
+                      }}
+                      className="h-8 w-8 p-0 text-gray-400 hover:bg-purple-600/20 hover:text-purple-300"
+                      title="Atribuie"
+                    >
+                      <UserPlus className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => {
+                        setSelectedCerere(cerere);
+                        setShowDetailsDialog(true);
+                      }}
+                      className="h-8 w-8 p-0 text-gray-400 hover:bg-blue-600/20 hover:text-blue-300"
+                      title="Vezi detalii"
+                    >
+                      <Eye className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => {
+                        setSelectedCerere(cerere);
+                        setNewStatus(cerere.status);
+                        setObservatii(cerere.observatii || '');
+                        setRedirectionatCatre(cerere.redirectionatCatre || '');
+                        setShowStatusDialog(true);
+                      }}
+                      className="h-8 w-8 p-0 text-gray-400 hover:bg-amber-600/20 hover:text-amber-300"
+                      title="Modifică status"
+                    >
+                      <AlertCircle className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => handleDownloadPDF(cerere)}
+                      className="h-8 w-8 p-0 text-gray-400 hover:bg-green-600/20 hover:text-green-300"
+                      title="Descarcă PDF"
+                    >
+                      <Download className="h-4 w-4" />
+                    </Button>
+                    {isAdeverintaType(cerere.tipCerere) && !cerere.adeverinta && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => {
+                          setSelectedCerere(cerere);
+                          setAdeverintaText(
+                            buildAdeverintaBody(cerere.tipCerere as AdeverintaType, {
+                              numeComplet: cerere.numeComplet,
+                              cnp: cerere.cnp,
+                              adresa: `${cerere.adresa || ''}, ${cerere.localitate || ''}`.replace(/^, /, ''),
+                              scopulCererii: cerere.scopulCererii,
+                              numarCerere: cerere.numarInregistrare,
+                              dataCerere: cerere.createdAt?.toDate?.()?.toLocaleDateString('ro-RO'),
+                            })
+                          );
+                          setShowEmiteDialog(true);
+                        }}
+                        className="h-8 w-8 p-0 text-emerald-400 hover:bg-emerald-600/20 hover:text-emerald-300"
+                        title="Emite adeverința"
+                      >
+                        <BadgeCheck className="h-4 w-4" />
+                      </Button>
+                    )}
+                    {cerere.adeverinta?.downloadURL && (
+                      <a href={cerere.adeverinta.downloadURL} target="_blank" rel="noreferrer">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-8 w-8 p-0 text-emerald-300 hover:bg-emerald-600/20"
+                          title={`Adeverință emisă: ${cerere.adeverinta.numarIesire}`}
+                        >
+                          <BadgeCheck className="h-4 w-4" />
+                        </Button>
+                      </a>
+                    )}
+                    {!cerere.raspuns && !cerere.adeverinta && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => openRaspunsDialog(cerere)}
+                        className="h-8 w-8 p-0 text-sky-400 hover:bg-sky-600/20 hover:text-sky-300"
+                        title="Trimite răspuns oficial"
+                      >
+                        <Send className="h-4 w-4" />
+                      </Button>
+                    )}
+                    {cerere.raspuns?.downloadURL && (
+                      <a href={cerere.raspuns.downloadURL} target="_blank" rel="noreferrer">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-8 w-8 p-0 text-sky-300 hover:bg-sky-600/20"
+                          title={`Răspuns emis: ${cerere.raspuns.numarIesire}`}
+                        >
+                          <Send className="h-4 w-4" />
+                        </Button>
+                      </a>
+                    )}
+                    {(cerere.status === 'rezolvat' || cerere.status === 'respins') && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-8 w-8 p-0 text-gray-400 hover:text-rose-300 hover:bg-rose-600/20"
+                        onClick={() => {
+                          setSelectedCerere(cerere);
+                          setShowDeleteDialog(true);
+                        }}
+                        title="Șterge cerere"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
       )}
 
       {/* Pagination */}
