@@ -58,7 +58,7 @@ import { isAdeverintaType, buildAdeverintaBody, ADEVERINTA_LABELS } from '@/lib/
 import type { AdeverintaType } from '@/lib/adeverinte';
 import { buildRaspunsBody, RASPUNS_STATUS_LABELS } from '@/lib/raspuns';
 import type { RaspunsStatus } from '@/lib/raspuns';
-import { REQUEST_CONFIGS } from '@/lib/simple-pdf-generator';
+import { REQUEST_CONFIGS } from '@/lib/request-configs';
 import { logIstoric, fetchIstoric } from '@/lib/cereri-audit';
 import type { IstoricEntry } from '@/lib/cereri-audit';
 import {

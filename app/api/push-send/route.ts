@@ -1,22 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import webpush from 'web-push';
 import { verifyStaffRequest } from '@/lib/api-auth';
+import { getAdminDb } from '@/lib/firebase-admin';
+import { ensureVapidConfigured } from '@/lib/push';
 
-// Lazy VAPID configuration: web-push throws on missing/empty keys, so doing
-// this at module scope breaks the build when env vars are absent
-let vapidConfigured = false;
-function ensureVapidConfigured(): boolean {
-  if (vapidConfigured) return true;
-  const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
-  const privateKey = process.env.VAPID_PRIVATE_KEY;
-  if (!publicKey || !privateKey) return false;
-  webpush.setVapidDetails(
-    process.env.VAPID_EMAIL || 'mailto:admin@primaria.ro',
-    publicKey,
-    privateKey
-  );
-  vapidConfigured = true;
-  return true;
+// Sent concurrently in chunks: sequential sending at hundreds of
+// subscribers risks the serverless function timeout
+const CONCURRENCY = 50;
+
+interface IncomingSubscription {
+  id?: string; // push_subscriptions doc id, used to clean up expired subs
+  endpoint?: string;
+  keys?: { p256dh: string; auth: string };
 }
 
 export async function POST(request: NextRequest) {
@@ -38,7 +33,14 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { subscriptionsList, title, message, url, icon, badge } = body;
+    const { subscriptionsList, title, message, url, icon, badge } = body as {
+      subscriptionsList?: IncomingSubscription[];
+      title?: string;
+      message?: string;
+      url?: string;
+      icon?: string;
+      badge?: string;
+    };
 
     if (!subscriptionsList || subscriptionsList.length === 0) {
       return NextResponse.json(
@@ -47,58 +49,68 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const payload = JSON.stringify({
+      title,
+      body: message,
+      url,
+      icon,
+      badge,
+      tag: 'notification',
+      requireInteraction: false,
+      data: {
+        url: url || '/',
+        timestamp: new Date().toISOString(),
+      },
+    });
+
+    const db = getAdminDb();
     let sent = 0;
     let failed = 0;
+    const expiredIds: string[] = [];
 
-    // Send notification to each subscription
-    for (const subscription of subscriptionsList) {
+    const sendOne = async (subscription: IncomingSubscription) => {
+      if (!subscription.endpoint || !subscription.keys) {
+        failed++;
+        return;
+      }
       try {
-        // Validate subscription has required fields
-        if (!subscription.endpoint || !subscription.keys) {
-          console.error('[API] Invalid subscription structure:', subscription);
-          failed++;
-          continue;
-        }
-
-        // Create the notification payload
-        const payload = JSON.stringify({
-          title,
-          body: message,
-          url,
-          icon,
-          badge,
-          tag: 'notification',
-          requireInteraction: false,
-          data: {
-            url: url || '/',
-            timestamp: new Date().toISOString()
-          }
-        });
-
-        // Send via web-push
-        await webpush.sendNotification(subscription, payload);
+        await webpush.sendNotification(
+          { endpoint: subscription.endpoint, keys: subscription.keys },
+          payload
+        );
         sent++;
-        console.log('[API] Notification sent to:', subscription.endpoint?.substring(0, 50) + '...');
       } catch (error) {
         failed++;
         const errorMsg = error instanceof Error ? error.message : String(error);
-
-        // Check if subscription is invalid (410 Gone) or other error
-        if (errorMsg.includes('410') || errorMsg.includes('expired')) {
-          console.warn('[API] Subscription expired, marking for deletion');
-          // Could optionally delete from Firestore here
+        // Expired/gone subscription: remember it for cleanup
+        if (errorMsg.includes('410') || errorMsg.includes('404') || errorMsg.includes('expired')) {
+          if (subscription.id) expiredIds.push(subscription.id);
         } else {
           console.error('[API] Error sending notification:', errorMsg);
         }
       }
+    };
+
+    for (let i = 0; i < subscriptionsList.length; i += CONCURRENCY) {
+      await Promise.allSettled(subscriptionsList.slice(i, i + CONCURRENCY).map(sendOne));
+    }
+
+    // Best-effort cleanup so the broadcast list stops accumulating dead subs
+    let cleaned = 0;
+    if (db && expiredIds.length > 0) {
+      const results = await Promise.allSettled(
+        expiredIds.map((id) => db.collection('push_subscriptions').doc(id).delete())
+      );
+      cleaned = results.filter((r) => r.status === 'fulfilled').length;
     }
 
     return NextResponse.json({
       success: true,
       sent,
       failed,
+      cleaned,
       total: subscriptionsList.length,
-      message: `Sent ${sent} notifications, ${failed} failed`
+      message: `Sent ${sent} notifications, ${failed} failed${cleaned ? `, ${cleaned} expired removed` : ''}`,
     });
   } catch (error) {
     console.error('[API] Push send error:', error);
@@ -109,7 +121,7 @@ export async function POST(request: NextRequest) {
         success: false,
         error: errorMsg,
         sent: 0,
-        failed: 0
+        failed: 0,
       },
       { status: 500 }
     );

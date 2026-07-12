@@ -3,25 +3,28 @@
 const nextConfig = {
   reactStrictMode: true,
 
+  // A stray package-lock.json in the user home dir makes Next infer the
+  // wrong workspace root (breaks dev config propagation) - pin it here
+  outputFileTracingRoot: __dirname,
+
   // REMOVED: output: 'export' - Need API routes for IMAP email fetching
   // If you need static export for mobile, you can build separately or use ISR
 
-  // Dezactivează optimizarea imaginilor
+  // Server mode on Vercel: next/image optimization (WebP, resize) works.
+  // Remote photos (sesizari/anunturi) live in Firebase Storage.
   images: {
-    unoptimized: true,
+    remotePatterns: [
+      {
+        protocol: 'https' as const,
+        hostname: 'firebasestorage.googleapis.com',
+      },
+    ],
   },
 
   // Trailing slash pentru navigare corectă
   trailingSlash: true,
-  
-  // Webpack config pentru firebase
-  webpack: (config: { externals: any[]; }) => {
-    config.externals = [...(config.externals || []), { 
-      'firebase-messaging-sw.js': 'self.firebase-messaging-sw' 
-    }];
-    return config;
-  },
-  
+
+
   // Environment variables
   env: {
     NEXT_PUBLIC_API_URL: 'https://primaria.digital',

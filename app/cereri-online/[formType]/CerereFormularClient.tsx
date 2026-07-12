@@ -34,7 +34,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { REQUEST_CONFIGS } from '@/lib/simple-pdf-generator';
+import { REQUEST_CONFIGS } from '@/lib/request-configs';
 import {
   MAX_ATTACHMENT_FILES,
   MAX_TOTAL_FILE_BYTES,

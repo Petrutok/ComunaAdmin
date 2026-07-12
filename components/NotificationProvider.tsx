@@ -540,21 +540,24 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         // Unsubscribe from push
         await subscription.unsubscribe();
         
-        // Notify server
+        // Notify server (the route is POST-only; unsubscribe is an action)
         await fetch('/api/push/subscribe', {
-          method: 'DELETE',
+          method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
+            action: 'unsubscribe',
             endpoint: subscription.endpoint
           }),
         });
         
         setIsSubscribed(false);
         
-        // Șterge din localStorage
+        // Șterge din localStorage (inclusiv flag-ul de legare la cont,
+        // ca un abonament viitor să fie legat din nou)
         localStorage.removeItem('push_subscription');
+        localStorage.removeItem('citizen_push_linked');
         
         toast({
           title: "Notificări dezactivate",

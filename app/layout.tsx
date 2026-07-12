@@ -8,6 +8,7 @@ import { BottomNav } from "@/components/BottomNav";
 import { Toaster } from "@/components/ui/toaster";
 import { PWAInstallPrompt } from '@/components/PWAInstallPrompt';
 import { ServiceWorkerRegistration } from '@/components/ServiceWorkerRegistration';
+import { CitizenPushLink } from '@/components/CitizenPushLink';
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -70,6 +71,7 @@ export default function RootLayout({
             {children}
             <BottomNav />
             <PWAInstallPrompt />
+            <CitizenPushLink />
           </NotificationProvider>
         </CitizenAuthProvider>
         <Toaster />
