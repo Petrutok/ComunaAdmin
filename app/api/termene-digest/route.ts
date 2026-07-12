@@ -62,14 +62,32 @@ export async function GET(request: NextRequest) {
       .map((d) => d.data())
       .filter((d) => d.status !== 'finalizat' && d.directie !== 'iesire');
 
-    const depasite = relevant.filter((d) => d.termen.toMillis() < now);
-    const apropiate = relevant.filter((d) => d.termen.toMillis() >= now);
-
     if (relevant.length === 0) {
       return NextResponse.json({ success: true, sent: 0, depasite: 0, apropiate: 0 });
     }
 
-    // --- Build the report
+    // --- Resolve who each entry is assigned to, via the source documents
+    // (assignment lives on form_submissions / registratura_emails)
+    const withRef = relevant
+      .map((entry, i) => ({
+        i,
+        ref: entry.cerereId
+          ? db.collection('form_submissions').doc(entry.cerereId)
+          : entry.emailId
+          ? db.collection('registratura_emails').doc(entry.emailId)
+          : null,
+      }))
+      .filter((x): x is { i: number; ref: FirebaseFirestore.DocumentReference } => x.ref !== null);
+
+    const assignees: (string | null)[] = new Array(relevant.length).fill(null);
+    if (withRef.length > 0) {
+      const snaps = await db.getAll(...withRef.map((x) => x.ref));
+      snaps.forEach((s, j) => {
+        assignees[withRef[j].i] = (s.exists && s.data()?.assignedToUserId) || null;
+      });
+    }
+
+    // --- Report builder
     const line = (d: FirebaseFirestore.DocumentData) => {
       const diffMs = d.termen.toMillis() - now;
       // floor when overdue / ceil when upcoming: "3 days ago" stays 3
@@ -85,38 +103,52 @@ export async function GET(request: NextRequest) {
     };
 
     const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'https://primaria.digital';
-    let text = `Bună dimineața,\n\nSituația termenelor legale din registrul general (OG 27/2002):\n\n`;
-    if (depasite.length > 0) {
-      text += `⚠️ TERMENE DEPĂȘITE (${depasite.length}):\n${depasite.map(line).join('\n')}\n\n`;
-    }
-    if (apropiate.length > 0) {
-      text += `⏳ EXPIRĂ ÎN URMĂTOARELE ${DIGEST_WINDOW_DAYS} ZILE (${apropiate.length}):\n${apropiate.map(line).join('\n')}\n\n`;
-    }
-    text +=
-      `Registrul complet: ${baseUrl}/admin/registru\n\n` +
-      `Acest mesaj a fost trimis automat, vă rugăm să nu răspundeți.`;
+    const buildEmail = (items: FirebaseFirestore.DocumentData[], full: boolean) => {
+      const depasite = items.filter((d) => d.termen.toMillis() < now);
+      const apropiate = items.filter((d) => d.termen.toMillis() >= now);
+      const intro = full
+        ? 'Situația termenelor legale din registrul general (OG 27/2002):'
+        : 'Situația termenelor legale pentru documentele repartizate ție (OG 27/2002):';
+      let text = `Bună dimineața,\n\n${intro}\n\n`;
+      if (depasite.length > 0) {
+        text += `⚠️ TERMENE DEPĂȘITE (${depasite.length}):\n${depasite.map(line).join('\n')}\n\n`;
+      }
+      if (apropiate.length > 0) {
+        text += `⏳ EXPIRĂ ÎN URMĂTOARELE ${DIGEST_WINDOW_DAYS} ZILE (${apropiate.length}):\n${apropiate.map(line).join('\n')}\n\n`;
+      }
+      text +=
+        `Registrul complet: ${baseUrl}/admin/registru\n\n` +
+        `Acest mesaj a fost trimis automat, vă rugăm să nu răspundeți.`;
+      const subject =
+        `Termene registratură: ${depasite.length} depășite, ` +
+        `${apropiate.length} expiră în ${DIGEST_WINDOW_DAYS} zile`;
+      return { subject, text };
+    };
 
-    const subject =
-      `Termene registratură: ${depasite.length} depășite, ` +
-      `${apropiate.length} expiră în ${DIGEST_WINDOW_DAYS} zile`;
-
-    // --- Recipients: all active staff accounts
+    // --- Recipients: admins (primar/secretar) get the full picture,
+    // employees only their own assignments (nothing assigned = no email)
     const usersSnap = await db.collection('users').where('active', '==', true).get();
-    const recipients = usersSnap.docs
-      .map((d) => d.data().email)
-      .filter(isValidEmail);
+    const staff = usersSnap.docs
+      .map((d) => ({ uid: d.id, email: d.data().email, role: d.data().role }))
+      .filter((u) => isValidEmail(u.email));
 
     let sent = 0;
-    for (const to of recipients) {
-      if (await sendEmail({ to, subject, text })) sent++;
+    for (const member of staff) {
+      const items =
+        member.role === 'admin'
+          ? relevant
+          : relevant.filter((_, i) => assignees[i] === member.uid);
+      if (items.length === 0) continue;
+      const { subject, text } = buildEmail(items, member.role === 'admin');
+      if (await sendEmail({ to: member.email, subject, text })) sent++;
     }
 
     return NextResponse.json({
       success: true,
       sent,
-      recipients: recipients.length,
-      depasite: depasite.length,
-      apropiate: apropiate.length,
+      recipients: staff.length,
+      depasite: relevant.filter((d) => d.termen.toMillis() < now).length,
+      apropiate: relevant.filter((d) => d.termen.toMillis() >= now).length,
     });
   } catch (error) {
     console.error('[termene-digest] Error:', error);

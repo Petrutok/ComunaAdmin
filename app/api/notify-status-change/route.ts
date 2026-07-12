@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import webpush from 'web-push';
 import { getAdminDb, getAdminBucket } from '@/lib/firebase-admin';
 import { verifyStaffRequest } from '@/lib/api-auth';
 import { sendEmail, isValidEmail, EmailAttachment } from '@/lib/email';
+import { sendPushToUid } from '@/lib/push';
 
 /**
  * Notifies a citizen that the status of their cerere/sesizare changed.
@@ -31,21 +31,6 @@ const STATUS_LABELS: Record<string, string> = {
   clasat: 'Clasată',
   arhivat: 'Arhivată',
 };
-
-let vapidConfigured = false;
-function ensureVapidConfigured(): boolean {
-  if (vapidConfigured) return true;
-  const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
-  const privateKey = process.env.VAPID_PRIVATE_KEY;
-  if (!publicKey || !privateKey) return false;
-  webpush.setVapidDetails(
-    process.env.VAPID_EMAIL || 'mailto:admin@primaria.ro',
-    publicKey,
-    privateKey
-  );
-  vapidConfigured = true;
-  return true;
-}
 
 export async function POST(request: NextRequest) {
   const auth = await verifyStaffRequest(request, ['admin', 'employee']);
@@ -85,34 +70,13 @@ export async function POST(request: NextRequest) {
     const results = { push: 0, email: false };
 
     // --- Web push to the citizen's devices (only for account-linked docs)
-    if (data.citizenUid && ensureVapidConfigured()) {
-      const subs = await db
-        .collection('push_subscriptions')
-        .where('citizenUid', '==', data.citizenUid)
-        .get();
-
-      const payload = JSON.stringify({
+    if (data.citizenUid) {
+      results.push = await sendPushToUid(db, data.citizenUid, {
         title,
         body: message,
         url: '/dosarul-meu',
         tag: `status-${docId}`,
-        data: { url: '/dosarul-meu', timestamp: new Date().toISOString() },
       });
-
-      for (const subDoc of subs.docs) {
-        const sub = subDoc.data();
-        if (!sub.endpoint || !sub.keys) continue;
-        try {
-          await webpush.sendNotification({ endpoint: sub.endpoint, keys: sub.keys }, payload);
-          results.push++;
-        } catch (error) {
-          const msg = error instanceof Error ? error.message : String(error);
-          // Expired subscription: clean it up
-          if (msg.includes('410') || msg.includes('404')) {
-            await subDoc.ref.delete().catch(() => {});
-          }
-        }
-      }
     }
 
     // --- Email fallback (reaches citizens without the app installed).
