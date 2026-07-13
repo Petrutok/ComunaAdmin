@@ -28,7 +28,7 @@ import { db, auth, storage, COLLECTIONS, RegistruDocument, StatusRegistru, TipDo
 import { ref as storageRef, getDownloadURL } from 'firebase/storage';
 import { useAdminAuth } from '@/contexts/AdminAuthContext';
 import { TIP_DOCUMENT_CONFIG, STATUS_CONFIG, DEPARTMENTS_LIST } from '@/types/registru';
-import { buildRaspunsBody } from '@/lib/raspuns';
+import { buildRaspunsBody, DEFAULT_RASPUNS_CORPURI } from '@/lib/raspuns';
 import {
   Plus,
   Search,
@@ -269,12 +269,15 @@ export default function AdminRegistruPage() {
   const openRaspunsDialog = (document: RegistruDocument) => {
     setSelectedDocument(document);
     setRaspunsText(
-      buildRaspunsBody({
-        numeComplet: document.emitent,
-        adresa: document.adresaEmitent,
-        numarCerere: document.numarInregistrare,
-        dataCerere: formatDate(document.dataInregistrare),
-      })
+      buildRaspunsBody(
+        {
+          numeComplet: document.emitent,
+          adresa: document.adresaEmitent,
+          numarCerere: document.numarInregistrare,
+          dataCerere: formatDate(document.dataInregistrare),
+        },
+        DEFAULT_RASPUNS_CORPURI.general
+      )
     );
     setShowRaspunsDialog(true);
   };

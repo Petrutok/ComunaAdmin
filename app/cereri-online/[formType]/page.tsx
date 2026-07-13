@@ -50,6 +50,18 @@ const formMetadata: Record<string, { title: string; description: string }> = {
     title: 'Permis de Lucru cu Foc',
     description: 'Solicită permis pentru lucrări care implică foc deschis'
   },
+  'taiere-arbori': {
+    title: 'Aviz Tăiere / Toaletare Arbori',
+    description: 'Solicită avizul pentru tăierea sau toaletarea arborilor'
+  },
+  'copie-arhiva': {
+    title: 'Copii din Arhivă',
+    description: 'Solicită copii certificate de pe documente din arhiva primăriei'
+  },
+  'loc-veci': {
+    title: 'Atribuire / Concesiune Loc de Veci',
+    description: 'Solicită atribuirea sau reînnoirea concesiunii unui loc de înhumare'
+  },
 
   // Urbanism
   'certificat-urbanism': {
@@ -76,11 +88,19 @@ const formMetadata: Record<string, { title: string; description: string }> = {
     title: 'Comunicare Încheierea Lucrări',
     description: 'Notificare privind încheierea execuției lucrărilor'
   },
+  'ocupare-domeniu-public': {
+    title: 'Ocupare Temporară Domeniu Public',
+    description: 'Solicită aprobarea ocupării temporare a domeniului public'
+  },
 
   // Asistență Socială
   'lemne-foc': {
     title: 'Cerere Lemne Foc',
     description: 'Ajutor pentru încălzirea locuinței'
+  },
+  'ajutor-incalzire': {
+    title: 'Ajutor pentru Încălzirea Locuinței',
+    description: 'Solicită ajutorul de încălzire și suplimentul pentru energie (Legea 226/2021)'
   },
   'indemnizatie-copil': {
     title: 'Adeverință Indemnizație Creștere Copil',
@@ -127,6 +147,10 @@ const formMetadata: Record<string, { title: string; description: string }> = {
   'nomenclatura-stradala': {
     title: 'Cerere Certificat Nomenclatură Stradală',
     description: 'Certificat denumire stradă'
+  },
+  'atestat-producator': {
+    title: 'Atestat de Producător / Carnet de Comercializare',
+    description: 'Pentru vânzarea produselor agricole proprii (Legea 145/2014)'
   },
 
   // Taxe și Impozite
@@ -179,6 +203,10 @@ const formMetadata: Record<string, { title: string; description: string }> = {
   'certificat-nastere': {
     title: 'Certificat de Naștere',
     description: 'Solicită certificat de naștere original sau duplicat'
+  },
+  'anexa-24': {
+    title: 'Anexa 24 - Deschidere Procedură Succesorală',
+    description: 'Sesizarea pentru deschiderea procedurii succesorale, cerută de notariat'
   },
   'certificat-deces': {
     title: 'Certificat de Deces',
