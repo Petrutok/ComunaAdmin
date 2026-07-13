@@ -381,7 +381,11 @@ export default function AdminContinutPage() {
         </TabsContent>
       </Tabs>
 
-      {/* Create/Edit dialog (schema-driven) */}
+      {/* Create/Edit dialog (schema-driven). Rendered only for list-based
+          sections: on the "Colectare" tab SECTIONS[activeSection] is
+          undefined, and JSX children evaluate eagerly even with the dialog
+          closed - without this guard, section.singular crashes the page. */}
+      {section && (
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="bg-slate-800 border-slate-700 max-w-xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
@@ -446,6 +450,7 @@ export default function AdminContinutPage() {
           </div>
         </DialogContent>
       </Dialog>
+      )}
     </div>
   );
 }
