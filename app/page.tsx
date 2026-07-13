@@ -58,6 +58,7 @@ export default function HomePage() {
       items: [
         { title: "Consilieri locali", description: "Contactele aleșilor tăi", icon: Users, link: "/representatives", color: "text-sky-400", iconBg: "bg-sky-500/10" },
         { title: "Ședințe de consiliu", description: "Ordine de zi și hotărâri", icon: Calendar, link: "/meeting-summaries", color: "text-gray-400", iconBg: "bg-gray-500/10" },
+        { title: "Monitorul Oficial Local", description: "Hotărâri, dispoziții și documente publice", icon: Newspaper, link: "/monitorul-oficial", color: "text-amber-400", iconBg: "bg-amber-500/10" },
       ],
     },
   ];

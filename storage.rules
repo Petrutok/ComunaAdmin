@@ -49,6 +49,14 @@ service firebase.storage {
       allow read, write: if isStaff();
     }
 
+    // Monitorul Oficial Local: published administrative acts, public by law
+    match /mol/{allPaths=**} {
+      allow read: if true;
+      allow write: if isStaff()
+        && request.resource.size < 20 * 1024 * 1024
+        && request.resource.contentType == 'application/pdf';
+    }
+
     // Form submission attachments: staff read, uploads size-limited
     match /cereri/{allPaths=**} {
       allow read: if isStaff();

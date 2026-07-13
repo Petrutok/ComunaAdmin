@@ -25,6 +25,7 @@ import {
   ShoppingBasket,
   Search,
   FileSignature,
+  BookOpen,
 } from 'lucide-react';
 
 export function ControlCenterNav() {
@@ -48,6 +49,7 @@ export function ControlCenterNav() {
     { href: '/admin/continut', label: 'Conținut', icon: LayoutList, gradient: 'from-teal-600/20 to-teal-800/20', border: 'border-teal-500/30 hover:border-teal-400/50', iconBg: 'bg-teal-500/20', iconColor: 'text-teal-400', roles: ['admin', 'employee'] },
     { href: '/admin/statistici', label: 'Statistici', icon: BarChart3, gradient: 'from-violet-600/20 to-violet-800/20', border: 'border-violet-500/30 hover:border-violet-400/50', iconBg: 'bg-violet-500/20', iconColor: 'text-violet-400', roles: ['admin'] },
     { href: '/admin/alerte', label: 'Alerte', icon: Siren, gradient: 'from-red-600/20 to-red-800/20', border: 'border-red-500/30 hover:border-red-400/50', iconBg: 'bg-red-500/20', iconColor: 'text-red-400', roles: ['admin'] },
+    { href: '/admin/monitorul-oficial', label: 'Monitorul Oficial', icon: BookOpen, gradient: 'from-amber-600/20 to-amber-800/20', border: 'border-amber-500/30 hover:border-amber-400/50', iconBg: 'bg-amber-500/20', iconColor: 'text-amber-400', roles: ['admin'] },
     { href: '/admin/setari-adeverinte', label: 'Setări adeverințe', icon: Settings, gradient: 'from-slate-600/20 to-slate-800/20', border: 'border-slate-500/30 hover:border-slate-400/50', iconBg: 'bg-slate-500/20', iconColor: 'text-slate-300', roles: ['admin'] },
     { href: '/admin/sabloane-raspuns', label: 'Șabloane răspuns', icon: FileSignature, gradient: 'from-sky-600/20 to-sky-800/20', border: 'border-sky-500/30 hover:border-sky-400/50', iconBg: 'bg-sky-500/20', iconColor: 'text-sky-300', roles: ['admin'] },
   ];
