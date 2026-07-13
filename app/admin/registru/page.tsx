@@ -28,6 +28,7 @@ import { db, auth, storage, COLLECTIONS, RegistruDocument, StatusRegistru, TipDo
 import { ref as storageRef, getDownloadURL } from 'firebase/storage';
 import { useAdminAuth } from '@/contexts/AdminAuthContext';
 import { TIP_DOCUMENT_CONFIG, STATUS_CONFIG, DEPARTMENTS_LIST } from '@/types/registru';
+import { TENANT } from '@/lib/tenant';
 import { buildRaspunsBody, DEFAULT_RASPUNS_CORPURI } from '@/lib/raspuns';
 import {
   Plus,
@@ -244,6 +245,66 @@ export default function AdminRegistruPage() {
       month: '2-digit',
       year: 'numeric',
     });
+  };
+
+  // Printable fisa de inregistrare: opens a minimal print window with the
+  // entry's data (used for physical dosare that need a paper cover sheet)
+  const handlePrint = (documentReg: RegistruDocument) => {
+    const esc = (value?: string | null) =>
+      (value || '—').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const tipLabel = TIP_DOCUMENT_CONFIG[documentReg.tipDocument]?.label || documentReg.tipDocument;
+    const statusLabel = STATUS_CONFIG[documentReg.status]?.label || documentReg.status;
+    const directie = (documentReg.directie || 'intrare') === 'intrare' ? 'Intrare' : 'Ieșire';
+
+    const row = (label: string, value?: string | null) =>
+      `<tr><td class="label">${label}</td><td>${esc(value)}</td></tr>`;
+
+    const html = `<!doctype html><html lang="ro"><head><meta charset="utf-8">
+<title>Fișă înregistrare ${esc(documentReg.numarInregistrare)}</title>
+<style>
+  body { font-family: Georgia, 'Times New Roman', serif; color: #111; margin: 40px; }
+  .antet { text-align: center; margin-bottom: 6px; }
+  .antet h1 { font-size: 15px; margin: 0; } .antet p { font-size: 12px; margin: 2px 0; }
+  hr { border: none; border-top: 1.5px solid #111; margin: 10px 0 18px; }
+  h2 { text-align: center; font-size: 16px; margin: 0 0 4px; }
+  .nr { text-align: center; font-size: 13px; margin-bottom: 22px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  td { border: 1px solid #444; padding: 7px 10px; vertical-align: top; }
+  td.label { width: 200px; font-weight: bold; background: #f2f2f2; }
+  .footer { margin-top: 28px; font-size: 11px; color: #555; text-align: center; }
+  @media print { body { margin: 15mm; } }
+</style></head><body>
+<div class="antet"><h1>${esc(TENANT.antetOficial)}</h1><p>${esc(TENANT.judet)}</p></div>
+<hr>
+<h2>FIȘĂ DE ÎNREGISTRARE — REGISTRU GENERAL</h2>
+<p class="nr">Nr. <strong>${esc(documentReg.numarInregistrare)}</strong> din ${esc(formatDate(documentReg.dataInregistrare))}</p>
+<table>
+${row('Direcție', directie)}
+${row('Tip document', tipLabel)}
+${row('Emitent', documentReg.emitent)}
+${row('Nr. / data emitent', [documentReg.numarExtern, documentReg.dataExterna].filter(Boolean).join(' / ') || null)}
+${row('Destinatar', documentReg.destinatar)}
+${row('Conținut pe scurt', documentReg.continut)}
+${row('Departament', documentReg.departament)}
+${row('Status', statusLabel)}
+${row('Termen legal de răspuns', documentReg.termen ? formatDate(documentReg.termen) : null)}
+${row('Observații', documentReg.observatii)}
+</table>
+<div class="footer">Generat electronic din ${esc(TENANT.numePrimarie)} — Primăria Digitală, ${new Date().toLocaleString('ro-RO')}</div>
+<script>window.onload = function () { window.print(); };</script>
+</body></html>`;
+
+    const printWindow = window.open('', '_blank', 'width=800,height=900');
+    if (!printWindow) {
+      toast({
+        title: 'Pop-up blocat',
+        description: 'Permite ferestrele pop-up pentru a printa fișa.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    printWindow.document.write(html);
+    printWindow.document.close();
   };
 
   // Scans of physical documents (uploaded at manual registration): staff
@@ -734,15 +795,15 @@ export default function AdminRegistruPage() {
                               <Button
                                 size="sm"
                                 className="h-7 w-7 p-0 bg-slate-700 hover:bg-slate-600"
-                                onClick={() => {
-                                  // TODO: Add print functionality
-                                }}
+                                title="Printează fișa de înregistrare"
+                                onClick={() => handlePrint(doc)}
                               >
                                 🖨️
                               </Button>
                               <Button
                                 size="sm"
                                 className="h-7 w-7 p-0 bg-slate-700 hover:bg-slate-600"
+                                title="Vezi / actualizează status"
                                 onClick={() => {
                                   setSelectedDocument(doc);
                                   setNewStatus(doc.status);
@@ -751,15 +812,6 @@ export default function AdminRegistruPage() {
                                 }}
                               >
                                 👁️
-                              </Button>
-                              <Button
-                                size="sm"
-                                className="h-7 w-7 p-0 bg-slate-700 hover:bg-slate-600"
-                                onClick={() => {
-                                  // TODO: Add edit functionality
-                                }}
-                              >
-                                ✏️
                               </Button>
                               {(doc.directie || 'intrare') === 'intrare' && !doc.raspunsNumar && !doc.cerereId && (
                                 <Button
