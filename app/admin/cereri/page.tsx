@@ -57,7 +57,7 @@ import {
 } from 'lucide-react';
 import { isAdeverintaType, buildAdeverintaBody, ADEVERINTA_LABELS } from '@/lib/adeverinte';
 import type { AdeverintaType } from '@/lib/adeverinte';
-import { buildRaspunsBody, RASPUNS_STATUS_LABELS } from '@/lib/raspuns';
+import { buildRaspunsBody, RASPUNS_STATUS_LABELS, DEFAULT_RASPUNS_CORPURI } from '@/lib/raspuns';
 import type { RaspunsStatus } from '@/lib/raspuns';
 import { REQUEST_CONFIGS } from '@/lib/request-configs';
 import { logIstoric, fetchIstoric } from '@/lib/cereri-audit';
@@ -862,7 +862,12 @@ export default function AdminCereriPage() {
       }
     }
     const category = REQUEST_CONFIGS[cerere.tipCerere]?.category as string | undefined;
-    const corp = category ? raspunsTemplatesRef.current[category] : undefined;
+    // Firestore template first (Admin -> Sabloane raspuns), then the
+    // professional per-category default
+    const corp =
+      (category ? raspunsTemplatesRef.current[category] : undefined) ||
+      (category ? DEFAULT_RASPUNS_CORPURI[category] : undefined) ||
+      DEFAULT_RASPUNS_CORPURI.general;
 
     setRaspunsText(
       buildRaspunsBody(

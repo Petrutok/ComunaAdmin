@@ -78,115 +78,148 @@ export async function generatePDF(data: RequestData): Promise<Blob> {
   pdf.text(removeDiacritics(config.title.toUpperCase()), pageWidth / 2, yPosition, { align: 'center' });
   yPosition += 12;
 
-  // Către
+  // Formula de adresare (formatul clasic al unei petitii oficiale)
+  pdf.setFontSize(11);
+  pdf.setFont('helvetica', 'bold');
+  pdf.text(removeDiacritics('DOMNULE PRIMAR,'), margin, yPosition);
+  yPosition += 10;
+
+  // --- Paragraful principal: identificarea completa a solicitantului
+  // si obiectul formal al cererii (REQUEST_CONFIGS[tip].obiect)
+  let domiciliu = `jud. ${data.judet || '—'}, ${data.localitate || '—'}`;
+  if (data.strada) domiciliu += `, str. ${data.strada}`;
+  if (data.numar) domiciliu += ` nr. ${data.numar}`;
+  if (data.bloc) domiciliu += `, bl. ${data.bloc}`;
+  if (data.scara) domiciliu += `, sc. ${data.scara}`;
+  if (data.apartament) domiciliu += `, ap. ${data.apartament}`;
+
+  const contact: string[] = [];
+  if (data.telefonMobil || data.telefon) contact.push(`telefon ${data.telefonMobil || data.telefon}`);
+  if (data.email) contact.push(`e-mail ${data.email}`);
+
+  const calitate = data.numeFirma
+    ? `, in calitate de ${data.reprezentantLegal || 'reprezentant legal'} al ${data.numeFirma}${data.cui ? ` (CUI ${data.cui}` + (data.nrRegistruComert ? `, ${data.nrRegistruComert}` : '') + ')' : ''}`
+    : '';
+
+  const obiect = config.obiect || `solutionarea prezentei cereri (${config.title.toLowerCase()})`;
+
+  const paragrafPrincipal =
+    `Subsemnatul(a) ${data.numeComplet || '—'}, CNP ${data.cnp || '—'}, ` +
+    `cu domiciliul in ${domiciliu}` +
+    (contact.length ? `, ${contact.join(', ')}` : '') +
+    `${calitate}, prin prezenta va solicit respectuos ${obiect}.`;
+
   pdf.setFontSize(11);
   pdf.setFont('helvetica', 'normal');
-  pdf.text(removeDiacritics('Catre: PRIMARIA COMUNEI FILIPESTI'), margin, yPosition);
-  yPosition += 6;
-  pdf.text(removeDiacritics('In atentia: ________________________'), margin, yPosition);
-  yPosition += 10;
+  yPosition = addWrappedText(removeDiacritics(paragrafPrincipal), margin, yPosition, pageWidth - 2 * margin);
+  yPosition += 4;
 
-  // SOLICITANT
-  pdf.setFont('helvetica', 'bold');
-  pdf.text(removeDiacritics('SOLICITANT:'), margin, yPosition);
-  yPosition += 7;
-  
-  pdf.setFont('helvetica', 'normal');
-  pdf.text(removeDiacritics(`Nume si prenume: ${data.numeComplet || ''}`), margin, yPosition);
-  yPosition += 6;
-  pdf.text(`CNP: ${data.cnp || ''}`, margin, yPosition);
-  yPosition += 6;
-  
-  // Domiciliu pe o singură linie mai compactă
-  let domiciliuText = `Domiciliul: Jud. ${data.judet || ''}, Loc. ${data.localitate || ''}`;
-  if (data.strada) domiciliuText += `, Str. ${data.strada}`;
-  if (data.numar) domiciliuText += ` nr. ${data.numar}`;
-  if (data.bloc) domiciliuText += `, Bl. ${data.bloc}`;
-  if (data.scara) domiciliuText += `, Sc. ${data.scara}`;
-  if (data.apartament) domiciliuText += `, Ap. ${data.apartament}`;
-  
-  yPosition = addWrappedText(removeDiacritics(domiciliuText), margin, yPosition, pageWidth - 2 * margin);
-  yPosition += 1;
-  
-  if (data.telefon || data.telefonMobil) {
-    pdf.text(`Telefon: ${data.telefonMobil || data.telefon || ''}`, margin, yPosition);
-    yPosition += 6;
-  }
-  pdf.text(`Email: ${data.email || ''}`, margin, yPosition);
-  yPosition += 12;
-
-  // CONȚINUT CERERE - dezvoltat în fraze
-  let continutCerere = '';
-  
-  // Adaptează textul în funcție de tipul cererii
-  switch(config.category) {
-    case 'urbanism':
-      continutCerere = `Subsemnatul/a, ${data.numeComplet || ''}, va rog sa aprobati eliberarea documentatiei necesare pentru ${config.title.toLowerCase()}.`;
-      break;
-    case 'asistenta-sociala':
-      continutCerere = `Subsemnatul/a, ${data.numeComplet || ''}, solicit acordarea drepturilor prevazute de lege.`;
-      break;
-    case 'registru-agricol':
-      continutCerere = `Subsemnatul/a, ${data.numeComplet || ''}, va rog sa-mi eliberati documentele solicitate din registrul agricol.`;
-      break;
-    case 'taxe-impozite':
-      continutCerere = `Subsemnatul/a, ${data.numeComplet || ''}, solicit solutionarea favorabila a cererii privind situatia fiscala.`;
-      break;
-    case 'spclep':
-      continutCerere = `Subsemnatul/a, ${data.numeComplet || ''}, solicit eliberarea actelor de stare civila.`;
-      break;
-    default:
-      continutCerere = `Subsemnatul/a, ${data.numeComplet || ''}, va rog sa binevoiti a-mi aproba urmatoarea solicitare.`;
-  }
-  
-  // Adaugă scopul specific dacă există
+  // --- Motivarea / detaliile cererii (textul cetateanului)
   if (data.scopulCererii && data.scopulCererii.trim()) {
-    continutCerere += ' ' + data.scopulCererii;
+    yPosition = addWrappedText(
+      removeDiacritics(`In sustinerea cererii, precizez urmatoarele: ${data.scopulCererii.trim()}`),
+      margin,
+      yPosition,
+      pageWidth - 2 * margin
+    );
+    yPosition += 4;
   }
-  
-  // Adaugă date specifice în text continuu
-  if (data.numeFirma) {
-    continutCerere += ` Mentionez ca reprezint societatea ${data.numeFirma || ''}${data.cui ? ', CUI ' + data.cui : ''}${data.reprezentantLegal ? ', in calitate de ' + data.reprezentantLegal : ''}.`;
-  }
+
+  // --- Date tehnice specifice tipului de cerere
+  const detalii: string[] = [];
   if (data.suprafataTeren) {
-    continutCerere += ` Terenul in cauza are suprafata de ${data.suprafataTeren || ''}${data.nrCadastral ? ', numar cadastral ' + data.nrCadastral : ''}.`;
+    detalii.push(
+      `Terenul care face obiectul cererii are suprafata de ${data.suprafataTeren}` +
+        (data.nrCadastral ? `, numar cadastral ${data.nrCadastral}` : '') +
+        '.'
+    );
+  }
+  if (data.tipConstructie || data.suprafataConstructie) {
+    detalii.push(
+      `Constructia vizata: ${data.tipConstructie || 'nespecificat'}` +
+        (data.suprafataConstructie ? `, suprafata construita ${data.suprafataConstructie}` : '') +
+        (data.anConstructie ? `, anul edificarii ${data.anConstructie}` : '') +
+        '.'
+    );
   }
   if (data.marcaAuto) {
-    continutCerere += ` Vehiculul vizat este marca ${data.marcaAuto || ''}${data.nrInmatriculare ? ', numar inmatriculare ' + data.nrInmatriculare : 'neinmatriculat'}${data.anFabricatie ? ', an fabricatie ' + data.anFabricatie : ''}.`;
+    detalii.push(
+      `Mijlocul de transport vizat: marca ${data.marcaAuto}` +
+        (data.nrInmatriculare ? `, numar de inmatriculare ${data.nrInmatriculare}` : '') +
+        (data.serieSasiu ? `, serie sasiu ${data.serieSasiu}` : '') +
+        (data.anFabricatie ? `, an de fabricatie ${data.anFabricatie}` : '') +
+        (data.capacitateCilindrica ? `, capacitate cilindrica ${data.capacitateCilindrica} cmc` : '') +
+        (data.masaMaxima ? `, masa totala maxima autorizata ${data.masaMaxima}` : '') +
+        '.'
+    );
   }
+  for (const detaliu of detalii) {
+    yPosition = addWrappedText(removeDiacritics(detaliu), margin, yPosition, pageWidth - 2 * margin);
+    yPosition += 2;
+  }
+  if (detalii.length) yPosition += 2;
 
-  yPosition = addWrappedText(removeDiacritics(continutCerere), margin, yPosition, pageWidth - 2 * margin);
-  yPosition += 10;
-
-  // Documente anexate - NU afișa numele fișierelor, doar numărul
+  // Documente anexate - doar numarul, nu numele fisierelor
   if (data.fisiere && data.fisiere.length > 0) {
-    pdf.setFont('helvetica', 'italic');
-    pdf.setFontSize(10);
-    pdf.text(removeDiacritics(`Anexez ${data.fisiere.length} document${data.fisiere.length > 1 ? 'e' : ''} la prezenta cerere.`), margin, yPosition);
-    yPosition += 10;
+    yPosition = addWrappedText(
+      removeDiacritics(
+        `La prezenta cerere anexez, in copie, ${data.fisiere.length} document${data.fisiere.length > 1 ? 'e' : ''} justificativ${data.fisiere.length > 1 ? 'e' : ''}.`
+      ),
+      margin,
+      yPosition,
+      pageWidth - 2 * margin
+    );
+    yPosition += 4;
   }
 
-  // Declarație pe proprie răspundere
-  pdf.setFontSize(10);
-  pdf.setFont('helvetica', 'normal');
-  const declaratieText = 'Declar pe propria raspundere, cunoscand prevederile art. 326 din Codul Penal privind falsul in declaratii, ca datele furnizate sunt corecte si complete.';
+  // Declaratie pe proprie raspundere
+  const declaratieText =
+    'Declar pe propria raspundere, cunoscand prevederile art. 326 din Codul penal privind ' +
+    'falsul in declaratii, ca datele furnizate prin prezenta cerere sunt reale, corecte si complete.';
   yPosition = addWrappedText(removeDiacritics(declaratieText), margin, yPosition, pageWidth - 2 * margin);
+  yPosition += 4;
+
+  // Formula de incheiere
+  yPosition = addWrappedText(
+    removeDiacritics('Va multumesc si va rog sa primiti expresia deplinei mele consideratii.'),
+    margin,
+    yPosition,
+    pageWidth - 2 * margin
+  );
   yPosition += 12;
 
-  // Semnătură și data - aliniate
+  // Data si semnatura
   pdf.setFontSize(10);
   pdf.text(`Data: ${currentDate}`, margin, yPosition);
-  pdf.text(removeDiacritics('Semnatura'), pageWidth - margin - 30, yPosition);
+  pdf.text(removeDiacritics('Semnatura,'), pageWidth - margin - 35, yPosition);
   yPosition += 8;
-  pdf.text('_________________', margin, yPosition);
-  pdf.text('_________________', pageWidth - margin - 30, yPosition);
-  yPosition += 12;
+  pdf.text(removeDiacritics(data.numeComplet || '_________________'), pageWidth - margin - 35, yPosition);
+  yPosition += 14;
 
-  // Notă finală
+  // Adresarea finala, ca pe cererile clasice
+  // ("Domnului Primar al Comunei ..." - derivata din antetul oficial)
+  const institutieGenitiv = TENANT.antetOficial.replace(/^PRIM[AĂ]RIA\s*/i, '').trim();
+  pdf.setFontSize(10);
+  pdf.setFont('helvetica', 'bold');
+  pdf.text(
+    removeDiacritics(
+      institutieGenitiv ? `DOMNULUI PRIMAR AL ${institutieGenitiv.toUpperCase()}` : 'DOMNULUI PRIMAR'
+    ),
+    pageWidth / 2,
+    yPosition,
+    { align: 'center' }
+  );
+  yPosition += 8;
+
+  // Nota informativa
   pdf.setFontSize(9);
   pdf.setFont('helvetica', 'italic');
-  const notaText = 'Nota: Cererea dumneavoastra va fi procesata in conformitate cu prevederile legale in vigoare. Termenul legal de solutionare este de 30 de zile de la data inregistrarii.';
+  pdf.setTextColor(100);
+  const notaText =
+    'Cererea se solutioneaza in termenul legal de 30 de zile de la inregistrare, conform OG nr. 27/2002. ' +
+    'Veti fi notificat(a) cu privire la stadiul cererii prin aplicatie si e-mail.';
   yPosition = addWrappedText(removeDiacritics(notaText), margin, yPosition, pageWidth - 2 * margin);
+  pdf.setTextColor(0, 0, 0);
 
   // Adaugă paginile cu imagini atașate (dacă există)
   if (data.fisiere && data.fisiere.length > 0) {

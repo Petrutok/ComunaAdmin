@@ -79,6 +79,21 @@ export default function CereriOnlinePage() {
           title: "Cerere permis de lucru cu foc",
           description: "Pentru lucrări care implică foc deschis",
           formType: "permis-foc"
+        },
+        {
+          title: "Cerere aviz tăiere / toaletare arbori",
+          description: "Pentru arbori uscați, periculoși sau care împiedică lucrări",
+          formType: "taiere-arbori"
+        },
+        {
+          title: "Cerere eliberare copii din arhivă",
+          description: "Copii certificate de pe documente aflate în arhiva primăriei",
+          formType: "copie-arhiva"
+        },
+        {
+          title: "Cerere atribuire / concesiune loc de veci",
+          description: "Loc nou de înhumare sau reînnoirea unei concesiuni existente",
+          formType: "loc-veci"
         }
       ]
     },
@@ -118,6 +133,11 @@ export default function CereriOnlinePage() {
           title: "Comunicare privind încheierea execuției lucrărilor",
           description: "Notificare finalizare lucrări",
           formType: "incheiere-lucrari"
+        },
+        {
+          title: "Cerere ocupare temporară domeniu public",
+          description: "Materiale de construcții, schelă, comerț stradal, evenimente",
+          formType: "ocupare-domeniu-public"
         }
       ]
     },
@@ -132,6 +152,11 @@ export default function CereriOnlinePage() {
           title: "Cerere lemne foc",
           description: "Ajutor pentru încălzirea locuinței",
           formType: "lemne-foc"
+        },
+        {
+          title: "Cerere ajutor pentru încălzirea locuinței",
+          description: "Ajutorul de încălzire și suplimentul pentru energie (Legea 226/2021)",
+          formType: "ajutor-incalzire"
         },
         {
           title: "Adeverință indemnizație creștere copil",
@@ -191,6 +216,11 @@ export default function CereriOnlinePage() {
           title: "Declarație pentru completarea registrului agricol",
           description: "Actualizare date registru agricol",
           formType: "declaratie-registru"
+        },
+        {
+          title: "Cerere atestat de producător / carnet de comercializare",
+          description: "Pentru vânzarea produselor agricole proprii în piețe și târguri",
+          formType: "atestat-producator"
         },
         {
           title: "Cerere privind eliberarea certificatului de nomenclatură stradală",
@@ -269,6 +299,11 @@ export default function CereriOnlinePage() {
           title: "Cerere transcriere certificat de naștere",
           description: "Pentru acte emise în străinătate",
           formType: "transcriere-nastere"
+        },
+        {
+          title: "Cerere Anexa 24 — deschidere procedură succesorală",
+          description: "Sesizarea cerută de notariat pentru dezbaterea succesiunii",
+          formType: "anexa-24"
         },
         {
           title: "Cerere eliberare certificat de naștere",
