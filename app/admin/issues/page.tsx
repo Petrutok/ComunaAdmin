@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -22,23 +22,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { 
-  Search, 
-  Filter,
+import {
+  Search,
   AlertTriangle,
   MapPin,
-  User,
-  Calendar,
   Image as ImageIcon,
   Eye,
-  CheckCircle,
-  Clock,
-  XCircle,
   MessageSquare,
   Download,
   RefreshCw,
-  TrendingUp,
-  Activity
 } from 'lucide-react';
 import { collection, getDocs, doc, updateDoc, query, where, orderBy } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
@@ -233,28 +225,50 @@ export default function AdminIssuesPage() {
     }
   };
 
-  const getStatusBadge = (status: string) => {
-    const statusConfig: Record<string, { label: string; className: string }> = {
-      'noua': { label: 'Nouă', className: 'bg-blue-500 text-white' },
-      'in_lucru': { label: 'În lucru', className: 'bg-yellow-500 text-white' },
-      'rezolvata': { label: 'Rezolvată', className: 'bg-green-500 text-white' },
-      'respinsa': { label: 'Respinsă', className: 'bg-red-500 text-white' }
-    };
+  // Compact, outline-tinted badges to match the Cereri page
+  const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
+    noua: { label: 'Nouă', className: 'bg-blue-500/15 text-blue-300 border-blue-500/30' },
+    in_lucru: { label: 'În lucru', className: 'bg-amber-500/15 text-amber-300 border-amber-500/30' },
+    rezolvata: { label: 'Rezolvată', className: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30' },
+    respinsa: { label: 'Respinsă', className: 'bg-rose-500/15 text-rose-300 border-rose-500/30' },
+  };
 
-    const config = statusConfig[status] || { label: status, className: 'bg-gray-500 text-white' };
-    return <Badge className={config.className}>{config.label}</Badge>;
+  const getStatusBadge = (status: string) => {
+    const config = STATUS_CONFIG[status] || {
+      label: status,
+      className: 'bg-gray-500/15 text-gray-300 border-gray-500/30',
+    };
+    return (
+      <Badge
+        variant="outline"
+        className={`${config.className} inline-flex items-center px-2 py-0.5 text-xs font-medium whitespace-nowrap`}
+      >
+        {config.label}
+      </Badge>
+    );
   };
 
   const getPriorityBadge = (priority: string) => {
     const priorityConfig: Record<string, { label: string; className: string }> = {
-      'low': { label: 'Scăzută', className: 'bg-gray-500 text-white' },
-      'medium': { label: 'Medie', className: 'bg-blue-500 text-white' },
-      'high': { label: 'Ridicată', className: 'bg-orange-500 text-white' },
-      'urgent': { label: 'Urgentă', className: 'bg-red-500 text-white' }
+      low: { label: 'Scăzută', className: 'bg-gray-500/15 text-gray-300 border-gray-500/30' },
+      medium: { label: 'Medie', className: 'bg-blue-500/15 text-blue-300 border-blue-500/30' },
+      high: { label: 'Ridicată', className: 'bg-orange-500/15 text-orange-300 border-orange-500/30' },
+      urgent: { label: 'Urgentă', className: 'bg-rose-500/15 text-rose-300 border-rose-500/30' },
     };
-
-    const config = priorityConfig[priority] || { label: priority, className: 'bg-gray-500 text-white' };
-    return <Badge className={config.className}>{config.label}</Badge>;
+    // Only surface non-default priorities as a badge to reduce clutter
+    if (!priority || priority === 'medium') return null;
+    const config = priorityConfig[priority] || {
+      label: priority,
+      className: 'bg-gray-500/15 text-gray-300 border-gray-500/30',
+    };
+    return (
+      <Badge
+        variant="outline"
+        className={`${config.className} inline-flex items-center px-2 py-0.5 text-xs font-medium whitespace-nowrap`}
+      >
+        {config.label}
+      </Badge>
+    );
   };
 
   const getTypeIcon = (type: string) => {
@@ -277,223 +291,190 @@ export default function AdminIssuesPage() {
     );
   }
 
+  const STATUS_FILTERS: { value: string; label: string; count: number }[] = [
+    { value: 'all', label: 'Toate', count: stats.total },
+    { value: 'noua', label: 'Noi', count: stats.new },
+    { value: 'in_lucru', label: 'În lucru', count: stats.inProgress },
+    { value: 'rezolvata', label: 'Rezolvate', count: stats.resolved },
+    { value: 'respinsa', label: 'Respinse', count: issues.filter((i) => i.status === 'respinsa').length },
+  ];
+
   return (
-    <div className="space-y-6 p-6 bg-slate-900 min-h-screen">
-      {/* Header */}
-      <div className="flex items-center justify-between bg-gradient-to-r from-slate-800 to-slate-800/50 p-6 rounded-xl border border-slate-700/50 shadow-lg">
+    <div className="space-y-4 p-6 bg-slate-900 min-h-screen">
+      {/* Header + toolbar */}
+      <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-3xl font-bold text-white flex items-center gap-3">
-            <div className="bg-red-500/30 rounded-xl p-3 border border-red-500/20">
-              <AlertTriangle className="h-8 w-8 text-red-500" />
+          <h1 className="text-2xl font-bold text-white flex items-center gap-2.5">
+            <div className="bg-red-500/15 rounded-lg p-2">
+              <AlertTriangle className="h-5 w-5 text-red-400" />
             </div>
             Probleme Raportate
           </h1>
-          <p className="text-gray-300 mt-2 text-lg">
-            Gestionează problemele raportate de cetățeni
+          <p className="text-sm text-gray-400 mt-1">
+            <span className="font-semibold text-gray-200">{stats.total}</span> probleme ·{' '}
+            <span className="font-semibold text-blue-300">{stats.new}</span> noi ·{' '}
+            <span className="font-semibold text-amber-300">{stats.inProgress}</span> în lucru
           </p>
         </div>
-        <Button
-          onClick={loadIssues}
-          className="bg-red-500 hover:bg-red-500 text-white font-medium shadow-lg hover:shadow-xl transition-all"
-        >
-          <RefreshCw className="h-4 w-4 mr-2" />
-          Reîncarcă
-        </Button>
-      </div>
-
-      {/* Statistici */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card className="bg-slate-800 border-slate-700">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-gray-400 text-sm">Total Probleme</p>
-                <p className="text-2xl font-bold text-white">{stats.total}</p>
-              </div>
-              <Activity className="h-8 w-8 text-gray-400" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-slate-800 border-slate-700">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-gray-400 text-sm">Noi</p>
-                <p className="text-2xl font-bold text-blue-400">{stats.new}</p>
-              </div>
-              <AlertTriangle className="h-8 w-8 text-blue-400" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-slate-800 border-slate-700">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-gray-400 text-sm">În Lucru</p>
-                <p className="text-2xl font-bold text-yellow-400">{stats.inProgress}</p>
-              </div>
-              <Clock className="h-8 w-8 text-yellow-400" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-slate-800 border-slate-700">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-gray-400 text-sm">Rezolvate</p>
-                <p className="text-2xl font-bold text-green-400">{stats.resolved}</p>
-              </div>
-              <CheckCircle className="h-8 w-8 text-green-400" />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Filtre */}
-      <Card className="bg-slate-800 border-slate-700">
-        <CardContent className="p-6">
-          <div className="flex flex-col md:flex-row gap-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-              <Input
-                type="text"
-                placeholder="Caută după nume, locație, ID..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 bg-slate-700 border-slate-600 text-white"
-              />
-            </div>
-
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-[180px] bg-slate-700 border-slate-600 text-white">
-                <SelectValue placeholder="Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Toate statusurile</SelectItem>
-                <SelectItem value="noua">Nouă</SelectItem>
-                <SelectItem value="in_lucru">În lucru</SelectItem>
-                <SelectItem value="rezolvata">Rezolvată</SelectItem>
-                <SelectItem value="respinsa">Respinsă</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Select value={typeFilter} onValueChange={setTypeFilter}>
-              <SelectTrigger className="w-[180px] bg-slate-700 border-slate-600 text-white">
-                <SelectValue placeholder="Tip" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Toate tipurile</SelectItem>
-                <SelectItem value="infrastructura">Infrastructură</SelectItem>
-                <SelectItem value="iluminat">Iluminat</SelectItem>
-                <SelectItem value="gunoi">Gunoi</SelectItem>
-                <SelectItem value="vandalism">Vandalism</SelectItem>
-                <SelectItem value="general">General</SelectItem>
-                <SelectItem value="altele">Altele</SelectItem>
-              </SelectContent>
-            </Select>
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="relative">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Input
+              placeholder="Caută nume, locație, ID..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-8 h-9 w-64 bg-slate-800 border-slate-600 text-white text-sm placeholder:text-gray-500 focus:border-blue-400 focus:ring-1 focus:ring-blue-400/20"
+            />
           </div>
-        </CardContent>
-      </Card>
+          <Select value={typeFilter} onValueChange={setTypeFilter}>
+            <SelectTrigger className="h-9 w-[150px] bg-slate-800 border-slate-600 text-gray-300 text-sm">
+              <SelectValue placeholder="Tip" />
+            </SelectTrigger>
+            <SelectContent className="bg-slate-800 border-slate-600 text-white">
+              <SelectItem value="all">Toate tipurile</SelectItem>
+              <SelectItem value="infrastructura">Infrastructură</SelectItem>
+              <SelectItem value="iluminat">Iluminat</SelectItem>
+              <SelectItem value="gunoi">Gunoi</SelectItem>
+              <SelectItem value="vandalism">Vandalism</SelectItem>
+              <SelectItem value="general">General</SelectItem>
+              <SelectItem value="altele">Altele</SelectItem>
+            </SelectContent>
+          </Select>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={loadIssues}
+            className="h-9 bg-slate-800 border-slate-600 text-gray-300 hover:bg-slate-700 hover:text-white"
+          >
+            <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
+            Reîncarcă
+          </Button>
+        </div>
+      </div>
 
-      {/* Lista probleme */}
-      <Card className="bg-slate-800 border-slate-700">
-        <CardHeader>
-          <CardTitle className="text-white">Lista Problemelor</CardTitle>
-          <CardDescription className="text-gray-400">
-            {filteredIssues.length} probleme găsite
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {filteredIssues.length === 0 ? (
-              <p className="text-center text-gray-400 py-8">
-                Nu există probleme care să corespundă filtrelor selectate
-              </p>
-            ) : (
-              filteredIssues.map((issue) => (
-                <div
-                  key={issue.id}
-                  className="bg-slate-700/50 rounded-lg p-4 hover:bg-slate-700 transition-colors"
-                >
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1 space-y-2">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xl">{getTypeIcon(issue.type)}</span>
-                        <h3 className="text-white font-medium">
-                          {issue.title || `Problemă ${issue.reportId}`}
-                        </h3>
-                        {getStatusBadge(issue.status)}
-                        {getPriorityBadge(issue.priority)}
-                      </div>
+      {/* Status filters */}
+      <div className="flex gap-2 overflow-x-auto pb-1">
+        {STATUS_FILTERS.map((filter) => (
+          <Button
+            key={filter.value}
+            size="sm"
+            variant="outline"
+            onClick={() => setStatusFilter(filter.value)}
+            className={`h-8 shrink-0 text-xs font-medium ${
+              statusFilter === filter.value
+                ? 'bg-slate-600 text-white border-slate-500 hover:bg-slate-600 hover:text-white'
+                : 'bg-slate-800/60 border-slate-600 text-gray-300 hover:bg-slate-700 hover:text-white'
+            }`}
+          >
+            {filter.label}
+            {filter.count > 0 && (
+              <span
+                className={`ml-1.5 rounded-full px-1.5 py-0 text-[11px] font-semibold ${
+                  statusFilter === filter.value ? 'bg-white/20' : 'bg-slate-500/40'
+                }`}
+              >
+                {filter.count}
+              </span>
+            )}
+          </Button>
+        ))}
+      </div>
 
-                      <p className="text-gray-300 text-sm line-clamp-2">
-                        {issue.description}
-                      </p>
-
-                      <div className="flex flex-wrap gap-4 text-xs text-gray-400">
-                        <div className="flex items-center gap-1 text-blue-400 font-semibold">
-                          #{issue.reportId}
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <User className="h-3 w-3" />
-                          {issue.reporterName}
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <MapPin className="h-3 w-3" />
-                          {issue.location}
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <Calendar className="h-3 w-3" />
-                          {new Date(issue.createdAt.seconds ? issue.createdAt.seconds * 1000 : issue.createdAt).toLocaleDateString('ro-RO')}
-                        </div>
-                        {issue.imageUrl && (
-                          <div className="flex items-center gap-1">
-                            <ImageIcon className="h-3 w-3" />
-                            Imagine atașată
-                          </div>
-                        )}
-                      </div>
+      {/* Issues list */}
+      {filteredIssues.length === 0 ? (
+        <Card className="bg-slate-800 border-slate-700">
+          <CardContent className="text-center py-12">
+            <AlertTriangle className="h-12 w-12 text-gray-600 mx-auto mb-4" />
+            <p className="text-gray-400">Nu există probleme care să corespundă filtrelor selectate.</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <Card className="bg-slate-800/60 border-slate-700/60 overflow-hidden">
+          <div className="divide-y divide-slate-700/60">
+            {filteredIssues.map((issue) => (
+              <div key={issue.id} className="px-4 py-3 hover:bg-slate-700/30 transition-colors">
+                <div className="flex items-center justify-between gap-4">
+                  {/* Info */}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-mono text-xs text-blue-300 bg-blue-500/10 border border-blue-500/20 rounded px-1.5 py-0.5 shrink-0">
+                        #{issue.reportId}
+                      </span>
+                      <span className="text-base leading-none">{getTypeIcon(issue.type)}</span>
+                      <span className="text-sm font-semibold text-white truncate">
+                        {issue.title || `Problemă ${issue.reportId}`}
+                      </span>
+                      {getStatusBadge(issue.status)}
+                      {getPriorityBadge(issue.priority)}
+                      {issue.imageUrl && (
+                        <span className="inline-flex items-center gap-1 text-xs text-blue-300/90">
+                          <ImageIcon className="h-3 w-3" />
+                          1
+                        </span>
+                      )}
                     </div>
-
-                    <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="bg-slate-600 hover:bg-slate-500 text-white border-slate-500"
-                        onClick={() => {
-                          setSelectedIssue(issue);
-                          setShowDetailsDialog(true);
-                        }}
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
-
-                      <Select
-                        value={issue.status}
-                        onValueChange={(value) => updateIssueStatus(issue.id, value)}
-                        disabled={updatingStatus}
-                      >
-                        <SelectTrigger className="w-[130px] bg-slate-600 border-slate-500 text-white">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="noua">Nouă</SelectItem>
-                          <SelectItem value="in_lucru">În lucru</SelectItem>
-                          <SelectItem value="rezolvata">Rezolvată</SelectItem>
-                          <SelectItem value="respinsa">Respinsă</SelectItem>
-                        </SelectContent>
-                      </Select>
+                    <div className="flex items-center gap-1.5 text-xs text-gray-500 mt-1 min-w-0">
+                      <span className="text-gray-400 font-medium shrink-0">{issue.reporterName}</span>
+                      {issue.location && (
+                        <>
+                          <span>·</span>
+                          <span className="inline-flex items-center gap-1 truncate">
+                            <MapPin className="h-3 w-3 shrink-0" />
+                            {issue.location}
+                          </span>
+                        </>
+                      )}
+                      <span>·</span>
+                      <span className="shrink-0">
+                        {new Date(
+                          issue.createdAt?.seconds ? issue.createdAt.seconds * 1000 : issue.createdAt
+                        ).toLocaleDateString('ro-RO')}
+                      </span>
+                      {issue.description && (
+                        <>
+                          <span className="hidden md:inline">·</span>
+                          <span className="hidden md:inline truncate italic">{issue.description}</span>
+                        </>
+                      )}
                     </div>
                   </div>
+
+                  {/* Actions */}
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => {
+                        setSelectedIssue(issue);
+                        setShowDetailsDialog(true);
+                      }}
+                      className="h-8 w-8 p-0 text-gray-400 hover:bg-blue-600/20 hover:text-blue-300"
+                      title="Vezi detalii"
+                    >
+                      <Eye className="h-4 w-4" />
+                    </Button>
+                    <Select
+                      value={issue.status}
+                      onValueChange={(value) => updateIssueStatus(issue.id, value)}
+                      disabled={updatingStatus}
+                    >
+                      <SelectTrigger className="h-8 w-[128px] bg-slate-700 border-slate-600 text-white text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="bg-slate-800 border-slate-600 text-white">
+                        <SelectItem value="noua">Nouă</SelectItem>
+                        <SelectItem value="in_lucru">În lucru</SelectItem>
+                        <SelectItem value="rezolvata">Rezolvată</SelectItem>
+                        <SelectItem value="respinsa">Respinsă</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
-              ))
-            )}
+              </div>
+            ))}
           </div>
-        </CardContent>
-      </Card>
+        </Card>
+      )}
 
       {/* Dialog detalii */}
       <Dialog open={showDetailsDialog} onOpenChange={setShowDetailsDialog}>
