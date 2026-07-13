@@ -26,9 +26,8 @@ describe('tenants/registry.json', () => {
     expect(new Set(domains).size).toBe(domains.length);
   });
 
-  it.each(registry.tenants.map((t: any) => [t.slug, t] as [string, any]))(
-    'tenant %s is fully described',
-    (_slug, tenant: any) => {
+  for (const tenant of registry.tenants as any[]) {
+    it(`tenant ${tenant.slug} is fully described`, () => {
       expect(tenant.slug).toMatch(/^[a-z][a-z0-9-]{2,30}$/);
       expect(tenant.numeComuna).toBeTruthy();
       expect(tenant.numePrimarie).toBeTruthy();
@@ -37,6 +36,6 @@ describe('tenants/registry.json', () => {
       expect(tenant.firebaseProjectId).toMatch(/^[a-z][a-z0-9-]+$/);
       expect(tenant.productionDomain).toMatch(/^[a-z0-9.-]+\.[a-z]+$/);
       expect(VALID_STATUS).toContain(tenant.status);
-    }
-  );
+    });
+  }
 });
