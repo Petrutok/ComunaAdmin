@@ -1,7 +1,10 @@
 // app/admin/issues/page.tsx
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+
+// Page size for the paginated issues list (same convention as Cereri)
+const PAGE_SIZE = 100;
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -32,7 +35,18 @@ import {
   Download,
   RefreshCw,
 } from 'lucide-react';
-import { collection, getDocs, doc, updateDoc, query, where, orderBy } from 'firebase/firestore';
+import {
+  collection,
+  getDocs,
+  doc,
+  updateDoc,
+  query,
+  where,
+  orderBy,
+  limit,
+  startAfter,
+  getCountFromServer,
+} from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 
 interface ReportedIssue {
@@ -74,40 +88,82 @@ export default function AdminIssuesPage() {
   const [showDetailsDialog, setShowDetailsDialog] = useState(false);
   const [newNote, setNewNote] = useState('');
   const [updatingStatus, setUpdatingStatus] = useState(false);
-  // Statistici
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
+  const lastDocRef = useRef<any>(null);
+  // Counts come from server-side aggregations so they stay exact even
+  // though the list itself is paginated
   const [stats, setStats] = useState({
     total: 0,
     new: 0,
     inProgress: 0,
-    resolved: 0
+    resolved: 0,
+    rejected: 0,
   });
   useEffect(() => {
     loadIssues();
+    loadStats();
   }, []);
 
   useEffect(() => {
     filterIssues();
-    updateStats();
   }, [issues, searchTerm, statusFilter, typeFilter]);
 
-  const loadIssues = async () => {
+  // Aggregate counts: cheap, exact, no documents downloaded
+  const loadStats = async () => {
     try {
-      setLoading(true);
       const issuesCollection = collection(db, 'reported_issues');
-      const q = query(issuesCollection, orderBy('createdAt', 'desc'));
+      const countByStatus = async (status: string) =>
+        (await getCountFromServer(query(issuesCollection, where('status', '==', status)))).data().count;
+      const [total, nou, inLucru, rezolvate, respinse] = await Promise.all([
+        getCountFromServer(issuesCollection).then((s) => s.data().count),
+        countByStatus('noua'),
+        countByStatus('in_lucru'),
+        countByStatus('rezolvata'),
+        countByStatus('respinsa'),
+      ]);
+      setStats({ total, new: nou, inProgress: inLucru, resolved: rezolvate, rejected: respinse });
+    } catch (error) {
+      console.error('Error loading issue stats:', error);
+    }
+  };
+
+  // Paginated: collections grow over time, never load them whole
+  // (same cursor + "Incarca mai multe" convention as the Cereri page)
+  const loadIssues = async (loadMore = false) => {
+    try {
+      if (loadMore) {
+        setLoadingMore(true);
+      } else {
+        setLoading(true);
+        lastDocRef.current = null;
+      }
+      const issuesCollection = collection(db, 'reported_issues');
+      const q =
+        loadMore && lastDocRef.current
+          ? query(
+              issuesCollection,
+              orderBy('createdAt', 'desc'),
+              startAfter(lastDocRef.current),
+              limit(PAGE_SIZE)
+            )
+          : query(issuesCollection, orderBy('createdAt', 'desc'), limit(PAGE_SIZE));
       const snapshot = await getDocs(q);
-      
+
+      lastDocRef.current = snapshot.docs[snapshot.docs.length - 1] || lastDocRef.current;
+      setHasMore(snapshot.docs.length === PAGE_SIZE);
+
       const issuesData = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       })) as ReportedIssue[];
-      
-      setIssues(issuesData);
-      setFilteredIssues(issuesData);
+
+      setIssues(prev => (loadMore ? [...prev, ...issuesData] : issuesData));
     } catch (error) {
       console.error('Error loading issues:', error);
     } finally {
       setLoading(false);
+      setLoadingMore(false);
     }
   };
 
@@ -135,15 +191,6 @@ export default function AdminIssuesPage() {
     }
 
     setFilteredIssues(filtered);
-  };
-
-  const updateStats = () => {
-    setStats({
-      total: issues.length,
-      new: issues.filter(i => i.status === 'noua').length,
-      inProgress: issues.filter(i => i.status === 'in_lucru').length,
-      resolved: issues.filter(i => i.status === 'rezolvata').length
-    });
   };
 
   const updateIssueStatus = async (issueId: string, newStatus: string) => {
@@ -179,12 +226,13 @@ export default function AdminIssuesPage() {
         }).catch(() => {});
       } catch {}
 
-      // Update local state
+      // Update local state + refresh the aggregate counts
       setIssues(issues.map(issue =>
         issue.id === issueId
           ? { ...issue, ...updateData }
           : issue
       ));
+      loadStats();
 
       if (selectedIssue?.id === issueId) {
         setSelectedIssue({ ...selectedIssue, ...updateData });
@@ -296,7 +344,7 @@ export default function AdminIssuesPage() {
     { value: 'noua', label: 'Noi', count: stats.new },
     { value: 'in_lucru', label: 'În lucru', count: stats.inProgress },
     { value: 'rezolvata', label: 'Rezolvate', count: stats.resolved },
-    { value: 'respinsa', label: 'Respinse', count: issues.filter((i) => i.status === 'respinsa').length },
+    { value: 'respinsa', label: 'Respinse', count: stats.rejected },
   ];
 
   return (
@@ -343,7 +391,10 @@ export default function AdminIssuesPage() {
           <Button
             variant="outline"
             size="sm"
-            onClick={loadIssues}
+            onClick={() => {
+              loadIssues();
+              loadStats();
+            }}
             className="h-9 bg-slate-800 border-slate-600 text-gray-300 hover:bg-slate-700 hover:text-white"
           >
             <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
@@ -474,6 +525,21 @@ export default function AdminIssuesPage() {
             ))}
           </div>
         </Card>
+      )}
+
+      {/* Pagination */}
+      {!loading && hasMore && (
+        <div className="flex justify-center pt-2">
+          <Button
+            variant="outline"
+            onClick={() => loadIssues(true)}
+            disabled={loadingMore}
+            className="border-slate-600 text-gray-300 hover:bg-slate-700 hover:text-white"
+          >
+            {loadingMore && <RefreshCw className="mr-2 h-4 w-4 animate-spin" />}
+            Încarcă mai multe probleme
+          </Button>
+        </div>
       )}
 
       {/* Dialog detalii */}
