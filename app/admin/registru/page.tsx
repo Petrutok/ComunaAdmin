@@ -24,7 +24,9 @@ import {
   startAfter,
   Timestamp,
 } from 'firebase/firestore';
-import { db, auth, COLLECTIONS, RegistruDocument, StatusRegistru, TipDocument } from '@/lib/firebase';
+import { db, auth, storage, COLLECTIONS, RegistruDocument, StatusRegistru, TipDocument } from '@/lib/firebase';
+import { ref as storageRef, getDownloadURL } from 'firebase/storage';
+import { useAdminAuth } from '@/contexts/AdminAuthContext';
 import { TIP_DOCUMENT_CONFIG, STATUS_CONFIG, DEPARTMENTS_LIST } from '@/types/registru';
 import { buildRaspunsBody } from '@/lib/raspuns';
 import {
@@ -95,6 +97,8 @@ export default function AdminRegistruPage() {
   const [showRaspunsDialog, setShowRaspunsDialog] = useState(false);
   const [raspunsText, setRaspunsText] = useState('');
   const [sendingRaspuns, setSendingRaspuns] = useState(false);
+  const [sendingAvizare, setSendingAvizare] = useState(false);
+  const { isAdmin } = useAdminAuth();
   const [showExportAnDialog, setShowExportAnDialog] = useState(false);
   const [exportYear, setExportYear] = useState(String(new Date().getFullYear()));
   const [exporting, setExporting] = useState(false);
@@ -242,6 +246,24 @@ export default function AdminRegistruPage() {
     });
   };
 
+  // Scans of physical documents (uploaded at manual registration): staff
+  // read access via storage.rules; opens each file in a new tab
+  const handleOpenFisiere = async (document: RegistruDocument) => {
+    for (const fisier of document.fisiere || []) {
+      try {
+        const url = await getDownloadURL(storageRef(storage, fisier.storagePath));
+        window.open(url, '_blank');
+      } catch (error) {
+        console.error('Error opening attachment:', fisier.name, error);
+        toast({
+          title: 'Eroare',
+          description: `Nu s-a putut deschide ${fisier.name}`,
+          variant: 'destructive',
+        });
+      }
+    }
+  };
+
   // Official response to an email/manual intrare: outgoing number, signed
   // PDF and delivery by email to the sender (server-side, /api/emite-raspuns)
   const openRaspunsDialog = (document: RegistruDocument) => {
@@ -255,6 +277,50 @@ export default function AdminRegistruPage() {
       })
     );
     setShowRaspunsDialog(true);
+  };
+
+  // Sends the drafted response into the avizare circuit
+  // (responsabil -> secretar -> primar) instead of issuing it directly
+  const handleTrimiteLaAvizare = async () => {
+    if (!selectedDocument || !raspunsText.trim()) return;
+    setSendingAvizare(true);
+    try {
+      const idToken = await auth.currentUser?.getIdToken();
+      const response = await fetch('/api/avizare', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(idToken ? { Authorization: `Bearer ${idToken}` } : {}),
+        },
+        body: JSON.stringify({
+          action: 'creeaza',
+          tipDocument: 'raspuns',
+          registruDocId: selectedDocument.id,
+          continut: raspunsText.trim(),
+        }),
+      });
+      const result = await response.json();
+      if (!result.success) throw new Error(result.error || 'Trimiterea la avizare a eșuat');
+
+      toast({
+        title: 'Trimis la avizare',
+        description:
+          result.stadiu === 'la_secretar'
+            ? 'Documentul așteaptă avizul secretarului general.'
+            : 'Documentul așteaptă semnătura primarului.',
+      });
+      setShowRaspunsDialog(false);
+      setRaspunsText('');
+      loadDocuments();
+    } catch (error) {
+      toast({
+        title: 'Eroare',
+        description: error instanceof Error ? error.message : 'Trimiterea la avizare a eșuat',
+        variant: 'destructive',
+      });
+    } finally {
+      setSendingAvizare(false);
+    }
   };
 
   const handleEmiteRaspuns = async () => {
@@ -652,6 +718,16 @@ export default function AdminRegistruPage() {
                               {doc.creatDeNume || 'OANA SDROBIS'}
                             </TableCell>
                             <TableCell className="whitespace-nowrap px-2 py-2 flex gap-1 w-28 justify-center">
+                              {doc.fisiere && doc.fisiere.length > 0 && (
+                                <Button
+                                  size="sm"
+                                  className="h-7 w-7 p-0 bg-blue-800 hover:bg-blue-700"
+                                  title={`${doc.fisiere.length} document(e) scanat(e) — deschide`}
+                                  onClick={() => handleOpenFisiere(doc)}
+                                >
+                                  📎
+                                </Button>
+                              )}
                               <Button
                                 size="sm"
                                 className="h-7 w-7 p-0 bg-slate-700 hover:bg-slate-600"
@@ -832,23 +908,35 @@ export default function AdminRegistruPage() {
             </p>
           )}
 
-          <DialogFooter>
+          <div className="space-y-2">
             <Button
-              variant="outline"
-              onClick={() => setShowRaspunsDialog(false)}
-              className="border-slate-600 text-gray-300 hover:bg-slate-700 hover:text-white"
+              onClick={handleTrimiteLaAvizare}
+              disabled={sendingAvizare || sendingRaspuns || !raspunsText.trim()}
+              className="w-full bg-indigo-600 hover:bg-indigo-700"
             >
-              Anulează
+              {sendingAvizare && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Trimite la avizare (secretar → primar)
             </Button>
-            <Button
-              onClick={handleEmiteRaspuns}
-              disabled={sendingRaspuns || !raspunsText.trim()}
-              className="bg-sky-600 hover:bg-sky-700"
-            >
-              {sendingRaspuns && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Emite cu număr de ieșire
-            </Button>
-          </DialogFooter>
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                onClick={() => setShowRaspunsDialog(false)}
+                className="flex-1 border-slate-600 text-gray-300 hover:bg-slate-700 hover:text-white"
+              >
+                Anulează
+              </Button>
+              {isAdmin && (
+                <Button
+                  onClick={handleEmiteRaspuns}
+                  disabled={sendingRaspuns || sendingAvizare || !raspunsText.trim()}
+                  className="flex-1 bg-sky-600 hover:bg-sky-700"
+                >
+                  {sendingRaspuns && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Emitere rapidă (toate semnăturile)
+                </Button>
+              )}
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
 

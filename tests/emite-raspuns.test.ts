@@ -57,7 +57,7 @@ vi.mock('@/lib/generateRegistruNumberAdmin', () => ({
   generateRegistruNumberAdmin: async () => 'REG-2026-000099',
 }));
 vi.mock('@/lib/api-auth', () => ({
-  verifyStaffRequest: async () => ({ authorized: true, uid: 'admin-1', email: 'primar@test.ro' }),
+  verifyStaffRequest: async () => ({ authorized: true, uid: 'admin-1', email: 'primar@test.ro', role: 'admin' }),
 }));
 vi.mock('firebase-admin/storage', () => ({
   getDownloadURL: async () => 'https://storage.example/raspuns.pdf?token=abc',

@@ -17,7 +17,8 @@ import {
   orderBy,
   Timestamp,
 } from 'firebase/firestore';
-import { db, COLLECTIONS } from '@/lib/firebase';
+import { db, storage, COLLECTIONS } from '@/lib/firebase';
+import { ref, uploadBytes } from 'firebase/storage';
 import { Department, User, UserFormData, UserRole } from '@/types/departments';
 import {
   Users as UsersIcon,
@@ -79,7 +80,10 @@ export default function UsersPage() {
     role: 'employee',
     departmentId: null,
     active: true,
-  });  const { toast } = useToast();
+  });
+  // Scanned signature (PNG) for the "Intocmit" block on issued documents
+  const [signatureFile, setSignatureFile] = useState<File | null>(null);
+  const { toast } = useToast();
   useEffect(() => {
     loadData();
   }, []);
@@ -146,12 +150,30 @@ export default function UsersPage() {
 
     try {
       if (editingUser) {
+        // Optional scanned signature upload (used on "Intocmit" blocks)
+        let semnaturaPath: string | undefined;
+        if (signatureFile) {
+          if (signatureFile.type !== 'image/png') {
+            toast({
+              title: 'Format greșit',
+              description: 'Semnătura trebuie să fie imagine PNG.',
+              variant: 'destructive',
+            });
+            return;
+          }
+          semnaturaPath = `config/semnaturi/${editingUser.id}.png`;
+          await uploadBytes(ref(storage, semnaturaPath), signatureFile, {
+            contentType: 'image/png',
+          });
+        }
+
         // Update existing user
         await updateDoc(doc(db, COLLECTIONS.USERS, editingUser.id), {
           fullName: formData.fullName.trim(),
           role: formData.role,
           departmentId: formData.departmentId || null,
           active: formData.active,
+          ...(semnaturaPath ? { semnaturaPath } : {}),
           updatedAt: Timestamp.now(),
         });
 
@@ -251,6 +273,7 @@ export default function UsersPage() {
 
   const resetForm = () => {
     setEditingUser(null);
+    setSignatureFile(null);
     setFormData({
       email: '',
       fullName: '',
@@ -476,6 +499,25 @@ export default function UsersPage() {
                 </SelectContent>
               </Select>
             </div>
+
+            {editingUser && (
+              <div>
+                <label className="text-sm text-gray-400 mb-2 block">
+                  Semnătură scanată (PNG) — apare la „Întocmit" pe documentele emise
+                </label>
+                {editingUser.semnaturaPath && !signatureFile && (
+                  <p className="text-xs text-emerald-400 mb-1">
+                    Semnătura este încărcată. Poți încărca alta pentru a o înlocui.
+                  </p>
+                )}
+                <Input
+                  type="file"
+                  accept="image/png"
+                  onChange={(e) => setSignatureFile(e.target.files?.[0] || null)}
+                  className="bg-slate-700/50 border-slate-600 text-white file:text-gray-300"
+                />
+              </div>
+            )}
 
             <div className="flex items-center gap-2">
               <input

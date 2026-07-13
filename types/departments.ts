@@ -21,6 +21,9 @@ export interface User {
   departmentId: string | null;
   departmentName?: string; // Populated from departments collection
   active: boolean;
+  // Storage path to the user's scanned signature (PNG). Used on the
+  // "Intocmit" block of issued documents (adeverinte/raspunsuri).
+  semnaturaPath?: string;
   createdAt: Timestamp;
   updatedAt?: Timestamp;
 }

@@ -4,6 +4,7 @@
 // don't embed Romanian diacritics).
 
 import { jsPDF } from 'jspdf';
+import { renderSemnatari, SemnatarInfo } from './semnatari';
 
 export interface AdeverintaPdfInput {
   numarIesire: string;        // ex: REG-2026-000042 (numar de iesire)
@@ -14,7 +15,10 @@ export interface AdeverintaPdfInput {
   primarNume: string;         // who signs
   localitate: string;         // header line, ex: "PRIMARIA COMUNEI FILIPESTI"
   judet: string;              // ex: "Judetul Bacau"
-  semnaturaPngDataUrl?: string | null; // scanned signature+stamp image
+  semnaturaPngDataUrl?: string | null; // primar's scanned signature+stamp image
+  // Optional extra signers (avizare circuit): rendered only when present
+  secretar?: SemnatarInfo | null;
+  intocmit?: SemnatarInfo | null;
   qrPngDataUrl: string;       // verification QR code
   verifyUrl: string;
 }
@@ -85,21 +89,17 @@ export function generateAdeverintaPDF(input: AdeverintaPdfInput): Buffer {
     }
   }
 
-  // --- Semnatura
+  // --- Semnaturi (primar + optional secretar/intocmit)
   const sigY = Math.max(y + 14, 218);
-  pdf.setFont('helvetica', 'bold');
-  pdf.setFontSize(11);
-  pdf.text('PRIMAR,', margin + 20, sigY, { align: 'center' });
-  pdf.setFont('helvetica', 'normal');
-  pdf.text(removeDiacritics(input.primarNume), margin + 20, sigY + 6, { align: 'center' });
-
-  if (input.semnaturaPngDataUrl) {
-    try {
-      pdf.addImage(input.semnaturaPngDataUrl, 'PNG', margin + 2, sigY + 8, 36, 20);
-    } catch (error) {
-      console.error('[AdeverintaPDF] Failed to embed signature image:', error);
-    }
-  }
+  renderSemnatari(
+    pdf,
+    {
+      primar: { nume: input.primarNume, semnaturaPngDataUrl: input.semnaturaPngDataUrl },
+      secretar: input.secretar,
+      intocmit: input.intocmit,
+    },
+    { sigY, margin, pageWidth, clean: removeDiacritics }
+  );
 
   // --- QR de verificare
   const qrSize = 28;

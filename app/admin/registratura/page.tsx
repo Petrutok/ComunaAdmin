@@ -18,8 +18,9 @@ import {
   DropdownMenuSeparator, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useToast } from '@/hooks/use-toast';
+import Link from 'next/link';
 import {
-  Mail, RefreshCw, Loader2, Download, Star, ChevronDown, Archive, X, ShieldAlert,
+  Mail, RefreshCw, Loader2, Download, Star, ChevronDown, Archive, X, ShieldAlert, FilePlus,
 } from 'lucide-react';
 import { QuarantinePanel } from '@/components/registratura/QuarantinePanel';
 import { syncEmailsAction } from '@/app/actions/sync-emails';
@@ -248,6 +249,15 @@ export default function RegistraturaPage() {
         </div>
 
         <div className="flex items-center gap-2">
+          <Link href="/admin/registru/intrare-noua">
+            <Button
+              variant="outline"
+              className="rounded-xl border-emerald-500/40 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20 hover:text-emerald-200"
+            >
+              <FilePlus className="mr-1.5 h-4 w-4" />
+              Înregistrează document fizic
+            </Button>
+          </Link>
           <Button
             variant="outline"
             onClick={() => setQuarantineOpen(true)}

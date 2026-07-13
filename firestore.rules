@@ -143,6 +143,13 @@ service cloud.firestore {
       allow read, write: if isStaff();
     }
 
+    // Avizare drafts (responsabil -> secretar -> primar). Writes go
+    // through /api/avizare (Admin SDK); staff only read the queue.
+    match /avizari/{id} {
+      allow read: if isStaff();
+      allow write: if false;
+    }
+
     match /registru_counters/{id} {
       allow read, write: if isStaff();
     }

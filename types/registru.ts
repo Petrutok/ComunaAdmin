@@ -76,6 +76,15 @@ export interface RegistruDocument {
     fileSize: number;
     fileType: string;
   }>;
+
+  // Scans/photos of physical documents registered manually (Storage
+  // paths under registru/{docId}/, staff-only per storage.rules)
+  fisiere?: Array<{
+    name: string;
+    storagePath: string;
+    size?: number;
+    type?: string;
+  }>;
 }
 
 // Counter document for sequential number generation

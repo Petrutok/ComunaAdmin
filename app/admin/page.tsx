@@ -37,6 +37,7 @@ import {
 } from 'firebase/firestore';
 import { RegistraturaEmail } from '@/types/registratura';
 import { SERVICE_CONFIG, AppointmentService } from '@/types/appointments';
+import { AvizareQueue } from '@/components/admin/AvizareQueue';
 
 interface ActivityItem {
   id: string;
@@ -306,6 +307,8 @@ export default function AdminDashboard() {
           </div>
         </div>
 
+        <AvizareQueue />
+
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {[
             { value: myNewEmails.length, label: 'Noi', icon: Mail, iconClass: 'bg-blue-500/15 text-blue-400' },
@@ -476,6 +479,9 @@ export default function AdminDashboard() {
           Reîncarcă
         </Button>
       </div>
+
+      {/* Documents waiting for aviz/signature */}
+      <AvizareQueue />
 
       {/* Deadline alert */}
       {!loading && stats && stats.termeneDepasite > 0 && (

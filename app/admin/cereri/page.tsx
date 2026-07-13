@@ -53,6 +53,7 @@ import {
   CalendarClock,
   CornerUpRight,
   Archive,
+  FileSignature,
 } from 'lucide-react';
 import { isAdeverintaType, buildAdeverintaBody, ADEVERINTA_LABELS } from '@/lib/adeverinte';
 import type { AdeverintaType } from '@/lib/adeverinte';
@@ -137,6 +138,12 @@ interface Cerere {
   status: CerereStatus;
   redirectionatCatre?: string;
   registruDocId?: string;
+  // Avizare circuit marker (draft in the `avizari` collection)
+  avizare?: {
+    id: string;
+    stadiu: 'la_secretar' | 'la_primar' | 'returnat' | 'emis';
+    motiv?: string;
+  };
   priority?: CererePriority;
   departmentId?: string;
   departmentName?: string;
@@ -306,7 +313,71 @@ export default function AdminCereriPage() {
     priority: 'normal' as CererePriority,
   });
   const { toast } = useToast();
-  const { user: adminUser } = useAdminAuth();
+  const { user: adminUser, isAdmin } = useAdminAuth();
+  const [sendingAvizare, setSendingAvizare] = useState(false);
+
+  // Sends the drafted document into the avizare circuit
+  // (responsabil -> secretar -> primar) instead of issuing it directly
+  const handleTrimiteLaAvizare = async (
+    tipDocument: 'adeverinta' | 'raspuns',
+    continut: string,
+    raspunsStatus?: RaspunsStatus
+  ) => {
+    if (!selectedCerere || !continut.trim()) return;
+    setSendingAvizare(true);
+    try {
+      const idToken = await auth.currentUser?.getIdToken();
+      const response = await fetch('/api/avizare', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(idToken ? { Authorization: `Bearer ${idToken}` } : {}),
+        },
+        body: JSON.stringify({
+          action: 'creeaza',
+          tipDocument,
+          cerereId: selectedCerere.id,
+          continut: continut.trim(),
+          ...(raspunsStatus ? { raspunsStatus } : {}),
+        }),
+      });
+      const result = await response.json();
+      if (!result.success) throw new Error(result.error || 'Trimiterea la avizare a eșuat');
+
+      toast({
+        title: 'Trimis la avizare',
+        description:
+          result.stadiu === 'la_secretar'
+            ? 'Documentul așteaptă avizul secretarului general.'
+            : 'Documentul așteaptă semnătura primarului.',
+      });
+      setShowEmiteDialog(false);
+      setShowRaspunsDialog(false);
+      setAdeverintaText('');
+      setRaspunsText('');
+      loadCereri();
+    } catch (error) {
+      toast({
+        title: 'Eroare',
+        description: error instanceof Error ? error.message : 'Trimiterea la avizare a eșuat',
+        variant: 'destructive',
+      });
+    } finally {
+      setSendingAvizare(false);
+    }
+  };
+
+  // A returned draft keeps its text in the avizari doc - prefill it so
+  // the responsabil corrects instead of retyping
+  const loadReturnedDraft = async (cerere: Cerere): Promise<string | null> => {
+    if (cerere.avizare?.stadiu !== 'returnat' || !cerere.avizare.id) return null;
+    try {
+      const snap = await getDoc(doc(db, 'avizari', cerere.avizare.id));
+      return (snap.data()?.continut as string) || null;
+    } catch {
+      return null;
+    }
+  };
 
   useEffect(() => {
     loadCereri();
@@ -774,6 +845,14 @@ export default function AdminCereriPage() {
     setSelectedCerere(cerere);
     setRaspunsStatus('rezolvat');
 
+    // Returned draft: correct the existing text instead of starting over
+    const returnedDraft = await loadReturnedDraft(cerere);
+    if (returnedDraft) {
+      setRaspunsText(returnedDraft);
+      setShowRaspunsDialog(true);
+      return;
+    }
+
     if (raspunsTemplatesRef.current === null) {
       try {
         const snap = await getDoc(doc(db, 'config', 'raspuns_templates'));
@@ -948,6 +1027,39 @@ export default function AdminCereriPage() {
     return cereri.filter(c => c.status === status).length;
   };
 
+  // Draft in the avizare circuit: block a second emit until it resolves
+  const isAvizareActiva = (cerere: Cerere) =>
+    cerere.avizare?.stadiu === 'la_secretar' || cerere.avizare?.stadiu === 'la_primar';
+
+  const getAvizareBadge = (cerere: Cerere) => {
+    const stadiu = cerere.avizare?.stadiu;
+    if (stadiu === 'la_secretar' || stadiu === 'la_primar') {
+      return (
+        <Badge
+          variant="outline"
+          className="bg-indigo-500/15 text-indigo-300 border-indigo-500/30 inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium whitespace-nowrap"
+          title="Documentul este în circuitul de avizare"
+        >
+          <FileSignature className="h-3 w-3" />
+          {stadiu === 'la_secretar' ? 'La secretar' : 'La primar'}
+        </Badge>
+      );
+    }
+    if (stadiu === 'returnat') {
+      return (
+        <Badge
+          variant="outline"
+          className="bg-amber-500/15 text-amber-300 border-amber-500/30 inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium whitespace-nowrap"
+          title={cerere.avizare?.motiv ? `Motiv: ${cerere.avizare.motiv}` : 'Returnat pentru corecturi'}
+        >
+          <FileSignature className="h-3 w-3" />
+          Returnat
+        </Badge>
+      );
+    }
+    return null;
+  };
+
   const getTipCerereBadge = (tip: string) => {
     return (
       <Badge variant="outline" className="text-gray-300">
@@ -1105,6 +1217,7 @@ export default function AdminCereriPage() {
                         {tipuriCereri[cerere.tipCerere] || cerere.tipCerere}
                       </span>
                       {getStatusBadge(cerere.status)}
+                      {getAvizareBadge(cerere)}
                       {cerere.priority === 'urgent' && (
                         <Badge
                           variant="outline"
@@ -1198,21 +1311,25 @@ export default function AdminCereriPage() {
                     >
                       <Download className="h-4 w-4" />
                     </Button>
-                    {isAdeverintaType(cerere.tipCerere) && !cerere.adeverinta && (
+                    {isAdeverintaType(cerere.tipCerere) &&
+                      !cerere.adeverinta &&
+                      !isAvizareActiva(cerere) && (
                       <Button
                         size="sm"
                         variant="ghost"
-                        onClick={() => {
+                        onClick={async () => {
                           setSelectedCerere(cerere);
+                          const returnedDraft = await loadReturnedDraft(cerere);
                           setAdeverintaText(
-                            buildAdeverintaBody(cerere.tipCerere as AdeverintaType, {
-                              numeComplet: cerere.numeComplet,
-                              cnp: cerere.cnp,
-                              adresa: `${cerere.adresa || ''}, ${cerere.localitate || ''}`.replace(/^, /, ''),
-                              scopulCererii: cerere.scopulCererii,
-                              numarCerere: cerere.numarInregistrare,
-                              dataCerere: cerere.createdAt?.toDate?.()?.toLocaleDateString('ro-RO'),
-                            })
+                            returnedDraft ||
+                              buildAdeverintaBody(cerere.tipCerere as AdeverintaType, {
+                                numeComplet: cerere.numeComplet,
+                                cnp: cerere.cnp,
+                                adresa: `${cerere.adresa || ''}, ${cerere.localitate || ''}`.replace(/^, /, ''),
+                                scopulCererii: cerere.scopulCererii,
+                                numarCerere: cerere.numarInregistrare,
+                                dataCerere: cerere.createdAt?.toDate?.()?.toLocaleDateString('ro-RO'),
+                              })
                           );
                           setShowEmiteDialog(true);
                         }}
@@ -1234,7 +1351,7 @@ export default function AdminCereriPage() {
                         </Button>
                       </a>
                     )}
-                    {!cerere.raspuns && !cerere.adeverinta && (
+                    {!cerere.raspuns && !cerere.adeverinta && !isAvizareActiva(cerere) && (
                       <Button
                         size="sm"
                         variant="ghost"
@@ -1323,22 +1440,34 @@ export default function AdminCereriPage() {
             </p>
           )}
 
-          <div className="flex gap-3">
+          <div className="space-y-2">
             <Button
-              variant="outline"
-              onClick={() => setShowEmiteDialog(false)}
-              className="flex-1 border-slate-600 text-gray-300 hover:bg-slate-700 hover:text-white"
+              onClick={() => handleTrimiteLaAvizare('adeverinta', adeverintaText)}
+              disabled={sendingAvizare || emitting || !adeverintaText.trim()}
+              className="w-full bg-indigo-600 hover:bg-indigo-700"
             >
-              Anulează
+              {sendingAvizare && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Trimite la avizare (secretar → primar)
             </Button>
-            <Button
-              onClick={handleEmiteAdeverinta}
-              disabled={emitting || !adeverintaText.trim()}
-              className="flex-1 bg-emerald-600 hover:bg-emerald-700"
-            >
-              {emitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Emite cu număr de ieșire
-            </Button>
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                onClick={() => setShowEmiteDialog(false)}
+                className="flex-1 border-slate-600 text-gray-300 hover:bg-slate-700 hover:text-white"
+              >
+                Anulează
+              </Button>
+              {isAdmin && (
+                <Button
+                  onClick={handleEmiteAdeverinta}
+                  disabled={emitting || sendingAvizare || !adeverintaText.trim()}
+                  className="flex-1 bg-emerald-600 hover:bg-emerald-700"
+                >
+                  {emitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Emitere rapidă (toate semnăturile)
+                </Button>
+              )}
+            </div>
           </div>
         </DialogContent>
       </Dialog>
@@ -1388,22 +1517,34 @@ export default function AdminCereriPage() {
             </p>
           )}
 
-          <div className="flex gap-3">
+          <div className="space-y-2">
             <Button
-              variant="outline"
-              onClick={() => setShowRaspunsDialog(false)}
-              className="flex-1 border-slate-600 text-gray-300 hover:bg-slate-700 hover:text-white"
+              onClick={() => handleTrimiteLaAvizare('raspuns', raspunsText, raspunsStatus)}
+              disabled={sendingAvizare || sendingRaspuns || !raspunsText.trim()}
+              className="w-full bg-indigo-600 hover:bg-indigo-700"
             >
-              Anulează
+              {sendingAvizare && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Trimite la avizare (secretar → primar)
             </Button>
-            <Button
-              onClick={handleEmiteRaspuns}
-              disabled={sendingRaspuns || !raspunsText.trim()}
-              className="flex-1 bg-sky-600 hover:bg-sky-700"
-            >
-              {sendingRaspuns && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Emite cu număr de ieșire
-            </Button>
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                onClick={() => setShowRaspunsDialog(false)}
+                className="flex-1 border-slate-600 text-gray-300 hover:bg-slate-700 hover:text-white"
+              >
+                Anulează
+              </Button>
+              {isAdmin && (
+                <Button
+                  onClick={handleEmiteRaspuns}
+                  disabled={sendingRaspuns || sendingAvizare || !raspunsText.trim()}
+                  className="flex-1 bg-sky-600 hover:bg-sky-700"
+                >
+                  {sendingRaspuns && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Emitere rapidă (toate semnăturile)
+                </Button>
+              )}
+            </div>
           </div>
         </DialogContent>
       </Dialog>
