@@ -1,0 +1,17 @@
+{
+  "$schema": "./registry.schema.json",
+  "tenants": [
+    {
+      "slug": "filipesti",
+      "numeComuna": "Comuna Filipești",
+      "numePrimarie": "Primăria Filipești",
+      "antetOficial": "PRIMĂRIA COMUNEI FILIPEȘTI",
+      "judet": "Județul Bacău",
+      "firebaseProjectId": "village-hub-h1qiy",
+      "productionDomain": "primaria.digital",
+      "vercelProject": "v2",
+      "status": "active",
+      "createdAt": "2025-11-01"
+    }
+  ]
+}

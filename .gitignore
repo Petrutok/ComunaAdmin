@@ -28,6 +28,9 @@ yarn-error.log*
 .env.local
 .env.development.local
 .env.test.local
+
+# Per-tenant environments (secrete - nu se comit)
+tenants/.env.*
 .env.production.local
 
 # Vercel
