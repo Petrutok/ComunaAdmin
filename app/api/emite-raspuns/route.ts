@@ -7,6 +7,8 @@ import { getAdminDb, getAdminBucket } from '@/lib/firebase-admin';
 import { verifyStaffRequest } from '@/lib/api-auth';
 import { generateRegistruNumberAdmin } from '@/lib/generateRegistruNumberAdmin';
 import { generateRaspunsPDF } from '@/lib/pdf/generateRaspunsPDF';
+import { resolveSemnatari } from '@/lib/pdf/semnatari-server';
+import { sendPushToUid } from '@/lib/push';
 import { TENANT } from '@/lib/tenant';
 import { sendEmail } from '@/lib/email';
 
@@ -24,17 +26,73 @@ import { sendEmail } from '@/lib/email';
  * with QR verification, iesire entry linked to the intrare
  * (conexare), and the intrare closed.
  *
- * Like adeverinte, the response carries the primar's signature, so
- * only role admin (primar/secretar) can issue it.
+ * Two entry points:
+ * - emitere rapida (no avizareId): admin only, all signature blocks in
+ *   one step (delegation / paper-signed documents)
+ * - final step of the avizare circuit ({ avizareId }): the designated
+ *   primar (or an admin) signs a draft that is 'la_primar'
  */
 export async function POST(request: NextRequest) {
-  const auth = await verifyStaffRequest(request, ['admin']);
+  const auth = await verifyStaffRequest(request, ['admin', 'employee']);
   if (!auth.authorized) {
     return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
   }
 
   try {
-    const { cerereId, registruDocId, continut, status } = await request.json();
+    const {
+      cerereId: cerereIdInput,
+      registruDocId: registruDocIdInput,
+      continut: continutInput,
+      status,
+      avizareId,
+    } = await request.json();
+
+    const db = getAdminDb();
+    const bucket = getAdminBucket();
+    if (!db || !bucket) {
+      throw new Error('Firebase Admin not initialized');
+    }
+
+    // --- Issuing settings (shared with adeverinte: signatures, names, header)
+    const settingsSnap = await db.doc('config/adeverinta_settings').get();
+    const settings = settingsSnap.data() || {};
+    const isAdmin = auth.role === 'admin';
+
+    // --- Resolve the entry point: avizare final step vs emitere rapida
+    let cerereId: string | undefined = cerereIdInput;
+    let registruDocId: string | undefined = registruDocIdInput;
+    let continut: string = continutInput;
+    let statusFromDraft: string | undefined;
+    let avizare: FirebaseFirestore.DocumentData | null = null;
+    let avizareRef: FirebaseFirestore.DocumentReference | null = null;
+
+    if (avizareId) {
+      avizareRef = db.collection('avizari').doc(avizareId);
+      const avizareSnap = await avizareRef.get();
+      if (!avizareSnap.exists) {
+        return NextResponse.json({ success: false, error: 'Avizare not found' }, { status: 404 });
+      }
+      avizare = avizareSnap.data()!;
+      if (avizare.tipDocument !== 'raspuns' || avizare.stadiu !== 'la_primar') {
+        return NextResponse.json(
+          { success: false, error: 'Documentul nu așteaptă semnătura primarului' },
+          { status: 409 }
+        );
+      }
+      if (!isAdmin && auth.uid !== settings.primarUserId) {
+        return NextResponse.json(
+          { success: false, error: 'Doar primarul desemnat (sau un admin) poate semna' },
+          { status: 403 }
+        );
+      }
+      cerereId = avizare.cerereId || undefined;
+      registruDocId = avizare.registruDocId || undefined;
+      continut = avizare.continut;
+      statusFromDraft = avizare.raspunsStatus;
+    } else if (!isAdmin) {
+      // emitere rapida is reserved for admins
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+    }
 
     if ((!cerereId && !registruDocId) || !continut?.trim()) {
       return NextResponse.json(
@@ -42,13 +100,7 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-    const finalStatus = status === 'respins' ? 'respins' : 'rezolvat';
-
-    const db = getAdminDb();
-    const bucket = getAdminBucket();
-    if (!db || !bucket) {
-      throw new Error('Firebase Admin not initialized');
-    }
+    const finalStatus = (statusFromDraft ?? status) === 'respins' ? 'respins' : 'rezolvat';
 
     // --- Resolve the intrare being answered
     let cerereSnap: FirebaseFirestore.DocumentSnapshot | null = null;
@@ -70,7 +122,7 @@ export async function POST(request: NextRequest) {
       }
       intrareDocId = cerere.registruDocId || null;
     } else {
-      const registruSnap = await db.collection('registru_general').doc(registruDocId).get();
+      const registruSnap = await db.collection('registru_general').doc(registruDocId!).get();
       if (!registruSnap.exists) {
         return NextResponse.json(
           { success: false, error: 'Registry entry not found' },
@@ -99,26 +151,22 @@ export async function POST(request: NextRequest) {
           { status: 400 }
         );
       }
-      intrareDocId = registruDocId;
+      intrareDocId = registruDocId ?? null;
     }
 
     const recipientName = cerere?.numeComplet || registruEntry?.emitent || 'Petent';
     const recipientEmail = cerere?.email || registruEntry?.emailEmitent || '';
     const numarIntrare = cerere?.numarInregistrare || registruEntry?.numarInregistrare;
 
-    // --- Issuing settings (shared with adeverinte: signature, mayor, header)
-    const settingsSnap = await db.doc('config/adeverinta_settings').get();
-    const settings = settingsSnap.data() || {};
-
-    let semnaturaPngDataUrl: string | null = null;
-    if (settings.semnaturaPath) {
-      try {
-        const [buf] = await bucket.file(settings.semnaturaPath).download();
-        semnaturaPngDataUrl = `data:image/png;base64,${buf.toString('base64')}`;
-      } catch (error) {
-        console.warn('[emite-raspuns] Signature image missing, issuing without it');
-      }
-    }
+    // --- Signature blocks: primar always; secretar if the draft was
+    // avizat (or configured, on emitere rapida); intocmit = the drafting
+    // responsabil (or the assignee, on emitere rapida)
+    const { semnaturaPngDataUrl, secretar, intocmit } = await resolveSemnatari(db, bucket, settings, {
+      intocmitUid: avizare
+        ? avizare.intocmitDe?.uid
+        : cerere?.assignedToUserId || registruEntry?.assignedToUserId || null,
+      includeSecretar: avizare ? !!avizare.avizatDe : !!settings.secretarNume,
+    });
 
     // --- Outgoing number from the unified counter
     const numarIesire = await generateRegistruNumberAdmin();
@@ -140,6 +188,8 @@ export async function POST(request: NextRequest) {
       localitate: settings.localitate || TENANT.antetOficial,
       judet: settings.judet || TENANT.judet,
       semnaturaPngDataUrl,
+      secretar,
+      intocmit,
       qrPngDataUrl,
       verifyUrl,
     });
@@ -182,7 +232,7 @@ export async function POST(request: NextRequest) {
 
       // Audit trail (best effort)
       try {
-        await db.collection('form_submissions').doc(cerereId).collection('istoric').add({
+        await db.collection('form_submissions').doc(cerereId!).collection('istoric').add({
           tip: 'raspuns',
           mesaj: `Răspuns oficial emis, nr. ieșire ${numarIesire} (${finalStatus === 'respins' ? 'respingere motivată' : 'soluționare'})`,
           autorId: auth.uid || 'sistem',
@@ -257,6 +307,33 @@ export async function POST(request: NextRequest) {
           `Acest mesaj a fost trimis automat, vă rugăm să nu răspundeți.`,
         attachments: [{ filename: `${numarIesire}.pdf`, content: pdfBuffer }],
       });
+    }
+
+    // --- Close the avizare circuit: mark the draft as issued and tell
+    // the responsabil their document went out (best effort)
+    if (avizareRef && avizare) {
+      await avizareRef
+        .update({
+          stadiu: 'emis',
+          numarIesire,
+          emisDe: { uid: auth.uid, la: Timestamp.now() },
+          updatedAt: Timestamp.now(),
+        })
+        .catch(() => {});
+      const marker = { avizare: { id: avizareRef.id, stadiu: 'emis' } };
+      if (cerereId) {
+        await db.collection('form_submissions').doc(cerereId).update(marker).catch(() => {});
+      } else if (registruDocId) {
+        await db.collection('registru_general').doc(registruDocId).update(marker).catch(() => {});
+      }
+      if (avizare.intocmitDe?.uid && avizare.intocmitDe.uid !== auth.uid) {
+        sendPushToUid(db, avizare.intocmitDe.uid, {
+          title: 'Document semnat și emis',
+          body: `Răspuns oficial — nr. ieșire ${numarIesire}`,
+          url: '/admin/cereri',
+          tag: 'avizare-emis',
+        }).catch(() => {});
+      }
     }
 
     return NextResponse.json({

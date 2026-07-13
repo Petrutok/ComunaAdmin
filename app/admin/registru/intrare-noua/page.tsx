@@ -24,11 +24,12 @@ import {
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Loader2, ArrowLeft, Plus } from 'lucide-react';
+import { Loader2, ArrowLeft, Plus, Paperclip, X, CheckCircle2, PenLine } from 'lucide-react';
 import { generateRegistruNumber } from '@/lib/utils/generateRegistruNumber';
-import { db, COLLECTIONS, TipDocument, StatusRegistru } from '@/lib/firebase';
+import { db, storage, COLLECTIONS, TipDocument, StatusRegistru } from '@/lib/firebase';
 import { TIP_DOCUMENT_CONFIG, DEPARTMENTS_LIST } from '@/types/registru';
-import { collection, addDoc, Timestamp } from 'firebase/firestore';
+import { collection, addDoc, updateDoc, Timestamp } from 'firebase/firestore';
+import { ref, uploadBytes } from 'firebase/storage';
 
 const formSchema = z.object({
   tipDocument: z.enum([
@@ -63,6 +64,10 @@ export default function IntrareNouaPage() {
   const [registruNumber, setRegistruNumber] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // Scans/photos of the physical document (paper brought to the ghiseu)
+  const [fisiere, setFisiere] = useState<File[]>([]);
+  // After save: show the number big on screen instead of redirecting
+  const [savedNumber, setSavedNumber] = useState<string | null>(null);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -82,26 +87,37 @@ export default function IntrareNouaPage() {
     },
   });
 
+  const generateNumber = async () => {
+    setLoading(true);
+    try {
+      const number = await generateRegistruNumber();
+      setRegistruNumber(number);
+    } catch (error) {
+      console.error('Error generating number:', error);
+      toast({
+        title: 'Eroare',
+        description: 'Nu s-a putut genera numărul de înregistrare',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Generate registration number on page load
   useEffect(() => {
-    const generateNumber = async () => {
-      setLoading(true);
-      try {
-        const number = await generateRegistruNumber();
-        setRegistruNumber(number);
-      } catch (error) {
-        console.error('Error generating number:', error);
-        toast({
-          title: 'Eroare',
-          description: 'Nu s-a putut genera numărul de înregistrare',
-          variant: 'destructive',
-        });
-      } finally {
-        setLoading(false);
-      }
-    };
     generateNumber();
-  }, [toast]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Register the next physical document from the ghiseu without leaving
+  const handleInregistreazaAltul = () => {
+    form.reset();
+    setFisiere([]);
+    setSavedNumber(null);
+    setRegistruNumber('');
+    generateNumber();
+  };
 
   const onSubmit = async (values: FormValues) => {
     if (!registruNumber) {
@@ -115,7 +131,7 @@ export default function IntrareNouaPage() {
 
     setIsSubmitting(true);
     try {
-      await addDoc(collection(db, COLLECTIONS.REGISTRU_GENERAL), {
+      const docRef = await addDoc(collection(db, COLLECTIONS.REGISTRU_GENERAL), {
         numarInregistrare: registruNumber,
         tipDocument: values.tipDocument,
         dataInregistrare: Timestamp.now(),
@@ -131,16 +147,43 @@ export default function IntrareNouaPage() {
         departament: values.departament || null,
         observatii: values.observatii || null,
         status: 'nou' as StatusRegistru,
+        // Unified registry fields: manual entries are intrari on paper,
+        // with the same 30-day legal response deadline (OG 27/2002)
+        sursa: 'manual',
+        directie: 'intrare',
+        termen: Timestamp.fromMillis(Date.now() + 30 * 24 * 60 * 60 * 1000),
         createdAt: Timestamp.now(),
       });
 
-      toast({
-        title: 'Succes',
-        description: `Documentul ${registruNumber} a fost înregistrat cu succes`,
-      });
+      // Scans/photos of the paper document (best effort per file; the
+      // entry itself is already registered)
+      if (fisiere.length > 0) {
+        const uploaded: { name: string; storagePath: string; size: number; type: string }[] = [];
+        for (const file of fisiere) {
+          try {
+            const safeName = file.name.replace(/[^\w.\-()\s]/g, '_');
+            const storagePath = `registru/${docRef.id}/${safeName}`;
+            await uploadBytes(ref(storage, storagePath), file, {
+              contentType: file.type || 'application/octet-stream',
+            });
+            uploaded.push({ name: safeName, storagePath, size: file.size, type: file.type });
+          } catch (uploadError) {
+            console.error('Error uploading attachment:', file.name, uploadError);
+            toast({
+              title: 'Atenție',
+              description: `Fișierul ${file.name} nu s-a putut încărca`,
+              variant: 'destructive',
+            });
+          }
+        }
+        if (uploaded.length > 0) {
+          await updateDoc(docRef, { fisiere: uploaded });
+        }
+      }
 
-      // Redirect back to registru page
-      router.push('/admin/registru');
+      // Show the number big on screen: the clerk writes it BY HAND on
+      // the physical document (no printed receipt - saves paper)
+      setSavedNumber(registruNumber);
     } catch (error: any) {
       console.error('Error saving document:', error);
       toast({
@@ -174,7 +217,47 @@ export default function IntrareNouaPage() {
 
       {/* Content */}
       <div className="p-6 max-w-6xl mx-auto">
-        {loading ? (
+        {savedNumber ? (
+          /* Success screen: the clerk copies the number onto the paper */
+          <div className="max-w-xl mx-auto mt-10">
+            <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-8 text-center space-y-5">
+              <CheckCircle2 className="h-12 w-12 text-emerald-400 mx-auto" />
+              <div>
+                <p className="text-gray-300">Document înregistrat cu numărul</p>
+                <p className="mt-2 font-mono text-4xl font-bold text-emerald-300 tracking-wide">
+                  {savedNumber}
+                </p>
+                <p className="text-gray-400 text-sm mt-1">
+                  din {new Date().toLocaleDateString('ro-RO')}
+                </p>
+              </div>
+              <div className="flex items-start gap-3 rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 text-left">
+                <PenLine className="h-5 w-5 text-amber-400 shrink-0 mt-0.5" />
+                <p className="text-sm text-amber-200">
+                  <span className="font-semibold">Scrieți de mână numărul și data pe documentul fizic</span>{' '}
+                  și comunicați-le persoanei care l-a depus. Nu se tipărește bon — numărul de pe
+                  document este dovada înregistrării.
+                </p>
+              </div>
+              <div className="flex gap-3 justify-center pt-2">
+                <Button
+                  onClick={handleInregistreazaAltul}
+                  className="bg-emerald-600 hover:bg-emerald-700"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Înregistrează alt document
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => router.push('/admin/registru')}
+                  className="border-slate-600 text-white hover:bg-slate-700"
+                >
+                  Înapoi la registru
+                </Button>
+              </div>
+            </div>
+          </div>
+        ) : loading ? (
           <div className="flex items-center justify-center h-96">
             <Loader2 className="h-8 w-8 animate-spin text-blue-400" />
           </div>
@@ -334,6 +417,66 @@ export default function IntrareNouaPage() {
                   </FormItem>
                 )}
               />
+            </div>
+
+            {/* Scanned document Section */}
+            <div className="bg-slate-800 border border-slate-700 rounded-lg p-6">
+              <h2 className="text-lg font-semibold text-white mb-2 flex items-center gap-2">
+                <Paperclip className="h-5 w-5 text-blue-400" />
+                Document scanat (opțional)
+              </h2>
+              <p className="text-sm text-gray-400 mb-4">
+                Atașează scanul sau o poză a documentului fizic — pe telefon/tabletă poți
+                fotografia direct. Rămâne atașat intrării din registru.
+              </p>
+              <Input
+                type="file"
+                multiple
+                accept="application/pdf,image/*"
+                onChange={(e) => {
+                  const selected = Array.from(e.target.files || []);
+                  const tooBig = selected.filter((f) => f.size > 10 * 1024 * 1024);
+                  if (tooBig.length > 0) {
+                    toast({
+                      title: 'Fișier prea mare',
+                      description: `${tooBig.map((f) => f.name).join(', ')} depășește 10MB`,
+                      variant: 'destructive',
+                    });
+                  }
+                  setFisiere((prev) => [
+                    ...prev,
+                    ...selected.filter((f) => f.size <= 10 * 1024 * 1024),
+                  ]);
+                  e.target.value = '';
+                }}
+                className="bg-slate-700 border-slate-600 text-white file:text-gray-300"
+              />
+              {fisiere.length > 0 && (
+                <div className="mt-3 space-y-2">
+                  {fisiere.map((file, idx) => (
+                    <div
+                      key={`${file.name}-${idx}`}
+                      className="flex items-center justify-between gap-3 rounded-md border border-slate-600 bg-slate-700/50 px-3 py-2"
+                    >
+                      <div className="min-w-0">
+                        <p className="text-white text-sm truncate">{file.name}</p>
+                        <p className="text-xs text-gray-400">
+                          {(file.size / 1024 / 1024).toFixed(1)}MB
+                        </p>
+                      </div>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => setFisiere((prev) => prev.filter((_, i) => i !== idx))}
+                        className="h-8 w-8 p-0 text-gray-400 hover:text-rose-300 hover:bg-rose-600/20 shrink-0"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Email Section */}

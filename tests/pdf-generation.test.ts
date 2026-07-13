@@ -59,6 +59,29 @@ describe('generateAdeverintaPDF (server-side)', () => {
     expect(buffer.subarray(0, 5).toString()).toBe('%PDF-');
     expect(buffer.length).toBeGreaterThan(1000);
   });
+
+  it('renders all three signature blocks (primar, secretar, intocmit)', () => {
+    const buffer = generateAdeverintaPDF({
+      numarIesire: 'REG-2026-000042',
+      dataEmiterii: new Date('2026-07-12'),
+      tipLabel: 'Adeverință de rol agricol',
+      body: 'Text adeverință.',
+      numeComplet: 'Ion Popescu',
+      primarNume: 'Primar Test',
+      localitate: 'PRIMĂRIA COMUNEI FILIPEȘTI',
+      judet: 'Județul Bacău',
+      semnaturaPngDataUrl: TINY_PNG,
+      secretar: { nume: 'Maria Secretar', semnaturaPngDataUrl: TINY_PNG },
+      intocmit: { nume: 'Vasile Responsabil', semnaturaPngDataUrl: TINY_PNG },
+      qrPngDataUrl: TINY_PNG,
+      verifyUrl: 'https://primaria.digital/verifica?nr=REG-2026-000042&c=secret',
+    });
+    expect(buffer.subarray(0, 5).toString()).toBe('%PDF-');
+    // jsPDF standard fonts keep page text as readable strings in the stream
+    const raw = buffer.toString('latin1');
+    expect(raw).toContain('SECRETAR GENERAL');
+    expect(raw).toContain('Intocmit: Vasile Responsabil');
+  });
 });
 
 describe('generateRaspunsPDF (server-side)', () => {
