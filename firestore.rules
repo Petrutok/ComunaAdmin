@@ -150,6 +150,13 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // Monitorul Oficial Local (OUG 57/2019 art. 197-200): the acts are
+    // public by law; staff publish/retract them from the admin panel.
+    match /mol_documente/{id} {
+      allow read: if true;
+      allow write: if isStaff();
+    }
+
     match /registru_counters/{id} {
       allow read, write: if isStaff();
     }
