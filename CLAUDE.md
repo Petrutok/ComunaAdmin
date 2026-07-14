@@ -64,7 +64,7 @@ ONE counter (`registru_counters/{year}`, format `REG-YYYY-NNNNNN`) for everythin
 - **Dosarul meu queries** avoid composite indexes (filter on citizenUid only, sort client-side).
 - New cereri form types go in THREE places: `REQUEST_CONFIGS` (lib/simple-pdf-generator.ts), `formMetadata` + generateStaticParams (app/cereri-online/[formType]/page.tsx), and the listing (app/cereri-online/page.tsx).
 - Service worker (`public/sw.js`): Network First for HTML, Cache First for hashed assets, every fetch branch MUST return a real Response. Bump CACHE_NAME on SW changes.
-- ESLint is still advisory (`ignoreDuringBuilds: true`); TypeScript is NOT (`ignoreBuildErrors: false`).
+- ESLint runs in CI (`npm run lint`, flat config in `eslint.config.mjs`): ERRORS block the PR, warnings are advisory (~150 legacy, mostly unused vars — clean opportunistically). The build itself skips lint (`ignoreDuringBuilds: true`); TypeScript is NOT skipped (`ignoreBuildErrors: false`).
 
 ## Environment variables
 

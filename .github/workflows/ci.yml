@@ -26,5 +26,8 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
+      - name: Lint (errors block, warnings advisory)
+        run: npm run lint
+
       - name: Tests
         run: npm test

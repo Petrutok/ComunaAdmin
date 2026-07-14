@@ -42,7 +42,7 @@ export default function AdminProgramariPage() {
 
   useEffect(() => {
     load(selectedDay);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [selectedDay]);
 
   const setStatus = async (appt: Appointment, status: 'finalizata' | 'anulata') => {
