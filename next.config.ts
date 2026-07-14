@@ -31,7 +31,9 @@ const nextConfig = {
     NEXT_PUBLIC_IS_MOBILE: 'false',
   },
   
-  // ESLint still has legacy findings - lint stays advisory for now
+  // Lint runs as a dedicated CI step (`npm run lint`, flat config in
+  // eslint.config.mjs) where ERRORS block the PR; the build itself
+  // doesn't duplicate it
   eslint: {
     ignoreDuringBuilds: true,
   },

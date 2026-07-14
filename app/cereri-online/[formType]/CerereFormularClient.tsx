@@ -118,7 +118,7 @@ export default function CerereFormularClient({ formType }: CerereFormularClientP
       email: prev.email || citizenUser.email || '',
       telefonMobil: prev.telefonMobil || citizenProfile?.telefon || '',
     }));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [citizenUser, citizenProfile]);
   const { toast } = useToast();
 
