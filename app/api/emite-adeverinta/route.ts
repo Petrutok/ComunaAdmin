@@ -10,6 +10,7 @@ import { isAdeverintaType, ADEVERINTA_LABELS } from '@/lib/adeverinte';
 import { generateAdeverintaPDF } from '@/lib/pdf/generateAdeverintaPDF';
 import { resolveSemnatari } from '@/lib/pdf/semnatari-server';
 import { sendPushToUid } from '@/lib/push';
+import { notifyCitizenStatusChange } from '@/lib/notify-status';
 import { TENANT } from '@/lib/tenant';
 
 /**
@@ -213,6 +214,15 @@ export async function POST(request: NextRequest) {
         .update({ status: 'finalizat', updatedAt: Timestamp.now() })
         .catch(() => {});
     }
+
+    // --- Citizen notification (push + email with the PDF attached).
+    // Sent HERE, server-side, so delivery doesn't depend on the clerk's
+    // browser staying open. Best effort: issuing already succeeded.
+    await notifyCitizenStatusChange(db, {
+      collection: 'form_submissions',
+      docId: cerereId,
+      newStatus: 'rezolvat',
+    }).catch((error) => console.error('[emite-adeverinta] Notification failed:', error));
 
     // --- Close the avizare circuit: mark the draft as issued and tell
     // the responsabil their document went out (best effort)

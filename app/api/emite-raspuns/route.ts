@@ -9,6 +9,7 @@ import { generateRegistruNumberAdmin } from '@/lib/generateRegistruNumberAdmin';
 import { generateRaspunsPDF } from '@/lib/pdf/generateRaspunsPDF';
 import { resolveSemnatari } from '@/lib/pdf/semnatari-server';
 import { sendPushToUid } from '@/lib/push';
+import { notifyCitizenStatusChange } from '@/lib/notify-status';
 import { TENANT } from '@/lib/tenant';
 import { sendEmail } from '@/lib/email';
 
@@ -17,7 +18,7 @@ import { sendEmail } from '@/lib/email';
  * OG 27/2002 petition circuit, for BOTH kinds of intrari:
  * - cerereId: an online cerere - the PDF lands in the citizen's
  *   "Dosarul meu" (email with attachment goes out separately via
- *   /api/notify-status-change, which also sends push)
+ *   notifyCitizenStatusChange, server-side, which also sends push)
  * - registruDocId: a registry entry from IMAP email or manual
  *   registration - the PDF is emailed directly to the sender
  *   (there is no Dosarul meu for these)
@@ -289,11 +290,22 @@ export async function POST(request: NextRequest) {
         .catch(() => {});
     }
 
-    // --- Delivery: cereri online are notified (push + email with the PDF
-    // attached) by /api/notify-status-change, called from the admin UI.
-    // Registry entries have no Dosarul meu, so the PDF goes out by email
-    // right here. Best effort: the response is already issued either way.
+    // --- Delivery, server-side so it doesn't depend on the clerk's
+    // browser: cereri online get push + email with the PDF attached;
+    // registry entries have no Dosarul meu, so the PDF goes out by email
+    // directly. Best effort: the response is already issued either way.
     let emailSent = false;
+    if (cerereId) {
+      const notified = await notifyCitizenStatusChange(db, {
+        collection: 'form_submissions',
+        docId: cerereId,
+        newStatus: finalStatus,
+      }).catch((error) => {
+        console.error('[emite-raspuns] Notification failed:', error);
+        return { push: 0, email: false };
+      });
+      emailSent = notified.email;
+    }
     if (!cerereId) {
       emailSent = await sendEmail({
         to: recipientEmail,

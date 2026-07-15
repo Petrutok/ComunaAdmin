@@ -26,7 +26,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Loader2, ArrowLeft, Plus, Paperclip, X, CheckCircle2, PenLine } from 'lucide-react';
 import { generateRegistruNumber } from '@/lib/utils/generateRegistruNumber';
-import { db, storage, COLLECTIONS, TipDocument, StatusRegistru } from '@/lib/firebase';
+import { db, storage, COLLECTIONS, StatusRegistru } from '@/lib/firebase';
 import { TIP_DOCUMENT_CONFIG, DEPARTMENTS_LIST } from '@/types/registru';
 import { collection, addDoc, updateDoc, Timestamp } from 'firebase/firestore';
 import { ref, uploadBytes } from 'firebase/storage';
@@ -210,9 +210,9 @@ export default function IntrareNouaPage() {
             <ArrowLeft className="h-4 w-4 mr-2" />
             Înapoi
           </Button>
-          <h1 className="text-2xl font-bold text-white">Creeaza Inregistrare / Intrare Noua</h1>
+          <h1 className="text-2xl font-bold text-white">Înregistrare nouă în registru</h1>
         </div>
-        <p className="text-gray-400 text-sm ml-12">Formular de creare</p>
+        <p className="text-gray-400 text-sm ml-12">Document fizic sau intrare manuală — primește număr din registrul unificat</p>
       </div>
 
       {/* Content */}
@@ -266,12 +266,12 @@ export default function IntrareNouaPage() {
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
               {/* Informatii Generale */}
               <div className="bg-slate-800 border border-slate-700 rounded-lg p-6">
-                <h2 className="text-lg font-semibold text-white mb-6">Informatii generale</h2>
+                <h2 className="text-lg font-semibold text-white mb-6">Informații generale</h2>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                   {/* Registration Number - Read Only */}
                   <div>
-                    <label className="text-sm font-medium text-gray-300 block mb-2">Nr. Inregistrare</label>
+                    <label className="text-sm font-medium text-gray-300 block mb-2">Nr. înregistrare</label>
                     <div className="bg-slate-700 border border-slate-600 rounded px-4 py-2 text-white font-mono text-sm">
                       {registruNumber}
                     </div>
@@ -283,7 +283,7 @@ export default function IntrareNouaPage() {
                   name="tipDocument"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="text-gray-300">Tip Document</FormLabel>
+                      <FormLabel className="text-gray-300">Tip document</FormLabel>
                       <Select value={field.value} onValueChange={field.onChange}>
                         <FormControl>
                           <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
@@ -309,7 +309,7 @@ export default function IntrareNouaPage() {
                   name="dataExterna"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="text-gray-300">Data externa</FormLabel>
+                      <FormLabel className="text-gray-300">Dată externă</FormLabel>
                       <FormControl>
                         <Input
                           {...field}
@@ -355,7 +355,7 @@ export default function IntrareNouaPage() {
                       <Select value={field.value} onValueChange={field.onChange}>
                         <FormControl>
                           <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
-                            <SelectValue placeholder="Selecteaza emitent" />
+                            <SelectValue placeholder="Selectează emitent" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent className="bg-slate-800 border-slate-700">
@@ -377,7 +377,7 @@ export default function IntrareNouaPage() {
                   name="adresaEmitent"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="text-gray-300">Adresa Emitent</FormLabel>
+                      <FormLabel className="text-gray-300">Adresă emitent</FormLabel>
                       <FormControl>
                         <Input
                           {...field}
@@ -401,11 +401,11 @@ export default function IntrareNouaPage() {
                 name="continut"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="text-gray-300">Text continut</FormLabel>
+                    <FormLabel className="text-gray-300">Text conținut</FormLabel>
                     <FormControl>
                       <Textarea
                         {...field}
-                        placeholder="Introduceti continutul documentului..."
+                        placeholder="Introduceți conținutul documentului..."
                         rows={8}
                         className="bg-slate-700 border-slate-600 text-white placeholder:text-gray-500 resize-none"
                       />
@@ -488,7 +488,7 @@ export default function IntrareNouaPage() {
                 name="emailEmitent"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="text-gray-300">Email Emitent</FormLabel>
+                    <FormLabel className="text-gray-300">Email emitent</FormLabel>
                     <FormControl>
                       <Input
                         {...field}
@@ -505,7 +505,7 @@ export default function IntrareNouaPage() {
 
             {/* Attribution Section */}
             <div className="bg-slate-800 border border-slate-700 rounded-lg p-6">
-              <h2 className="text-lg font-semibold text-white mb-6">Atributie Inregistrare</h2>
+              <h2 className="text-lg font-semibold text-white mb-6">Atribuire înregistrare</h2>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                 {/* Department */}
@@ -514,11 +514,11 @@ export default function IntrareNouaPage() {
                   name="departament"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="text-gray-300">Departamente (optional)</FormLabel>
+                      <FormLabel className="text-gray-300">Departament (opțional)</FormLabel>
                       <Select value={field.value || ''} onValueChange={(value) => field.onChange(value || null)}>
                         <FormControl>
                           <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
-                            <SelectValue placeholder="Selecteaza departament" />
+                            <SelectValue placeholder="Selectează departament" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent className="bg-slate-800 border-slate-700">
@@ -559,11 +559,11 @@ export default function IntrareNouaPage() {
                 name="observatii"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="text-gray-300">Observatii</FormLabel>
+                    <FormLabel className="text-gray-300">Observații</FormLabel>
                     <FormControl>
                       <Textarea
                         {...field}
-                        placeholder="Adaugati observatii..."
+                        placeholder="Adăugați observații..."
                         rows={4}
                         className="bg-slate-700 border-slate-600 text-white placeholder:text-gray-500 resize-none"
                       />
@@ -582,7 +582,7 @@ export default function IntrareNouaPage() {
                 onClick={() => router.back()}
                 className="border-slate-600 text-white hover:bg-slate-700"
               >
-                Anuleza
+                Anulează
               </Button>
               <Button
                 type="submit"
@@ -592,12 +592,12 @@ export default function IntrareNouaPage() {
                 {isSubmitting ? (
                   <>
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Se salveaza...
+                    Se salvează...
                   </>
                 ) : (
                   <>
                     <Plus className="h-4 w-4 mr-2" />
-                    Salveaza Inregistrare
+                    Salvează înregistrarea
                   </>
                 )}
               </Button>

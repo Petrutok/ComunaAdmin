@@ -1,7 +1,7 @@
 'use client';
 
 // Links the browser's push subscription to the signed-in CITIZEN account so
-// targeted notifications (status changes via /api/notify-status-change)
+// targeted notifications (status changes, sent server-side via lib/notify-status)
 // reach their devices.
 //
 // The common flow is: visitor accepts notifications on first visit (before
