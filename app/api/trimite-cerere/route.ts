@@ -6,6 +6,9 @@ import { getOptionalCitizenUid } from '@/lib/api-auth';
 import { rateLimit, getClientIp } from '@/lib/rate-limit';
 import { validateAndDecodeFiles } from '@/lib/cereri-files';
 import { sendEmail } from '@/lib/email';
+import { sendPushToUid } from '@/lib/push';
+import { evalueazaReguli, REGULI_REPARTIZARE_DOC, RegulaRepartizare } from '@/lib/repartizare';
+import { REQUEST_CONFIGS } from '@/lib/request-configs';
 
 interface CerereRequest {
   numeComplet: string;
@@ -169,6 +172,23 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Auto-repartizare: apply the configured routing rules (if any) so the
+    // request arrives already assigned to a department/responsabil. Rules
+    // live in config/reguli_repartizare and are managed in Admin ->
+    // Departamente. Fully backward-compatible: with no rules configured,
+    // nothing is assigned and the behaviour is identical to before.
+    let repartizare: RegulaRepartizare['assign'] | null = null;
+    try {
+      const reguliSnap = await db.doc(REGULI_REPARTIZARE_DOC).get();
+      const reguli = (reguliSnap.data()?.reguli || []) as RegulaRepartizare[];
+      repartizare = evalueazaReguli(reguli, {
+        tipCerere: body.tipCerere,
+        category: REQUEST_CONFIGS[body.tipCerere]?.category,
+      });
+    } catch (error) {
+      console.error('[trimite-cerere] Rule evaluation failed (continuing unassigned):', error);
+    }
+
     // Register the request in the general registry: every online submission
     // gets an official registration number, sequential with the manual
     // registry entries made from the admin panel
@@ -199,13 +219,24 @@ export async function POST(request: NextRequest) {
     // so it shows up in "Dosarul meu"
     const citizenUid = await getOptionalCitizenUid(request);
 
-    // Save the submission with its registration number and registry link
+    // Save the submission with its registration number and registry link.
+    // If a routing rule matched, the request lands already assigned (and
+    // moves to 'repartizata'); otherwise it stays 'noua' and unassigned.
     await submissionRef.set({
       ...submissionData,
       fisiere,
       numarInregistrare,
       registruDocId: registruRef.id,
       ...(citizenUid ? { citizenUid } : {}),
+      ...(repartizare
+        ? {
+            status: 'repartizata',
+            departmentId: repartizare.departmentId,
+            departmentName: repartizare.departmentName,
+            assignedToUserId: repartizare.userId || null,
+            assignedToUserName: repartizare.userName || null,
+          }
+        : {}),
     });
 
     // Backlink so the registry entry can open the full submission
@@ -221,6 +252,28 @@ export async function POST(request: NextRequest) {
         createdAt: Timestamp.now(),
       });
     } catch {}
+
+    // Auto-repartizare follow-up: audit entry + push to the responsabil,
+    // so the assignment behaves like a manual one (best effort)
+    if (repartizare) {
+      try {
+        await submissionRef.collection('istoric').add({
+          tip: 'atribuire',
+          mesaj: `Repartizat automat: ${[repartizare.departmentName, repartizare.userName].filter(Boolean).join(' / ') || 'departament'}`,
+          autorId: 'sistem',
+          autorNume: 'Auto-repartizare',
+          createdAt: Timestamp.now(),
+        });
+      } catch {}
+      if (repartizare.userId) {
+        sendPushToUid(db, repartizare.userId, {
+          title: 'Cerere nouă repartizată',
+          body: `${body.tipCerere} — nr. ${numarInregistrare}`,
+          url: '/admin/cereri',
+          tag: `repartizare-${submissionRef.id}`,
+        }).catch(() => {});
+      }
+    }
 
     // OG 27/2002: confirm the registration to the petitioner. Best effort -
     // the submission is already recorded, an email failure must not undo it

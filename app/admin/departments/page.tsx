@@ -5,7 +5,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import {
   collection,
@@ -21,6 +20,7 @@ import {
 } from 'firebase/firestore';
 import { db, COLLECTIONS } from '@/lib/firebase';
 import { Department, User, DepartmentFormData } from '@/types/departments';
+import { RepartizareRules } from '@/components/admin/RepartizareRules';
 import {
   Building2,
   Plus,
@@ -340,6 +340,11 @@ export default function DepartmentsPage() {
             </Card>
           ))}
         </div>
+      )}
+
+      {/* Auto-repartizare rules */}
+      {!loading && (
+        <RepartizareRules departments={departments} users={users} />
       )}
 
       {/* Add/Edit Dialog */}

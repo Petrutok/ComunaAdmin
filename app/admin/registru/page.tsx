@@ -5,7 +5,6 @@ import { useEffect, useState, useRef } from 'react';
 // Page size for the paginated registry table
 const REGISTRU_PAGE_SIZE = 200;
 import { useRouter } from 'next/navigation';
-import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -24,24 +23,23 @@ import {
   startAfter,
   Timestamp,
 } from 'firebase/firestore';
-import { db, auth, storage, COLLECTIONS, RegistruDocument, StatusRegistru, TipDocument } from '@/lib/firebase';
+import { db, auth, storage, COLLECTIONS, RegistruDocument, StatusRegistru } from '@/lib/firebase';
 import { ref as storageRef, getDownloadURL } from 'firebase/storage';
 import { useAdminAuth } from '@/contexts/AdminAuthContext';
 import { TIP_DOCUMENT_CONFIG, STATUS_CONFIG, DEPARTMENTS_LIST } from '@/types/registru';
 import { TENANT } from '@/lib/tenant';
 import { buildRaspunsBody, DEFAULT_RASPUNS_CORPURI } from '@/lib/raspuns';
 import {
-  Plus,
-  Search,
-  Eye,
-  Trash2,
   AlertCircle,
+  Eye,
   FileText,
-  RefreshCw,
   Loader2,
-  ArrowUpDown,
-  Edit2,
-  ChevronDown,
+  Paperclip,
+  Plus,
+  Printer,
+  RefreshCw,
+  Send,
+  Trash2,
 } from 'lucide-react';
 import {
   Dialog,
@@ -779,7 +777,7 @@ ${row('Observații', documentReg.observatii)}
                               {formatDate(doc.createdAt)}
                             </TableCell>
                             <TableCell className="text-gray-300 whitespace-nowrap px-2 py-2 text-sm w-24">
-                              {doc.creatDeNume || 'OANA SDROBIS'}
+                              {doc.creatDeNume || '—'}
                             </TableCell>
                             <TableCell className="whitespace-nowrap px-2 py-2 flex gap-1 w-28 justify-center">
                               {doc.fisiere && doc.fisiere.length > 0 && (
@@ -789,7 +787,7 @@ ${row('Observații', documentReg.observatii)}
                                   title={`${doc.fisiere.length} document(e) scanat(e) — deschide`}
                                   onClick={() => handleOpenFisiere(doc)}
                                 >
-                                  📎
+                                  <Paperclip className="h-3.5 w-3.5" />
                                 </Button>
                               )}
                               <Button
@@ -798,7 +796,7 @@ ${row('Observații', documentReg.observatii)}
                                 title="Printează fișa de înregistrare"
                                 onClick={() => handlePrint(doc)}
                               >
-                                🖨️
+                                <Printer className="h-3.5 w-3.5" />
                               </Button>
                               <Button
                                 size="sm"
@@ -811,7 +809,7 @@ ${row('Observații', documentReg.observatii)}
                                   setShowStatusDialog(true);
                                 }}
                               >
-                                👁️
+                                <Eye className="h-3.5 w-3.5" />
                               </Button>
                               {(doc.directie || 'intrare') === 'intrare' && !doc.raspunsNumar && !doc.cerereId && (
                                 <Button
@@ -820,7 +818,7 @@ ${row('Observații', documentReg.observatii)}
                                   title="Trimite răspuns oficial"
                                   onClick={() => openRaspunsDialog(doc)}
                                 >
-                                  ✉️
+                                  <Send className="h-3.5 w-3.5" />
                                 </Button>
                               )}
                               {doc.status === 'finalizat' && (
@@ -832,7 +830,7 @@ ${row('Observații', documentReg.observatii)}
                                     setShowDeleteDialog(true);
                                   }}
                                 >
-                                  🗑️
+                                  <Trash2 className="h-3.5 w-3.5" />
                                 </Button>
                               )}
                             </TableCell>
@@ -932,7 +930,7 @@ ${row('Observații', documentReg.observatii)}
         <DialogContent className="bg-slate-800 border-slate-700 max-w-2xl">
           <DialogHeader>
             <DialogTitle className="text-white flex items-center gap-2">
-              ✉️ Trimite răspuns oficial
+              Trimite răspuns oficial
             </DialogTitle>
           </DialogHeader>
 

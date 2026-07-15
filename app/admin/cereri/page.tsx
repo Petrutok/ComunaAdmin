@@ -22,7 +22,6 @@ import {
   orderBy,
   limit,
   startAfter,
-  Timestamp,
 } from 'firebase/firestore';
 import { db, auth, storage, COLLECTIONS } from '@/lib/firebase';
 import { ref, getDownloadURL } from 'firebase/storage';
@@ -39,7 +38,6 @@ import {
   CheckCircle,
   XCircle,
   Search,
-  Filter,
   User,
   Paperclip,
   RefreshCw,
@@ -88,12 +86,6 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
 } from '@/components/ui/table';
 
 // Beyond the basic flow, OG 27/2002 statuses:
@@ -498,6 +490,9 @@ export default function AdminCereriPage() {
       }
 
       setCereri(prev => (loadMore ? [...prev, ...data] : data));
+      // Return whether another page exists, so callers can loop
+      // (mine mode loads its whole set at once, so never has more)
+      return mine ? false : snapshot.docs.length === PAGE_SIZE;
     } catch (error: any) {
       console.error('Error loading cereri:', error);
       toast({
@@ -505,9 +500,30 @@ export default function AdminCereriPage() {
         description: "Nu s-au putut încărca cererile",
         variant: "destructive",
       });
+      return false;
     } finally {
       setLoading(false);
       setLoadingMore(false);
+    }
+  };
+
+  // Honest search: when a filter/search is active but the list is only
+  // partially loaded, results would be silently truncated. This pulls all
+  // remaining pages so the client-side filter sees the full dataset.
+  const [loadingAll, setLoadingAll] = useState(false);
+  const loadAllRemaining = async () => {
+    setLoadingAll(true);
+    try {
+      let more = hasMore;
+      // Safety cap: a commune's yearly volume is in the hundreds; 50
+      // pages of 100 is far beyond that and prevents any runaway loop
+      let guard = 0;
+      while (more && guard < 50) {
+        more = await loadCereri(true);
+        guard++;
+      }
+    } finally {
+      setLoadingAll(false);
     }
   };
 
@@ -645,41 +661,10 @@ export default function AdminCereriPage() {
       });
     }
   };
-  // Keep the registry entry in sync with the cerere status:
-  // - prelungit: +15 days on the legal deadline (OG 27/2002 art. 9)
-  // - necesita_completare: deadline suspended until the citizen completes
-  //   (restarted by /api/completeaza-cerere)
-  // - closed statuses: finalize the registry entry
-  const syncRegistruWithStatus = async (cerere: Cerere, status: CerereStatus) => {
-    if (!cerere.registruDocId) return;
-    const registruRef = doc(db, 'registru_general', cerere.registruDocId);
-    try {
-      if (status === 'prelungit') {
-        const snap = await getDoc(registruRef);
-        const termenActual: Timestamp | null = snap.exists() ? snap.data().termen || null : null;
-        const baza = termenActual?.toMillis?.() || Date.now() + 30 * 24 * 60 * 60 * 1000;
-        await updateDoc(registruRef, {
-          termen: Timestamp.fromMillis(baza + 15 * 24 * 60 * 60 * 1000),
-          status: 'in_lucru',
-          updatedAt: Timestamp.now(),
-        });
-      } else if (status === 'necesita_completare') {
-        await updateDoc(registruRef, {
-          termen: null,
-          status: 'in_lucru',
-          updatedAt: Timestamp.now(),
-        });
-      } else if (['rezolvat', 'respins', 'redirectionat', 'clasat'].includes(status)) {
-        await updateDoc(registruRef, { status: 'finalizat', updatedAt: Timestamp.now() });
-      } else if (status === 'in_lucru') {
-        await updateDoc(registruRef, { status: 'in_lucru', updatedAt: Timestamp.now() });
-      }
-    } catch (error) {
-      // best effort: the cerere status change must not fail because of the registry
-      console.error('Error syncing registru entry:', error);
-    }
-  };
-
+  // Status change goes through /api/schimba-status: the update, the
+  // registry sync (OG 27/2002 deadlines), the audit entry and the citizen
+  // notification happen server-side in one persistent event - delivery no
+  // longer depends on this browser tab staying open.
   const handleStatusChange = async () => {
     if (!selectedCerere || !newStatus) return;
 
@@ -693,50 +678,26 @@ export default function AdminCereriPage() {
     }
 
     try {
-      const updateData: any = {
-        status: newStatus,
-        updatedAt: new Date(),
-      };
-
-      if (newStatus === 'redirectionat') {
-        updateData.redirectionatCatre = redirectionatCatre.trim();
-      }
-
-      const finalObservatii = observatii.trim() || selectedCerere.observatii || '';
-      if (finalObservatii) {
-        updateData.observatii = finalObservatii;
-      }
-
-      await updateDoc(doc(db, 'form_submissions', selectedCerere.id), updateData);
-
-      logIstoric({
-        cerereId: selectedCerere.id,
-        tip: 'status',
-        mesaj:
-          `Status: ${statusConfig[selectedCerere.status]?.label || selectedCerere.status} → ${statusConfig[newStatus].label}` +
-          (newStatus === 'redirectionat' && redirectionatCatre.trim() ? ` (către ${redirectionatCatre.trim()})` : '') +
-          (observatii.trim() ? ` · ${observatii.trim()}` : ''),
-        ...actorInfo(),
+      const idToken = await auth.currentUser?.getIdToken();
+      const response = await fetch('/api/schimba-status', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(idToken ? { Authorization: `Bearer ${idToken}` } : {}),
+        },
+        body: JSON.stringify({
+          collection: 'form_submissions',
+          docId: selectedCerere.id,
+          newStatus,
+          observatii: observatii.trim() || undefined,
+          redirectionatCatre:
+            newStatus === 'redirectionat' ? redirectionatCatre.trim() : undefined,
+        }),
       });
-
-      await syncRegistruWithStatus(selectedCerere, newStatus);
-
-      // Notify the citizen (push + email) - best effort, never blocks the update
-      try {
-        const idToken = await auth.currentUser?.getIdToken();
-        fetch('/api/notify-status-change', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(idToken ? { Authorization: `Bearer ${idToken}` } : {}),
-          },
-          body: JSON.stringify({
-            collection: 'form_submissions',
-            docId: selectedCerere.id,
-            newStatus,
-          }),
-        }).catch(() => {});
-      } catch {}
+      const result = await response.json();
+      if (!result.success) {
+        throw new Error(result.error || 'Actualizarea a eșuat');
+      }
 
       toast({
         title: "Status actualizat",
@@ -752,7 +713,7 @@ export default function AdminCereriPage() {
       console.error('Error updating status:', error);
       toast({
         title: "Eroare",
-        description: "Nu s-a putut actualiza statusul",
+        description: error instanceof Error ? error.message : "Nu s-a putut actualiza statusul",
         variant: "destructive",
       });
     }
@@ -804,19 +765,7 @@ export default function AdminCereriPage() {
         throw new Error(result.error || 'Emiterea a eșuat');
       }
 
-      // Notify the citizen that the request was resolved (best effort)
-      fetch('/api/notify-status-change', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(idToken ? { Authorization: `Bearer ${idToken}` } : {}),
-        },
-        body: JSON.stringify({
-          collection: 'form_submissions',
-          docId: selectedCerere.id,
-          newStatus: 'rezolvat',
-        }),
-      }).catch(() => {});
+      // Citizen notification is sent server-side by /api/emite-adeverinta
 
       toast({
         title: 'Adeverință emisă',
@@ -907,19 +856,7 @@ export default function AdminCereriPage() {
         throw new Error(result.error || 'Emiterea răspunsului a eșuat');
       }
 
-      // Notify the citizen (push + email) about the outcome - best effort
-      fetch('/api/notify-status-change', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(idToken ? { Authorization: `Bearer ${idToken}` } : {}),
-        },
-        body: JSON.stringify({
-          collection: 'form_submissions',
-          docId: selectedCerere.id,
-          newStatus: raspunsStatus,
-        }),
-      }).catch(() => {});
+      // Citizen notification is sent server-side by /api/emite-raspuns
 
       toast({
         title: 'Răspuns emis',
@@ -1188,6 +1125,26 @@ export default function AdminCereriPage() {
           );
         })}
       </div>
+
+      {/* Honest-search banner: filtering only what's loaded would hide matches */}
+      {!loading && hasMore && !mineOnly &&
+        (searchTerm.trim() !== '' || activeFilter !== 'toate' || filterType !== 'toate') && (
+          <div className="flex items-center justify-between gap-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-2.5">
+            <p className="text-sm text-amber-200">
+              Cauți doar în cererile încărcate ({cereri.length}). Pot exista potriviri neîncărcate.
+            </p>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={loadAllRemaining}
+              disabled={loadingAll}
+              className="shrink-0 border-amber-500/40 text-amber-200 hover:bg-amber-500/15 h-8"
+            >
+              {loadingAll && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
+              Caută în toate
+            </Button>
+          </div>
+        )}
 
       {/* Cereri List */}
       {loading ? (

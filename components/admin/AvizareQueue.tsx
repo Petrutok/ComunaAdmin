@@ -131,23 +131,7 @@ export function AvizareQueue() {
       const endpoint =
         selected.tipDocument === 'adeverinta' ? '/api/emite-adeverinta' : '/api/emite-raspuns';
       const result = await callApi(endpoint, { avizareId: selected.id });
-
-      // Citizen notification (push + email) for online cereri - best effort
-      if (selected.cerereId) {
-        const idToken = await auth.currentUser?.getIdToken();
-        fetch('/api/notify-status-change', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(idToken ? { Authorization: `Bearer ${idToken}` } : {}),
-          },
-          body: JSON.stringify({
-            collection: 'form_submissions',
-            docId: selected.cerereId,
-            newStatus: result.status || 'rezolvat',
-          }),
-        }).catch(() => {});
-      }
+      // Citizen notification is sent server-side by the emit route
 
       toast({
         title: 'Document semnat și emis',

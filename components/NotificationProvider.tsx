@@ -9,11 +9,8 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-
-// console.log('🔴 NotificationProvider FILE LOADED');
 
 interface NotificationContextType {
   isSubscribed: boolean;
@@ -65,7 +62,6 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
 
   // Funcție nouă pentru a aștepta Service Worker să devină activ
   const waitForServiceWorker = async (timeout = 10000): Promise<ServiceWorkerRegistration | null> => {
-    console.log('[NotificationProvider] Waiting for Service Worker...');
     const startTime = Date.now();
 
     while (Date.now() - startTime < timeout) {
@@ -74,13 +70,11 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         let registration = await navigator.serviceWorker.getRegistration();
 
         if (!registration) {
-          console.log('[NotificationProvider] Registering new SW...');
           try {
             registration = await navigator.serviceWorker.register('/sw.js', {
               scope: '/',
               updateViaCache: 'none'
             });
-            console.log('[NotificationProvider] SW registered successfully');
           } catch (regError) {
             console.error('[NotificationProvider] Failed to register SW:', regError);
             return null;
@@ -89,18 +83,15 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
 
         // Unregister old waiting SWs to avoid conflicts
         if (registration?.waiting) {
-          console.log('[NotificationProvider] SW is waiting, unregistering old version...');
           // Don't send skipWaiting - instead just wait for it to become active
         }
 
         // Wait for installation to complete
         if (registration?.installing) {
-          console.log('[NotificationProvider] SW is installing, waiting for activation...');
           await new Promise<void>(resolve => {
             const installer = registration?.installing;
             if (installer) {
               const onStateChange = function(this: ServiceWorker) {
-                console.log('[NotificationProvider] SW state changed to:', this.state);
                 if (this.state === 'activated') {
                   installer.removeEventListener('statechange', onStateChange);
                   resolve();
@@ -119,19 +110,15 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         registration = await navigator.serviceWorker.getRegistration();
 
         if (registration?.active) {
-          console.log('[NotificationProvider] SW is active! State:', registration.active.state);
           try {
             await navigator.serviceWorker.ready;
-            console.log('[NotificationProvider] navigator.serviceWorker.ready confirmed');
             return registration;
           } catch (readyError) {
             console.error('[NotificationProvider] Error waiting for ready:', readyError);
           }
         } else {
-          console.log('[NotificationProvider] SW not active yet, retrying...');
           // controller lives on navigator.serviceWorker, not on the registration
           if (navigator.serviceWorker.controller) {
-            console.log('[NotificationProvider] But controller exists, might be okay');
             return registration ?? null;
           }
         }
@@ -150,10 +137,6 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   };
 
   const initializeNotifications = async () => {
-    console.log('[NotificationProvider] Starting initialization...');
-    console.log('[NotificationProvider] User Agent:', navigator.userAgent);
-    console.log('[NotificationProvider] Is iOS:', /iPad|iPhone|iPod/.test(navigator.userAgent));
-    console.log('[NotificationProvider] PWA mode:', window.matchMedia('(display-mode: standalone)').matches);
     
     // Verifică suportul pentru notificări
     const supported = 'Notification' in window && 
@@ -163,7 +146,6 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     setIsSupported(supported);
     
     if (!supported) {
-      console.log('[NotificationProvider] Not supported on this device');
       return;
     }
 
@@ -184,14 +166,11 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
 
       // Verifică statusul permisiunii
       const currentPermission = Notification.permission;
-      console.log('[NotificationProvider] Current permission:', currentPermission);
 
       // Verifică dacă există deja o subscripție
       const existingSubscription = registration ? await registration.pushManager.getSubscription() : null;
-      console.log('[NotificationProvider] Existing subscription:', !!existingSubscription);
       
       if (existingSubscription) {
-        console.log('[NotificationProvider] Found existing subscription');
         setIsSubscribed(true);
         return;
       }
@@ -201,17 +180,9 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       const isPWA = window.matchMedia('(display-mode: standalone)').matches;
       let hasAskedBefore = localStorage.getItem('notification_permission_asked');
       
-      console.log('[NotificationProvider] Decision tree:', {
-        isIOS,
-        isPWA,
-        currentPermission,
-        hasAskedBefore,
-        shouldShowDialog: currentPermission === 'default' && !hasAskedBefore
-      });
 
       // Pentru iOS PWA, resetează flag-urile dacă e reinstalat
       if (isIOS && isPWA && currentPermission === 'default' && hasAskedBefore) {
-        console.log('[NotificationProvider] iOS PWA reinstalled, resetting flags...');
         localStorage.removeItem('notification_permission_asked');
         localStorage.removeItem('notification_permission_denied');
         hasAskedBefore = null;
@@ -219,11 +190,9 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
 
       // Logică pentru afișare dialog/request
       if (currentPermission === 'default' && !hasAskedBefore) {
-        console.log('[NotificationProvider] First time - will show dialog');
         
         if (isIOS && isPWA) {
           // iOS în PWA mode - arată dialog custom
-          console.log('[NotificationProvider] iOS PWA - showing custom dialog');
           await new Promise(resolve => setTimeout(resolve, 1000));
           
           // IMPORTANT: Arată și toast-ul pentru iOS
@@ -238,7 +207,6 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
           
         } else if (isIOS && !isPWA) {
           // iOS în Safari - nu poate folosi notificări
-          console.log('[NotificationProvider] iOS Safari - notifications not supported');
           toast({
             title: "📱 Instalează aplicația",
             description: "Pentru notificări, adaugă aplicația pe ecranul principal: Share → Add to Home Screen",
@@ -246,7 +214,6 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
           });
         } else {
           // Android/Desktop - request direct
-          console.log('[NotificationProvider] Non-iOS - requesting permission directly');
           localStorage.setItem('notification_permission_asked', 'true');
           
           // Toast informativ
@@ -261,7 +228,6 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
           
           // Solicită permisiunea
           const permission = await Notification.requestPermission();
-          console.log('[NotificationProvider] Permission result:', permission);
           
           if (permission === 'granted') {
             await subscribeToNotifications();
@@ -285,7 +251,6 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         }
       } else if (currentPermission === 'granted' && !existingSubscription) {
         // Are permisiune dar nu subscripție
-        console.log('[NotificationProvider] Has permission but no subscription - creating one');
         await subscribeToNotifications();
         
         toast({
@@ -294,7 +259,6 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
           duration: 4000,
         });
       } else {
-        console.log('[NotificationProvider] No action needed');
       }
       
     } catch (error) {
@@ -309,7 +273,6 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   };
 
   const handlePermissionRequest = async () => {
-    console.log('[NotificationProvider] User clicked to enable notifications');
     
     // Marchează că am întrebat
     localStorage.setItem('notification_permission_asked', 'true');
@@ -317,7 +280,6 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     try {
       // Solicită permisiunea (acum e ca rezultat al click-ului)
       const permission = await Notification.requestPermission();
-      console.log('[NotificationProvider] Permission result:', permission);
       
       setShowPermissionDialog(false);
       
@@ -380,7 +342,6 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         .replace(/\-/g, '+')
         .replace(/_/g, '/');
 
-      console.log('[NotificationProvider] Converting base64 VAPID key, length:', base64String.length);
 
       const rawData = window.atob(base64);
       const outputArray = new Uint8Array(rawData.length);
@@ -389,7 +350,6 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         outputArray[i] = rawData.charCodeAt(i);
       }
 
-      console.log('[NotificationProvider] Uint8Array created, length:', outputArray.length);
       return outputArray;
     } catch (error) {
       console.error('[NotificationProvider] Error converting VAPID key:', error);
@@ -399,10 +359,8 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
 
   const subscribeToNotifications = async () => {
     try {
-      console.log('[NotificationProvider] Starting subscription...');
 
       const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
-      console.log('[NotificationProvider] VAPID Key available:', !!vapidKey);
 
       if (!vapidKey) {
         throw new Error('VAPID public key is not configured');
@@ -410,9 +368,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
 
       const registration = await navigator.serviceWorker.ready;
 
-      console.log('[NotificationProvider] Converting VAPID key...');
       const applicationServerKey = urlBase64ToUint8Array(vapidKey);
-      console.log('[NotificationProvider] VAPID key converted, length:', applicationServerKey.length);
 
       // Subscribe to push notifications
       const subscription = await registration.pushManager.subscribe({
@@ -420,7 +376,6 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         applicationServerKey: applicationServerKey
       });
 
-      console.log('[NotificationProvider] Push subscription created:', subscription);
 
       // Get device info
       const deviceInfo = {
@@ -430,7 +385,6 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
 
       // IMPORTANT: Convert subscription to JSON before sending
       const subscriptionJSON = subscription.toJSON();
-      console.log('[NotificationProvider] Subscription JSON:', subscriptionJSON);
 
       // Logged-in citizens get the subscription linked to their account
       const idToken = await auth.currentUser?.getIdToken().catch(() => null);
@@ -449,11 +403,9 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       });
 
       const result = await response.json();
-      console.log('[NotificationProvider] Server response:', result);
 
       if (response.ok) {
         setIsSubscribed(true);
-        console.log('[NotificationProvider] Successfully subscribed');
         
         // Salvează în localStorage
         localStorage.setItem('push_subscription', JSON.stringify(subscriptionJSON));
@@ -474,7 +426,6 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
             });
           }
         } catch (notifError) {
-          console.log('[NotificationProvider] Could not show welcome notification:', notifError);
         }
       } else {
         console.error('[NotificationProvider] Server error:', result);

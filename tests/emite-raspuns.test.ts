@@ -68,6 +68,7 @@ vi.mock('@/lib/email', () => ({
     sentEmails.push(opts);
     return true;
   },
+  isValidEmail: (e: string) => typeof e === 'string' && e.includes('@'),
 }));
 
 import { POST } from '@/app/api/emite-raspuns/route';
@@ -159,10 +160,14 @@ describe('POST /api/emite-raspuns', () => {
     expect(res.status).toBe(404);
   });
 
-  it('does not email directly for cereri (notify-status-change handles delivery)', async () => {
+  it('emails the citizen server-side (delivery independent of the admin browser)', async () => {
     const res = await POST(makeRequest({ cerereId: 'c1', continut: 'Răspuns.' }));
+    const json = await res.json();
     expect(res.status).toBe(200);
-    expect(sentEmails).toHaveLength(0);
+    expect(json.emailSent).toBe(true);
+    expect(sentEmails).toHaveLength(1);
+    expect(sentEmails[0].to).toBe('ion@example.com');
+    expect(sentEmails[0].subject).toContain('REG-2026-000010');
   });
 });
 

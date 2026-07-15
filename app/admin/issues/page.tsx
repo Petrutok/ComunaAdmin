@@ -89,6 +89,7 @@ export default function AdminIssuesPage() {
   const [newNote, setNewNote] = useState('');
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [loadingAll, setLoadingAll] = useState(false);
   const [hasMore, setHasMore] = useState(false);
   const lastDocRef = useRef<any>(null);
   // Counts come from server-side aggregations so they stay exact even
@@ -159,11 +160,29 @@ export default function AdminIssuesPage() {
       })) as ReportedIssue[];
 
       setIssues(prev => (loadMore ? [...prev, ...issuesData] : issuesData));
+      return snapshot.docs.length === PAGE_SIZE;
     } catch (error) {
       console.error('Error loading issues:', error);
+      return false;
     } finally {
       setLoading(false);
       setLoadingMore(false);
+    }
+  };
+
+  // Honest search: pull all remaining pages so the client-side filter
+  // sees the full dataset instead of silently truncating matches.
+  const loadAllRemaining = async () => {
+    setLoadingAll(true);
+    try {
+      let more = hasMore;
+      let guard = 0;
+      while (more && guard < 50) {
+        more = await loadIssues(true);
+        guard++;
+      }
+    } finally {
+      setLoadingAll(false);
     }
   };
 
@@ -193,40 +212,35 @@ export default function AdminIssuesPage() {
     setFilteredIssues(filtered);
   };
 
+  // Status change goes through /api/schimba-status: update + citizen
+  // notification happen server-side in one persistent event, so delivery
+  // no longer depends on this browser tab staying open.
   const updateIssueStatus = async (issueId: string, newStatus: string) => {
     try {
       setUpdatingStatus(true);
-      const issueRef = doc(db, 'reported_issues', issueId);
-      
-      const updateData: any = {
-        status: newStatus,
-        updatedAt: new Date()
-      };
+      const idToken = await auth.currentUser?.getIdToken();
+      const response = await fetch('/api/schimba-status', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(idToken ? { Authorization: `Bearer ${idToken}` } : {}),
+        },
+        body: JSON.stringify({
+          collection: 'reported_issues',
+          docId: issueId,
+          newStatus,
+        }),
+      });
+      const result = await response.json();
+      if (!result.success) {
+        throw new Error(result.error || 'Actualizarea a eșuat');
+      }
 
+      // Update local state + refresh the aggregate counts
+      const updateData: Partial<ReportedIssue> = { status: newStatus, updatedAt: new Date() };
       if (newStatus === 'rezolvata') {
         updateData.resolvedAt = new Date();
       }
-
-      await updateDoc(issueRef, updateData);
-
-      // Notify the citizen (push + email) - best effort, never blocks the update
-      try {
-        const idToken = await auth.currentUser?.getIdToken();
-        fetch('/api/notify-status-change', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(idToken ? { Authorization: `Bearer ${idToken}` } : {}),
-          },
-          body: JSON.stringify({
-            collection: 'reported_issues',
-            docId: issueId,
-            newStatus,
-          }),
-        }).catch(() => {});
-      } catch {}
-
-      // Update local state + refresh the aggregate counts
       setIssues(issues.map(issue =>
         issue.id === issueId
           ? { ...issue, ...updateData }
@@ -430,6 +444,26 @@ export default function AdminIssuesPage() {
           </Button>
         ))}
       </div>
+
+      {/* Honest-search banner: filtering only what's loaded would hide matches */}
+      {hasMore &&
+        (searchTerm.trim() !== '' || statusFilter !== 'all' || typeFilter !== 'all') && (
+          <div className="flex items-center justify-between gap-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-2.5">
+            <p className="text-sm text-amber-200">
+              Cauți doar în problemele încărcate ({issues.length}). Pot exista potriviri neîncărcate.
+            </p>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={loadAllRemaining}
+              disabled={loadingAll}
+              className="shrink-0 border-amber-500/40 text-amber-200 hover:bg-amber-500/15 h-8"
+            >
+              {loadingAll && <RefreshCw className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
+              Caută în toate
+            </Button>
+          </div>
+        )}
 
       {/* Issues list */}
       {filteredIssues.length === 0 ? (
