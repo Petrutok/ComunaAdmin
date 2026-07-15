@@ -9,7 +9,7 @@
 
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   collection,
   getDocs,
@@ -23,6 +23,7 @@ import {
   Timestamp,
 } from 'firebase/firestore';
 import { db, auth, COLLECTIONS } from '@/lib/firebase';
+import { trackSubscribe } from '@/lib/realtime-debug';
 import { useAdminAuth } from '@/contexts/AdminAuthContext';
 import { calculateDeadline } from '@/lib/utils/deadline-utils';
 import { logActivity } from '@/lib/registratura/audit';
@@ -79,26 +80,41 @@ export function useRegistratura() {
   // LOAD_LIMIT so the listener never scans the whole collection.
   // Optimistic mutations still run for instant feedback; the snapshot then
   // confirms them with server truth.
+  const firstEmailsSnapshot = useRef(true);
   useEffect(() => {
     const q = query(
       collection(db, COLLECTIONS.REGISTRATURA_EMAILS),
       orderBy('dateReceived', 'desc'),
       limit(LOAD_LIMIT)
     );
+    const tracker = trackSubscribe('registratura');
     const unsubscribe = onSnapshot(
       q,
       { includeMetadataChanges: true },
       (snapshot) => {
-        setEmails(snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as RegistraturaEmail)));
-        setFromCache(snapshot.metadata.fromCache);
-        setLoading(false);
+        tracker.firstSnapshot(snapshot.size);
+        // Skip pure metadata pings (no doc change) so the whole list isn't
+        // re-mapped and derived memos don't re-run. setFromCache with an
+        // identity check bails out of a rerender when the state is unchanged.
+        const docsChanged = snapshot.docChanges().length > 0;
+        if (firstEmailsSnapshot.current || docsChanged) {
+          setEmails(snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as RegistraturaEmail)));
+        }
+        setFromCache((prev) => (prev === snapshot.metadata.fromCache ? prev : snapshot.metadata.fromCache));
+        if (firstEmailsSnapshot.current) {
+          firstEmailsSnapshot.current = false;
+          setLoading(false);
+        }
       },
       (error) => {
         console.error('[useRegistratura] emails listener error:', error);
         setLoading(false);
       }
     );
-    return () => unsubscribe();
+    return () => {
+      unsubscribe();
+      tracker.unsubscribe();
+    };
   }, []);
 
   /** Apply a partial update locally (optimistic) - the UI reacts instantly. */
