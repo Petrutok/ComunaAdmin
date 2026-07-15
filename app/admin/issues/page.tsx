@@ -1,7 +1,7 @@
 // app/admin/issues/page.tsx
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 
 // Page size for the paginated issues list (same convention as Cereri)
 const PAGE_SIZE = 100;
@@ -48,6 +48,8 @@ import {
   getCountFromServer,
 } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
+import { useCollectionSnapshot } from '@/lib/hooks/useCollectionSnapshot';
+import { LiveIndicator } from '@/components/admin/LiveIndicator';
 
 interface ReportedIssue {
   id: string;
@@ -78,9 +80,7 @@ interface ReportedIssue {
 }
 
 export default function AdminIssuesPage() {
-  const [issues, setIssues] = useState<ReportedIssue[]>([]);
   const [filteredIssues, setFilteredIssues] = useState<ReportedIssue[]>([]);
-  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [typeFilter, setTypeFilter] = useState('all');
@@ -90,8 +90,8 @@ export default function AdminIssuesPage() {
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [loadingAll, setLoadingAll] = useState(false);
-  const [hasMore, setHasMore] = useState(false);
-  const lastDocRef = useRef<any>(null);
+  const [olderIssues, setOlderIssues] = useState<ReportedIssue[]>([]);
+  const [moreOlder, setMoreOlder] = useState(true);
   // Counts come from server-side aggregations so they stay exact even
   // though the list itself is paginated
   const [stats, setStats] = useState({
@@ -101,13 +101,43 @@ export default function AdminIssuesPage() {
     resolved: 0,
     rejected: 0,
   });
+
+  // --- Realtime live window: newest PAGE_SIZE issues via one listener.
+  // Older pages are appended one-shot below.
+  const mapIssue = (id: string, data: Record<string, any>) =>
+    ({ id, ...data }) as ReportedIssue;
+
+  const liveQuery = useMemo(
+    () => query(collection(db, 'reported_issues'), orderBy('createdAt', 'desc'), limit(PAGE_SIZE)),
+    []
+  );
+  const { data: liveIssues, loading, fromCache } = useCollectionSnapshot<ReportedIssue>(
+    liveQuery,
+    mapIssue,
+    []
+  );
+
+  const issues = useMemo(() => {
+    const seen = new Set<string>();
+    const out: ReportedIssue[] = [];
+    for (const it of [...liveIssues, ...olderIssues]) {
+      if (!seen.has(it.id)) {
+        seen.add(it.id);
+        out.push(it);
+      }
+    }
+    return out;
+  }, [liveIssues, olderIssues]);
+
+  const hasMore = liveIssues.length === PAGE_SIZE && moreOlder;
+
   useEffect(() => {
-    loadIssues();
     loadStats();
   }, []);
 
   useEffect(() => {
     filterIssues();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [issues, searchTerm, statusFilter, typeFilter]);
 
   // Aggregate counts: cheap, exact, no documents downloaded
@@ -129,43 +159,29 @@ export default function AdminIssuesPage() {
     }
   };
 
-  // Paginated: collections grow over time, never load them whole
-  // (same cursor + "Incarca mai multe" convention as the Cereri page)
-  const loadIssues = async (loadMore = false) => {
+  // Append the next older page (one-shot). Cursor is the createdAt of the
+  // last loaded issue.
+  const loadMoreOlder = async (): Promise<boolean> => {
+    const last = issues[issues.length - 1];
+    if (!last?.createdAt) return false;
+    setLoadingMore(true);
     try {
-      if (loadMore) {
-        setLoadingMore(true);
-      } else {
-        setLoading(true);
-        lastDocRef.current = null;
-      }
-      const issuesCollection = collection(db, 'reported_issues');
-      const q =
-        loadMore && lastDocRef.current
-          ? query(
-              issuesCollection,
-              orderBy('createdAt', 'desc'),
-              startAfter(lastDocRef.current),
-              limit(PAGE_SIZE)
-            )
-          : query(issuesCollection, orderBy('createdAt', 'desc'), limit(PAGE_SIZE));
-      const snapshot = await getDocs(q);
-
-      lastDocRef.current = snapshot.docs[snapshot.docs.length - 1] || lastDocRef.current;
-      setHasMore(snapshot.docs.length === PAGE_SIZE);
-
-      const issuesData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as ReportedIssue[];
-
-      setIssues(prev => (loadMore ? [...prev, ...issuesData] : issuesData));
-      return snapshot.docs.length === PAGE_SIZE;
+      const snapshot = await getDocs(
+        query(
+          collection(db, 'reported_issues'),
+          orderBy('createdAt', 'desc'),
+          startAfter(last.createdAt),
+          limit(PAGE_SIZE)
+        )
+      );
+      setOlderIssues((prev) => [...prev, ...snapshot.docs.map((d) => mapIssue(d.id, d.data()))]);
+      const more = snapshot.docs.length === PAGE_SIZE;
+      setMoreOlder(more);
+      return more;
     } catch (error) {
-      console.error('Error loading issues:', error);
+      console.error('Error loading older issues:', error);
       return false;
     } finally {
-      setLoading(false);
       setLoadingMore(false);
     }
   };
@@ -178,7 +194,7 @@ export default function AdminIssuesPage() {
       let more = hasMore;
       let guard = 0;
       while (more && guard < 50) {
-        more = await loadIssues(true);
+        more = await loadMoreOlder();
         guard++;
       }
     } finally {
@@ -236,19 +252,12 @@ export default function AdminIssuesPage() {
         throw new Error(result.error || 'Actualizarea a eșuat');
       }
 
-      // Update local state + refresh the aggregate counts
-      const updateData: Partial<ReportedIssue> = { status: newStatus, updatedAt: new Date() };
-      if (newStatus === 'rezolvata') {
-        updateData.resolvedAt = new Date();
-      }
-      setIssues(issues.map(issue =>
-        issue.id === issueId
-          ? { ...issue, ...updateData }
-          : issue
-      ));
+      // The list updates itself via the realtime listener; only the
+      // aggregate counts and the open dialog need a manual nudge.
       loadStats();
-
       if (selectedIssue?.id === issueId) {
+        const updateData: Partial<ReportedIssue> = { status: newStatus, updatedAt: new Date() };
+        if (newStatus === 'rezolvata') updateData.resolvedAt = new Date();
         setSelectedIssue({ ...selectedIssue, ...updateData });
       }
     } catch (error) {
@@ -402,18 +411,7 @@ export default function AdminIssuesPage() {
               <SelectItem value="altele">Altele</SelectItem>
             </SelectContent>
           </Select>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              loadIssues();
-              loadStats();
-            }}
-            className="h-9 bg-slate-800 border-slate-600 text-gray-300 hover:bg-slate-700 hover:text-white"
-          >
-            <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
-            Reîncarcă
-          </Button>
+          <LiveIndicator fromCache={fromCache} />
         </div>
       </div>
 
@@ -566,7 +564,7 @@ export default function AdminIssuesPage() {
         <div className="flex justify-center pt-2">
           <Button
             variant="outline"
-            onClick={() => loadIssues(true)}
+            onClick={() => loadMoreOlder()}
             disabled={loadingMore}
             className="border-slate-600 text-gray-300 hover:bg-slate-700 hover:text-white"
           >

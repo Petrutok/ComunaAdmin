@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 
 // Page size for the paginated registry table
 const REGISTRU_PAGE_SIZE = 200;
@@ -37,7 +37,6 @@ import {
   Paperclip,
   Plus,
   Printer,
-  RefreshCw,
   Send,
   Trash2,
 } from 'lucide-react';
@@ -74,15 +73,15 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { exportToCSV, exportToExcel } from '@/lib/utils/exportRegistruData';
+import { useCollectionSnapshot } from '@/lib/hooks/useCollectionSnapshot';
+import { LiveIndicator } from '@/components/admin/LiveIndicator';
 
 export default function AdminRegistruPage() {
   const router = useRouter();
-  const [documents, setDocuments] = useState<RegistruDocument[]>([]);
+  const [olderDocuments, setOlderDocuments] = useState<RegistruDocument[]>([]);
+  const [moreOlder, setMoreOlder] = useState(true);
   const [filteredDocuments, setFilteredDocuments] = useState<RegistruDocument[]>([]);
-  const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [hasMore, setHasMore] = useState(false);
-  const lastDocRef = useRef<any>(null);
   const [activeFilter, setActiveFilter] = useState<StatusRegistru | 'toate'>('toate');
   const [selectedDocument, setSelectedDocument] = useState<RegistruDocument | null>(null);
   const [editingDocument, setEditingDocument] = useState<RegistruDocument | null>(null);
@@ -103,54 +102,69 @@ export default function AdminRegistruPage() {
   const [exporting, setExporting] = useState(false);
   const { toast } = useToast();
 
-  useEffect(() => {
-    loadDocuments();
-  }, []);
+  // --- Realtime live window: newest REGISTRU_PAGE_SIZE entries via one
+  // listener (IMAP/manual/online docs arrive on their own). Older pages
+  // appended one-shot below. Bounded query only (limit).
+  const mapDocument = (id: string, data: Record<string, any>) =>
+    ({ id, ...data }) as RegistruDocument;
+
+  const liveQuery = useMemo(
+    () =>
+      query(
+        collection(db, COLLECTIONS.REGISTRU_GENERAL),
+        orderBy('dataInregistrare', 'desc'),
+        limit(REGISTRU_PAGE_SIZE)
+      ),
+    []
+  );
+  const { data: liveDocuments, loading, fromCache } = useCollectionSnapshot<RegistruDocument>(
+    liveQuery,
+    mapDocument,
+    []
+  );
+
+  const documents = useMemo(() => {
+    const seen = new Set<string>();
+    const out: RegistruDocument[] = [];
+    for (const d of [...liveDocuments, ...olderDocuments]) {
+      if (!seen.has(d.id)) {
+        seen.add(d.id);
+        out.push(d);
+      }
+    }
+    return out;
+  }, [liveDocuments, olderDocuments]);
+
+  const hasMore = liveDocuments.length === REGISTRU_PAGE_SIZE && moreOlder;
 
   useEffect(() => {
     filterDocuments();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [documents, activeFilter, searchTerm, sortOrder]);
 
-  const loadDocuments = async (loadMore = false) => {
-    if (loadMore) {
-      setLoadingMore(true);
-    } else {
-      setLoading(true);
-    }
+  // Append the next older page (one-shot); cursor is the last doc's date.
+  const loadMoreOlder = async (): Promise<boolean> => {
+    const last = documents[documents.length - 1];
+    if (!last?.dataInregistrare) return false;
+    setLoadingMore(true);
     try {
-      // Paginated: the registry grows with every document, never load it whole
-      const q = loadMore && lastDocRef.current
-        ? query(
-            collection(db, COLLECTIONS.REGISTRU_GENERAL),
-            orderBy('dataInregistrare', 'desc'),
-            startAfter(lastDocRef.current),
-            limit(REGISTRU_PAGE_SIZE)
-          )
-        : query(
-            collection(db, COLLECTIONS.REGISTRU_GENERAL),
-            orderBy('dataInregistrare', 'desc'),
-            limit(REGISTRU_PAGE_SIZE)
-          );
-
-      const snapshot = await getDocs(q);
-      lastDocRef.current = snapshot.docs[snapshot.docs.length - 1] || lastDocRef.current;
-      setHasMore(snapshot.docs.length === REGISTRU_PAGE_SIZE);
-
-      const data = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-      } as RegistruDocument));
-
-      setDocuments(prev => (loadMore ? [...prev, ...data] : data));
-    } catch (error: any) {
-      console.error('Error loading documents:', error);
-      toast({
-        title: 'Eroare',
-        description: 'Nu s-au putut încărca documentele',
-        variant: 'destructive',
-      });
+      const snapshot = await getDocs(
+        query(
+          collection(db, COLLECTIONS.REGISTRU_GENERAL),
+          orderBy('dataInregistrare', 'desc'),
+          startAfter(last.dataInregistrare),
+          limit(REGISTRU_PAGE_SIZE)
+        )
+      );
+      setOlderDocuments((prev) => [...prev, ...snapshot.docs.map((d) => mapDocument(d.id, d.data()))]);
+      const more = snapshot.docs.length === REGISTRU_PAGE_SIZE;
+      setMoreOlder(more);
+      return more;
+    } catch (error) {
+      console.error('Error loading older documents:', error);
+      toast({ title: 'Eroare', description: 'Nu s-au putut încărca mai multe documente', variant: 'destructive' });
+      return false;
     } finally {
-      setLoading(false);
       setLoadingMore(false);
     }
   };
@@ -200,7 +214,6 @@ export default function AdminRegistruPage() {
       setShowStatusDialog(false);
       setNewStatus('nou');
       setObservatii('');
-      loadDocuments();
     } catch (error) {
       console.error('Error updating status:', error);
       toast({
@@ -224,7 +237,6 @@ export default function AdminRegistruPage() {
 
       setShowDeleteDialog(false);
       setSelectedDocument(null);
-      loadDocuments();
     } catch (error) {
       console.error('Error deleting document:', error);
       toast({
@@ -373,7 +385,6 @@ ${row('Observații', documentReg.observatii)}
       });
       setShowRaspunsDialog(false);
       setRaspunsText('');
-      loadDocuments();
     } catch (error) {
       toast({
         title: 'Eroare',
@@ -417,7 +428,6 @@ ${row('Observații', documentReg.observatii)}
       }
       setShowRaspunsDialog(false);
       setRaspunsText('');
-      loadDocuments();
     } catch (error) {
       console.error('Error issuing raspuns:', error);
       toast({
@@ -606,10 +616,7 @@ ${row('Observații', documentReg.observatii)}
               >
                 📦 Export an
               </Button>
-              <Button onClick={() => loadDocuments()} className="bg-slate-700 hover:bg-slate-600 text-white font-medium">
-                <RefreshCw className="h-4 w-4 mr-2" />
-                Reîncarcă
-              </Button>
+              <LiveIndicator fromCache={fromCache} />
             </div>
           </div>
           <p className="text-gray-400 text-sm">
@@ -847,7 +854,7 @@ ${row('Observații', documentReg.observatii)}
                 <div className="flex justify-center py-4">
                   <Button
                     variant="outline"
-                    onClick={() => loadDocuments(true)}
+                    onClick={() => loadMoreOlder()}
                     disabled={loadingMore}
                     className="border-slate-600 text-gray-300 hover:bg-slate-700 hover:text-white"
                   >
@@ -1142,7 +1149,6 @@ ${row('Observații', documentReg.observatii)}
                       description: `${finalized.length} documente finalizate au fost șterse.`,
                     });
                     setShowBulkDeleteDialog(false);
-                    loadDocuments();
                   } catch (error) {
                     console.error('Error deleting documents:', error);
                     toast({

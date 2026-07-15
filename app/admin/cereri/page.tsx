@@ -1,6 +1,8 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useMemo } from 'react';
+import { useCollectionSnapshot } from '@/lib/hooks/useCollectionSnapshot';
+import { LiveIndicator } from '@/components/admin/LiveIndicator';
 
 // Page size for the paginated cereri list
 const PAGE_SIZE = 100;
@@ -40,7 +42,6 @@ import {
   Search,
   User,
   Paperclip,
-  RefreshCw,
   Loader2,
   UserPlus,
   Zap,
@@ -269,11 +270,12 @@ const tipuriCereri: { [key: string]: string } = {
 };
 
 export default function AdminCereriPage() {
-  const [cereri, setCereri] = useState<Cerere[]>([]);
+  // Older pages appended one-shot on "Încarcă mai multe" (older docs
+  // don't change; only the live first window is realtime)
+  const [olderCereri, setOlderCereri] = useState<Cerere[]>([]);
   const [filteredCereri, setFilteredCereri] = useState<Cerere[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [users, setUsers] = useState<UserType[]>([]);
-  const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState<CerereStatus | 'toate'>('toate');
   const [mineOnly, setMineOnly] = useState(false);
   const [mineCount, setMineCount] = useState<number | null>(null);
@@ -289,8 +291,6 @@ export default function AdminCereriPage() {
   const [raspunsStatus, setRaspunsStatus] = useState<RaspunsStatus>('rezolvat');
   const [sendingRaspuns, setSendingRaspuns] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [hasMore, setHasMore] = useState(false);
-  const lastDocRef = useRef<any>(null);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showAssignDialog, setShowAssignDialog] = useState(false);
   const [newStatus, setNewStatus] = useState<CerereStatus>('noua');
@@ -347,7 +347,6 @@ export default function AdminCereriPage() {
       setShowRaspunsDialog(false);
       setAdeverintaText('');
       setRaspunsText('');
-      loadCereri();
     } catch (error) {
       toast({
         title: 'Eroare',
@@ -371,8 +370,129 @@ export default function AdminCereriPage() {
     }
   };
 
+  // Shared mapper: raw Firestore doc -> Cerere (used by the live listener
+  // and by the one-shot "load more" fetch)
+  const mapCerere = (id: string, docData: Record<string, any>): Cerere =>
+    ({
+      id,
+      numeComplet: docData.numeComplet || '',
+      cnp: docData.cnp || '',
+      email: docData.email || '',
+      telefon: docData.telefon || '',
+      localitate: docData.localitate || '',
+      adresa: docData.adresa || '',
+      tipCerere: docData.tipCerere || '',
+      scopulCererii: docData.scopulCererii || '',
+      status: (docData.status || 'noua') as CerereStatus,
+      priority: docData.priority || 'normal',
+      departmentId: docData.departmentId,
+      departmentName: docData.departmentName,
+      assignedToUserId: docData.assignedToUserId,
+      assignedToUserName: docData.assignedToUserName,
+      deadline: docData.deadline,
+      createdAt: docData.createdAt,
+      updatedAt: docData.updatedAt,
+      fisiere: docData.fisiere,
+      observatii: docData.observatii,
+      dataInregistrare:
+        docData.createdAt?.toDate?.()?.toLocaleDateString('ro-RO') ||
+        new Date().toLocaleDateString('ro-RO'),
+      ...docData,
+    }) as Cerere;
+
+  // --- Realtime live window ---------------------------------------------
+  // The first page (or, in "Ale mele" mode, the whole small assigned set)
+  // is a live Firestore listener; older pages are appended one-shot below.
+  // Bounded queries only (limit) so a listener never scans the collection.
+  const liveQuery = useMemo(() => {
+    if (!adminUser?.uid) return null;
+    return mineOnly
+      ? query(
+          collection(db, 'form_submissions'),
+          where('assignedToUserId', '==', adminUser.uid),
+          limit(300)
+        )
+      : query(collection(db, 'form_submissions'), orderBy('createdAt', 'desc'), limit(PAGE_SIZE));
+  }, [mineOnly, adminUser?.uid]);
+
+  const {
+    data: liveCereri,
+    loading,
+    fromCache,
+  } = useCollectionSnapshot<Cerere>(liveQuery, mapCerere, [mineOnly, adminUser?.uid]);
+
+  // Older pages reset whenever the live query changes (mode switch)
   useEffect(() => {
-    loadCereri();
+    setOlderCereri([]);
+    setMoreOlder(true);
+  }, [mineOnly, adminUser?.uid]);
+
+  // Combined dataset = live window + appended older pages, de-duped by id
+  // (a doc could briefly appear in both if the window boundary shifted)
+  const cereri = useMemo(() => {
+    const seen = new Set<string>();
+    const out: Cerere[] = [];
+    for (const c of [...liveCereri, ...olderCereri]) {
+      if (!seen.has(c.id)) {
+        seen.add(c.id);
+        out.push(c);
+      }
+    }
+    return out;
+  }, [liveCereri, olderCereri]);
+
+  // In "Ale mele" mode the whole set is loaded; otherwise there may be
+  // older pages while the live window is full and we haven't hit the end
+  const [moreOlder, setMoreOlder] = useState(true);
+  const hasMore = !mineOnly && liveCereri.length === PAGE_SIZE && moreOlder;
+
+  // Append the next older page (one-shot). Cursor is the createdAt of the
+  // last loaded doc - avoids needing the raw DocumentSnapshot.
+  const loadMoreOlder = async (): Promise<boolean> => {
+    const last = cereri[cereri.length - 1];
+    if (mineOnly || !last?.createdAt) return false;
+    setLoadingMore(true);
+    try {
+      const snapshot = await getDocs(
+        query(
+          collection(db, 'form_submissions'),
+          orderBy('createdAt', 'desc'),
+          startAfter(last.createdAt),
+          limit(PAGE_SIZE)
+        )
+      );
+      const older = snapshot.docs.map((d) => mapCerere(d.id, d.data()));
+      setOlderCereri((prev) => [...prev, ...older]);
+      const more = snapshot.docs.length === PAGE_SIZE;
+      setMoreOlder(more);
+      return more;
+    } catch (error) {
+      console.error('Error loading older cereri:', error);
+      toast({ title: 'Eroare', description: 'Nu s-au putut încărca mai multe cereri', variant: 'destructive' });
+      return false;
+    } finally {
+      setLoadingMore(false);
+    }
+  };
+
+  // Honest search: pull all older pages so client-side filtering sees the
+  // full dataset instead of silently truncating matches.
+  const [loadingAll, setLoadingAll] = useState(false);
+  const loadAllRemaining = async () => {
+    setLoadingAll(true);
+    try {
+      let more = hasMore;
+      let guard = 0; // safety cap; commune volume is in the hundreds
+      while (more && guard < 50) {
+        more = await loadMoreOlder();
+        guard++;
+      }
+    } finally {
+      setLoadingAll(false);
+    }
+  };
+
+  useEffect(() => {
     loadDepartmentsAndUsers();
   }, []);
 
@@ -418,114 +538,6 @@ export default function AdminCereriPage() {
     fetchMineCount();
   }, [adminUser?.uid, cereri]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const loadCereri = async (loadMore = false, mineOverride?: boolean) => {
-    const mine = mineOverride ?? mineOnly;
-    if (loadMore) {
-      setLoadingMore(true);
-    } else {
-      setLoading(true);
-    }
-
-    try {
-      // Paginated: collections grow monthly, never load them whole.
-      // "Ale mele" is a dedicated equality query (no orderBy - avoids a
-      // composite index; my open workload is small, sorted client-side)
-      const q = mine
-        ? query(
-            collection(db, 'form_submissions'),
-            where('assignedToUserId', '==', adminUser?.uid || '__none__'),
-            limit(300)
-          )
-        : loadMore && lastDocRef.current
-        ? query(
-            collection(db, 'form_submissions'),
-            orderBy('createdAt', 'desc'),
-            startAfter(lastDocRef.current),
-            limit(PAGE_SIZE)
-          )
-        : query(
-            collection(db, 'form_submissions'),
-            orderBy('createdAt', 'desc'),
-            limit(PAGE_SIZE)
-          );
-
-      const snapshot = await getDocs(q);
-      if (!mine) {
-        lastDocRef.current = snapshot.docs[snapshot.docs.length - 1] || lastDocRef.current;
-      }
-      setHasMore(mine ? false : snapshot.docs.length === PAGE_SIZE);
-
-      const data = snapshot.docs.map(doc => {
-        const docData = doc.data();
-        return {
-          id: doc.id,
-          numeComplet: docData.numeComplet || '',
-          cnp: docData.cnp || '',
-          email: docData.email || '',
-          telefon: docData.telefon || '',
-          localitate: docData.localitate || '',
-          adresa: docData.adresa || '',
-          tipCerere: docData.tipCerere || '',
-          scopulCererii: docData.scopulCererii || '',
-          status: (docData.status || 'noua') as CerereStatus,
-          priority: docData.priority || 'normal',
-          departmentId: docData.departmentId,
-          departmentName: docData.departmentName,
-          assignedToUserId: docData.assignedToUserId,
-          assignedToUserName: docData.assignedToUserName,
-          deadline: docData.deadline,
-          createdAt: docData.createdAt,
-          updatedAt: docData.updatedAt,
-          fisiere: docData.fisiere,
-          observatii: docData.observatii,
-          dataInregistrare: docData.createdAt?.toDate?.()?.toLocaleDateString('ro-RO') || new Date().toLocaleDateString('ro-RO'),
-          ...docData
-        };
-      }) as Cerere[];
-
-      if (mine) {
-        data.sort(
-          (a, b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0)
-        );
-      }
-
-      setCereri(prev => (loadMore ? [...prev, ...data] : data));
-      // Return whether another page exists, so callers can loop
-      // (mine mode loads its whole set at once, so never has more)
-      return mine ? false : snapshot.docs.length === PAGE_SIZE;
-    } catch (error: any) {
-      console.error('Error loading cereri:', error);
-      toast({
-        title: "Eroare",
-        description: "Nu s-au putut încărca cererile",
-        variant: "destructive",
-      });
-      return false;
-    } finally {
-      setLoading(false);
-      setLoadingMore(false);
-    }
-  };
-
-  // Honest search: when a filter/search is active but the list is only
-  // partially loaded, results would be silently truncated. This pulls all
-  // remaining pages so the client-side filter sees the full dataset.
-  const [loadingAll, setLoadingAll] = useState(false);
-  const loadAllRemaining = async () => {
-    setLoadingAll(true);
-    try {
-      let more = hasMore;
-      // Safety cap: a commune's yearly volume is in the hundreds; 50
-      // pages of 100 is far beyond that and prevents any runaway loop
-      let guard = 0;
-      while (more && guard < 50) {
-        more = await loadCereri(true);
-        guard++;
-      }
-    } finally {
-      setLoadingAll(false);
-    }
-  };
 
   const loadDepartmentsAndUsers = async () => {
     try {
@@ -651,7 +663,6 @@ export default function AdminCereriPage() {
       });
 
       setShowAssignDialog(false);
-      loadCereri();
     } catch (error) {
       console.error('Error assigning cerere:', error);
       toast({
@@ -708,7 +719,6 @@ export default function AdminCereriPage() {
       setNewStatus('noua');
       setObservatii('');
       setRedirectionatCatre('');
-      loadCereri();
     } catch (error) {
       console.error('Error updating status:', error);
       toast({
@@ -732,7 +742,6 @@ export default function AdminCereriPage() {
 
       setShowDeleteDialog(false);
       setSelectedCerere(null);
-      loadCereri();
     } catch (error) {
       console.error('Error deleting cerere:', error);
       toast({
@@ -773,7 +782,6 @@ export default function AdminCereriPage() {
       });
       setShowEmiteDialog(false);
       setAdeverintaText('');
-      loadCereri();
     } catch (error) {
       console.error('Error issuing adeverinta:', error);
       toast({
@@ -865,7 +873,6 @@ export default function AdminCereriPage() {
       setShowRaspunsDialog(false);
       setRaspunsText('');
       setRaspunsStatus('rezolvat');
-      loadCereri();
     } catch (error) {
       console.error('Error issuing raspuns:', error);
       toast({
@@ -1046,15 +1053,7 @@ export default function AdminCereriPage() {
             <ArrowUpDown className="h-3.5 w-3.5 mr-1.5" />
             {sortOrder === 'desc' ? 'Nou → Vechi' : 'Vechi → Nou'}
           </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => loadCereri()}
-            className="h-9 bg-slate-800 border-slate-600 text-gray-300 hover:bg-slate-700 hover:text-white"
-          >
-            <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
-            Reîncarcă
-          </Button>
+          <LiveIndicator fromCache={fromCache} />
         </div>
       </div>
 
@@ -1063,11 +1062,7 @@ export default function AdminCereriPage() {
         <Button
           size="sm"
           variant="outline"
-          onClick={() => {
-            const next = !mineOnly;
-            setMineOnly(next);
-            loadCereri(false, next);
-          }}
+          onClick={() => setMineOnly((v) => !v)}
           className={`h-8 shrink-0 text-xs font-medium ${
             mineOnly
               ? 'bg-indigo-600 text-white border-indigo-500 hover:bg-indigo-500 hover:text-white'
@@ -1363,7 +1358,7 @@ export default function AdminCereriPage() {
         <div className="flex justify-center pt-2">
           <Button
             variant="outline"
-            onClick={() => loadCereri(true)}
+            onClick={() => loadMoreOlder()}
             disabled={loadingMore}
             className="border-slate-600 text-gray-300 hover:bg-slate-700 hover:text-white"
           >

@@ -13,7 +13,6 @@ import {
   ChevronRight,
   Mail,
   Loader2,
-  RefreshCw,
   CalendarClock,
   CalendarX,
   Siren,
@@ -22,7 +21,7 @@ import {
   ArrowRight,
   Inbox,
 } from 'lucide-react';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import Link from 'next/link';
 import { db, COLLECTIONS } from '@/lib/firebase';
 import {
@@ -38,6 +37,8 @@ import {
 import { RegistraturaEmail } from '@/types/registratura';
 import { SERVICE_CONFIG, AppointmentService } from '@/types/appointments';
 import { AvizareQueue } from '@/components/admin/AvizareQueue';
+import { useCollectionSnapshot } from '@/lib/hooks/useCollectionSnapshot';
+import { LiveIndicator } from '@/components/admin/LiveIndicator';
 
 interface ActivityItem {
   id: string;
@@ -124,16 +125,70 @@ function todayLocalISO() {
 export default function AdminDashboard() {
   const { isAdmin, isEmployee, userId } = useAdminAuth();
   const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [activity, setActivity] = useState<ActivityItem[]>([]);
   const [overdue, setOverdue] = useState<OverdueEntry[]>([]);
   const [todayAppointments, setTodayAppointments] = useState<TodayAppointment[]>([]);
+
+  // --- Realtime: the "what just happened" surfaces are live listeners.
+  // The recent-activity feed and (employee) my-assigned queue update
+  // themselves; the heavier metrics (aggregation counts, overdue list,
+  // today's appointments) are refreshed on demand below - those answer
+  // "what should I do now", where a few seconds of staleness is fine.
+  const recentCereriQuery = useMemo(
+    () =>
+      isEmployee
+        ? null
+        : query(collection(db, 'form_submissions'), orderBy('createdAt', 'desc'), limit(8)),
+    [isEmployee]
+  );
+  const recentIssuesQuery = useMemo(
+    () =>
+      isEmployee
+        ? null
+        : query(collection(db, 'reported_issues'), orderBy('createdAt', 'desc'), limit(8)),
+    [isEmployee]
+  );
+
+  const { data: recentCereri } = useCollectionSnapshot<ActivityItem>(
+    recentCereriQuery,
+    (id, data) => ({
+      id,
+      kind: 'cerere',
+      title: tipuriCereri[data.tipCerere as string] || (data.tipCerere as string) || 'Cerere',
+      numarInregistrare: data.numarInregistrare as string | undefined,
+      author: (data.numeComplet as string) || 'Cetățean',
+      status: (data.status as string) || 'noua',
+      createdAt: (data.createdAt as any)?.toDate?.() || new Date(),
+      href: '/admin/cereri',
+    }),
+    [isEmployee]
+  );
+  const { data: recentIssues, fromCache } = useCollectionSnapshot<ActivityItem>(
+    recentIssuesQuery,
+    (id, data) => ({
+      id,
+      kind: 'problema',
+      title: (data.title as string) || 'Problemă raportată',
+      author: (data.reporterName as string) || 'Cetățean',
+      status: (data.status as string) || 'noua',
+      createdAt: (data.createdAt as any)?.toDate?.() || new Date(),
+      href: '/admin/issues',
+    }),
+    [isEmployee]
+  );
+
+  const activity = useMemo(
+    () =>
+      [...recentCereri, ...recentIssues]
+        .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+        .slice(0, 8),
+    [recentCereri, recentIssues]
+  );
+
+  // Metrics (counts + overdue + appointments). Loaded on mount and
+  // refreshed whenever the live activity changes, so the numbers track
+  // reality without needing realtime aggregation listeners.
   const [loading, setLoading] = useState(true);
-  const [myAssignedEmails, setMyAssignedEmails] = useState<RegistraturaEmail[]>([]);
-
-  const loadDashboard = useCallback(async () => {
-    setLoading(true);
-
-    // Every block is best-effort: one failing collection must not blank the page
+  const loadMetrics = useCallback(async () => {
     const safeCount = async (q: ReturnType<typeof query>) => {
       try {
         return (await getCountFromServer(q)).data().count;
@@ -141,7 +196,6 @@ export default function AdminDashboard() {
         return 0;
       }
     };
-
     const cereriCol = collection(db, 'form_submissions');
     const issuesCol = collection(db, 'reported_issues');
 
@@ -152,8 +206,6 @@ export default function AdminDashboard() {
       safeCount(query(issuesCol, where('status', '==', 'in_lucru'))),
     ]);
 
-    // Overdue registry deadlines (OG 27/2002) - range on a single field,
-    // finalized entries filtered client-side to avoid a composite index
     let overdueEntries: OverdueEntry[] = [];
     try {
       const snap = await getDocs(
@@ -180,7 +232,6 @@ export default function AdminDashboard() {
       console.error('Error loading overdue registry entries:', error);
     }
 
-    // Today's confirmed appointments
     let appointments: TodayAppointment[] = [];
     try {
       const snap = await getDocs(
@@ -202,45 +253,6 @@ export default function AdminDashboard() {
       console.error('Error loading today appointments:', error);
     }
 
-    // Recent activity: latest cereri + probleme, merged, real statuses
-    const items: ActivityItem[] = [];
-    try {
-      const snap = await getDocs(query(cereriCol, orderBy('createdAt', 'desc'), limit(6)));
-      snap.docs.forEach((d) => {
-        const data = d.data();
-        items.push({
-          id: d.id,
-          kind: 'cerere',
-          title: tipuriCereri[data.tipCerere] || data.tipCerere || 'Cerere',
-          numarInregistrare: data.numarInregistrare,
-          author: data.numeComplet || 'Cetățean',
-          status: data.status || 'noua',
-          createdAt: data.createdAt?.toDate?.() || new Date(),
-          href: '/admin/cereri',
-        });
-      });
-    } catch (error) {
-      console.error('Error loading recent cereri:', error);
-    }
-    try {
-      const snap = await getDocs(query(issuesCol, orderBy('createdAt', 'desc'), limit(6)));
-      snap.docs.forEach((d) => {
-        const data = d.data();
-        items.push({
-          id: d.id,
-          kind: 'problema',
-          title: data.title || 'Problemă raportată',
-          author: data.reporterName || 'Cetățean',
-          status: data.status || 'noua',
-          createdAt: data.createdAt?.toDate?.() || new Date(),
-          href: '/admin/issues',
-        });
-      });
-    } catch (error) {
-      console.error('Error loading recent issues:', error);
-    }
-    items.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
-
     setStats({
       cereriNoi,
       cereriInLucru,
@@ -250,40 +262,34 @@ export default function AdminDashboard() {
     });
     setOverdue(overdueEntries.slice(0, 5));
     setTodayAppointments(appointments.slice(0, 5));
-    setActivity(items.slice(0, 8));
     setLoading(false);
   }, []);
 
+  // Signature of the live activity: refresh metrics only on real changes,
+  // not on every metadata ping (avoids needless aggregation reads).
+  const activitySignature = activity.map((a) => `${a.id}:${a.status}`).join('|');
   useEffect(() => {
-    if (!isEmployee) {
-      loadDashboard();
-    }
-  }, [isEmployee, loadDashboard]);
-
-  // Employee view: their assigned registratura documents
-  useEffect(() => {
-    if (isEmployee && userId) {
-      loadMyAssignedEmails();
-    }
+    if (!isEmployee) loadMetrics();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isEmployee, userId]);
+  }, [isEmployee, activitySignature]);
 
-  const loadMyAssignedEmails = async () => {
-    if (!userId) return;
-    try {
-      const emailsQuery = query(
-        collection(db, COLLECTIONS.REGISTRATURA_EMAILS),
-        where('assignedToUserId', '==', userId),
-        orderBy('createdAt', 'desc')
-      );
-      const snapshot = await getDocs(emailsQuery);
-      setMyAssignedEmails(
-        snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })) as RegistraturaEmail[]
-      );
-    } catch (error) {
-      console.error('Error loading assigned emails:', error);
-    }
-  };
+  // Employee view: their assigned registratura documents, live
+  const myEmailsQuery = useMemo(
+    () =>
+      isEmployee && userId
+        ? query(
+            collection(db, COLLECTIONS.REGISTRATURA_EMAILS),
+            where('assignedToUserId', '==', userId),
+            orderBy('createdAt', 'desc')
+          )
+        : null,
+    [isEmployee, userId]
+  );
+  const { data: myAssignedEmails } = useCollectionSnapshot<RegistraturaEmail>(
+    myEmailsQuery,
+    (id, data) => ({ id, ...data }) as RegistraturaEmail,
+    [isEmployee, userId]
+  );
 
   const todayLabel = new Date().toLocaleDateString('ro-RO', {
     weekday: 'long',
@@ -464,20 +470,7 @@ export default function AdminDashboard() {
           <h1 className="text-2xl font-bold text-white">Control Center</h1>
           <p className="text-sm text-gray-400 capitalize">{todayLabel}</p>
         </div>
-        <Button
-          onClick={loadDashboard}
-          disabled={loading}
-          variant="outline"
-          size="sm"
-          className="border-slate-600 text-gray-300 hover:bg-slate-700 hover:text-white"
-        >
-          {loading ? (
-            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-          ) : (
-            <RefreshCw className="h-4 w-4 mr-2" />
-          )}
-          Reîncarcă
-        </Button>
+        <LiveIndicator fromCache={fromCache} />
       </div>
 
       {/* Documents waiting for aviz/signature */}

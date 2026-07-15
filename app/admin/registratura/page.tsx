@@ -25,6 +25,7 @@ import {
 import { QuarantinePanel } from '@/components/registratura/QuarantinePanel';
 import { syncEmailsAction } from '@/app/actions/sync-emails';
 import { useRegistratura } from '@/lib/hooks/useRegistratura';
+import { LiveIndicator } from '@/components/admin/LiveIndicator';
 import { useAdminAuth } from '@/contexts/AdminAuthContext';
 import {
   RegistraturaEmail, EmailStatus, EMAIL_STATUS_CONFIG, OPEN_STATUSES,
@@ -41,7 +42,7 @@ export default function RegistraturaPage() {
   const { toast } = useToast();
   const { user: adminUser } = useAdminAuth();
   const {
-    emails, departments, users, loading, stats,
+    emails, departments, users, loading, fromCache, stats,
     reload, updateStatus, assign, setTags, addComment, remove, bulkUpdateStatus,
   } = useRegistratura();
 
@@ -288,6 +289,7 @@ export default function RegistraturaPage() {
             onClick={handleSync}
             disabled={refreshing}
             className="rounded-xl bg-purple-600 hover:bg-purple-700"
+            title="Preia emailurile noi de pe serverul de mail (IMAP)"
           >
             {refreshing ? (
               <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
@@ -296,6 +298,7 @@ export default function RegistraturaPage() {
             )}
             Sincronizează
           </Button>
+          <LiveIndicator fromCache={fromCache} />
         </div>
       </div>
 
