@@ -61,6 +61,7 @@ ONE counter (`registru_counters/{year}`, format `REG-YYYY-NNNNNN`) for everythin
 - **Timestamps**: shared types use `FirestoreTimestamp` (client | admin union) from `types/registratura.ts`. Server code imports Timestamp from `firebase-admin/firestore`, client from `firebase/firestore` - never mix instances across SDK boundaries.
 - **PDFs**: jsPDF with `removeDiacritics()` (standard fonts lack Romanian diacritics). Follow the existing pattern.
 - **Admin lists are paginated** (cursor + "Încarcă mai multe"); keep it that way for new lists.
+- **Operational lists are realtime** (`lib/hooks/useCollectionSnapshot.ts` + `components/admin/LiveIndicator`): cereri, sesizări, registru, registratură (listener in `useRegistratura`) and the dashboard activity feed use a live `onSnapshot` window (`limit(N)`) + one-shot older pages appended and de-duped by id. No "Reîncarcă" buttons; mutations don't re-fetch. Config/reference pages stay on `getDocs`. See `docs/realtime.md`.
 - **Dosarul meu queries** avoid composite indexes (filter on citizenUid only, sort client-side).
 - New cereri form types go in THREE places: `REQUEST_CONFIGS` (lib/simple-pdf-generator.ts), `formMetadata` + generateStaticParams (app/cereri-online/[formType]/page.tsx), and the listing (app/cereri-online/page.tsx).
 - Service worker (`public/sw.js`): Network First for HTML, Cache First for hashed assets, every fetch branch MUST return a real Response. Bump CACHE_NAME on SW changes.

@@ -13,6 +13,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   collection,
   getDocs,
+  onSnapshot,
   doc,
   updateDoc,
   deleteDoc,
@@ -44,6 +45,7 @@ export function useRegistratura() {
   const [departments, setDepartments] = useState<Department[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
+  const [fromCache, setFromCache] = useState(false);
 
   const actor = useMemo(
     () => ({
@@ -53,31 +55,51 @@ export function useRegistratura() {
     [adminUser]
   );
 
+  // Reference data (departments, users): rarely changes, one-shot fetch.
+  // Kept as `reload` for the manual-registration flow and legacy callers.
   const load = useCallback(async () => {
-    setLoading(true);
     try {
-      const [emailsSnap, deptSnap, usersSnap] = await Promise.all([
-        getDocs(
-          query(
-            collection(db, COLLECTIONS.REGISTRATURA_EMAILS),
-            orderBy('dateReceived', 'desc'),
-            limit(LOAD_LIMIT)
-          )
-        ),
+      const [deptSnap, usersSnap] = await Promise.all([
         getDocs(query(collection(db, COLLECTIONS.DEPARTMENTS), orderBy('name', 'asc'))),
         getDocs(query(collection(db, COLLECTIONS.USERS), orderBy('fullName', 'asc'))),
       ]);
-      setEmails(emailsSnap.docs.map((d) => ({ id: d.id, ...d.data() } as RegistraturaEmail)));
       setDepartments(deptSnap.docs.map((d) => ({ id: d.id, ...d.data() } as Department)));
       setUsers(usersSnap.docs.map((d) => ({ id: d.id, ...d.data() } as User)));
-    } finally {
-      setLoading(false);
+    } catch (error) {
+      console.error('[useRegistratura] reference data load failed:', error);
     }
   }, []);
 
   useEffect(() => {
     load();
   }, [load]);
+
+  // Emails are the operational stream (IMAP fetches arrive on their own):
+  // a live listener replaces the fetch + manual reload. Bounded by
+  // LOAD_LIMIT so the listener never scans the whole collection.
+  // Optimistic mutations still run for instant feedback; the snapshot then
+  // confirms them with server truth.
+  useEffect(() => {
+    const q = query(
+      collection(db, COLLECTIONS.REGISTRATURA_EMAILS),
+      orderBy('dateReceived', 'desc'),
+      limit(LOAD_LIMIT)
+    );
+    const unsubscribe = onSnapshot(
+      q,
+      { includeMetadataChanges: true },
+      (snapshot) => {
+        setEmails(snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as RegistraturaEmail)));
+        setFromCache(snapshot.metadata.fromCache);
+        setLoading(false);
+      },
+      (error) => {
+        console.error('[useRegistratura] emails listener error:', error);
+        setLoading(false);
+      }
+    );
+    return () => unsubscribe();
+  }, []);
 
   /** Apply a partial update locally (optimistic) - the UI reacts instantly. */
   const patchLocal = useCallback((id: string, patch: Partial<RegistraturaEmail>) => {
@@ -225,6 +247,7 @@ export function useRegistratura() {
     departments,
     users,
     loading,
+    fromCache,
     stats,
     reload: load,
     updateStatus,
