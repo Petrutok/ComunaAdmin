@@ -26,133 +26,17 @@ import {
 export default function OngoingWorksPage() {
   const [selectedFilter, setSelectedFilter] = useState('all');
 
-  // Built-in defaults: shown until the admin publishes works from
-  // Admin -> Conținut (the `ongoing_works` collection replaces them)
-  const DEFAULT_PROJECTS = [
-    {
-      id: 1,
-      title: "Creșterea eficienței energetice la școala din satul Filipești",
-      location: "Sat Filipești",
-      program: "PNRR",
-      category: "educatie",
-      icon: School,
-      color: "bg-blue-500",
-      borderColor: "border-blue-500",
-      progress: 45,
-      description: "Modernizarea sistemului de încălzire, izolarea termică a clădirii și înlocuirea tâmplăriei pentru reducerea consumului energetic și creșterea confortului elevilor.",
-      budget: "2.500.000 RON",
-      status: "În execuție"
-    },
-    {
-      id: 2,
-      title: "Eficientizare energetică moderată la Căminul Cultural din satul Cârligi",
-      location: "Sat Cârligi",
-      program: "PNRR",
-      category: "cultura",
-      icon: Building,
-      color: "bg-purple-500",
-      borderColor: "border-purple-500",
-      progress: 30,
-      description: "Reabilitarea termică a căminului cultural, modernizarea instalațiilor și îmbunătățirea eficienței energetice pentru reducerea costurilor de întreținere.",
-      budget: "1.800.000 RON",
-      status: "În execuție"
-    },
-    {
-      id: 3,
-      title: "Amenajare piste de biciclete în comuna Filipești",
-      location: "Comuna Filipești",
-      program: "PNRR",
-      category: "infrastructura",
-      icon: Bike,
-      color: "bg-green-500",
-      borderColor: "border-green-500",
-      progress: 20,
-      description: "Construirea unei rețele de piste de biciclete moderne pentru încurajarea transportului ecologic și îmbunătățirea siguranței cicliștilor în comună.",
-      budget: "3.200.000 RON",
-      status: "În pregătire"
-    },
-    {
-      id: 4,
-      title: "Dotarea cu mobilier, materiale didactice și echipamente digitale a Școlii Gimnaziale",
-      location: "Comuna Filipești",
-      program: "PNRR",
-      category: "educatie",
-      icon: BookOpen,
-      color: "bg-indigo-500",
-      borderColor: "border-indigo-500",
-      progress: 60,
-      description: "Modernizarea completă a dotărilor școlare cu mobilier nou, table interactive, calculatoare și materiale didactice moderne pentru îmbunătățirea procesului educațional.",
-      budget: "850.000 RON",
-      status: "În execuție"
-    },
-    {
-      id: 5,
-      title: "Producerea energiei electrice din surse regenerabile în comuna Filipești",
-      location: "Comuna Filipești",
-      program: "MEFM",
-      category: "energie",
-      icon: Zap,
-      color: "bg-yellow-500",
-      borderColor: "border-yellow-500",
-      progress: 15,
-      description: "Instalarea de panouri fotovoltaice pe clădirile publice pentru producerea energiei verzi și reducerea dependenței de rețeaua națională.",
-      budget: "4.500.000 RON",
-      status: "În pregătire"
-    },
-    {
-      id: 6,
-      title: "Demolare și construire școală nouă în comuna Filipești",
-      location: "Comuna Filipești",
-      program: "PNSS 2024",
-      category: "educatie",
-      icon: School,
-      color: "bg-red-500",
-      borderColor: "border-red-500",
-      progress: 10,
-      description: "Construirea unei școli moderne cu toate facilitățile necesare, inclusiv laboratoare, sală de sport și spații verzi pentru o educație de calitate.",
-      budget: "12.000.000 RON",
-      status: "În pregătire"
-    },
-    {
-      id: 7,
-      title: "Canalizare și stații de pompare în localitățile Onișcani, Boanta, Cornești și Hîrlești",
-      location: "Satele Onișcani, Boanta, Cornești, Hîrlești",
-      program: "PNDL II 2017",
-      category: "utilitati",
-      icon: Droplets,
-      color: "bg-cyan-500",
-      borderColor: "border-cyan-500",
-      progress: 75,
-      description: "Extinderea rețelei de canalizare și construirea stațiilor de pompare pentru conectarea tuturor gospodăriilor la sistemul de canalizare.",
-      budget: "8.900.000 RON",
-      status: "În execuție"
-    },
-    {
-      id: 8,
-      title: "Alimentare cu apă în localitățile Onișcani, Boanta, Cornești și Hîrlești",
-      location: "Satele Onișcani, Boanta, Cornești, Hîrlești",
-      program: "PNDL II 2017",
-      category: "utilitati",
-      icon: Droplets,
-      color: "bg-blue-500",
-      borderColor: "border-blue-500",
-      progress: 85,
-      description: "Extinderea rețelei de alimentare cu apă potabilă pentru asigurarea accesului tuturor locuitorilor la apă curentă de calitate.",
-      budget: "7.200.000 RON",
-      status: "În finalizare"
-    }
-  ];
 
-  const [projects, setProjects] = useState<any[]>(DEFAULT_PROJECTS);
+  const [projects, setProjects] = useState<any[]>([]);
+  const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
     getDocs(collection(db, 'ongoing_works'))
       .then((snap) => {
-        if (!snap.empty) {
-          setProjects(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
-        }
+        setProjects(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
       })
-      .catch((error) => console.error('Error loading works:', error));
+      .catch((error) => console.error('Error loading works:', error))
+      .finally(() => setLoaded(true));
   }, []);
 
   const categories = [
@@ -265,9 +149,11 @@ export default function OngoingWorksPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-gray-400 text-xs">Programe</p>
-                  <p className="text-2xl font-bold text-white">4</p>
+                  <p className="text-2xl font-bold text-white">
+                    {new Set(projects.map((p) => p.program).filter(Boolean)).size}
+                  </p>
                 </div>
-                <Badge className="bg-blue-500 text-white text-xs">PNRR+</Badge>
+                <Building className="h-6 w-6 text-blue-400" />
               </div>
             </CardContent>
           </Card>
@@ -356,6 +242,18 @@ export default function OngoingWorksPage() {
             );
           })}
         </div>
+
+        {/* Empty State */}
+        {loaded && filteredProjects.length === 0 && (
+          <Card className="bg-slate-800 border-slate-700 text-center py-12 mb-12">
+            <CardContent>
+              <Construction className="h-12 w-12 text-gray-600 mx-auto mb-4" />
+              <p className="text-gray-400">
+                Nu au fost publicate încă lucrări în desfășurare. Reveniți în curând.
+              </p>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Info Section */}
         <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-6">
