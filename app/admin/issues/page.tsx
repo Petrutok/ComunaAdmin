@@ -50,6 +50,7 @@ import {
 import { db, auth } from '@/lib/firebase';
 import { useCollectionSnapshot } from '@/lib/hooks/useCollectionSnapshot';
 import { LiveIndicator } from '@/components/admin/LiveIndicator';
+import { useToast } from '@/hooks/use-toast';
 
 interface ReportedIssue {
   id: string;
@@ -80,6 +81,7 @@ interface ReportedIssue {
 }
 
 export default function AdminIssuesPage() {
+  const { toast } = useToast();
   const [filteredIssues, setFilteredIssues] = useState<ReportedIssue[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -260,8 +262,14 @@ export default function AdminIssuesPage() {
         if (newStatus === 'rezolvata') updateData.resolvedAt = new Date();
         setSelectedIssue({ ...selectedIssue, ...updateData });
       }
+      toast({ title: 'Status actualizat', description: 'Cetățeanul a fost notificat.' });
     } catch (error) {
       console.error('Error updating status:', error);
+      toast({
+        title: 'Eroare',
+        description: error instanceof Error ? error.message : 'Nu s-a putut actualiza statusul.',
+        variant: 'destructive',
+      });
     } finally {
       setUpdatingStatus(false);
     }
@@ -293,6 +301,11 @@ export default function AdminIssuesPage() {
       setNewNote('');
     } catch (error) {
       console.error('Error adding note:', error);
+      toast({
+        title: 'Eroare',
+        description: 'Nu s-a putut adăuga nota internă.',
+        variant: 'destructive',
+      });
     }
   };
 
