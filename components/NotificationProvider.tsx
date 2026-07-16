@@ -156,7 +156,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       if (!registration) {
         console.error('[NotificationProvider] Failed to register SW');
         toast({
-          title: "⚠️ Eroare tehnică",
+          title: "Eroare tehnică",
           description: "Nu s-a putut inițializa sistemul de notificări. Reîncarcă pagina.",
           variant: "destructive",
           duration: 6000,
@@ -197,7 +197,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
           
           // IMPORTANT: Arată și toast-ul pentru iOS
           toast({
-            title: "🔔 Activează notificările",
+            title: "Activează notificările",
             description: "Permite notificările pentru a fi la curent cu evenimentele importante",
             duration: 6000,
             className: "bg-gradient-to-r from-blue-500 to-purple-500 text-white border-0",
@@ -208,7 +208,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         } else if (isIOS && !isPWA) {
           // iOS în Safari - nu poate folosi notificări
           toast({
-            title: "📱 Instalează aplicația",
+            title: "Instalează aplicația",
             description: "Pentru notificări, adaugă aplicația pe ecranul principal: Share → Add to Home Screen",
             duration: 8000,
           });
@@ -218,7 +218,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
           
           // Toast informativ
           toast({
-            title: "🔔 Permite notificările?",
+            title: "Permite notificările?",
             description: "Fii primul care află despre evenimente importante",
             duration: 4000,
             className: "bg-gradient-to-r from-blue-500 to-purple-500 text-white border-0",
@@ -233,7 +233,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
             await subscribeToNotifications();
             
             toast({
-              title: "🎉 Excelent!",
+              title: "Notificări active",
               description: "Notificările sunt acum active!",
               duration: 5000,
               className: "bg-gradient-to-r from-blue-600 to-blue-700 text-white border-0",
@@ -242,7 +242,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
             localStorage.setItem('notification_permission_denied', 'true');
             
             toast({
-              title: "😔 Notificări dezactivate",
+              title: "Notificări dezactivate",
               description: "Poți activa notificările mai târziu din setări",
               variant: "destructive",
               duration: 8000,
@@ -254,7 +254,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         await subscribeToNotifications();
         
         toast({
-          title: "🔔 Notificări reactivate",
+          title: "Notificări reactivate",
           description: "Subscripția ta a fost restaurată",
           duration: 4000,
         });
@@ -264,7 +264,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     } catch (error) {
       console.error('[NotificationProvider] Initialization error:', error);
       toast({
-        title: "⚠️ Eroare",
+        title: "Eroare",
         description: "Nu s-au putut inițializa notificările. Încearcă din nou mai târziu.",
         variant: "destructive",
         duration: 5000,
@@ -288,7 +288,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         
         // Toast succes modern
         toast({
-          title: "🎉 Excelent!",
+          title: "Notificări active",
           description: (
             <div className="space-y-2">
               <p className="font-medium">Notificările sunt acum active!</p>
@@ -303,7 +303,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         
         // Toast refuz modern
         toast({
-          title: "😔 Notificări dezactivate",
+          title: "Notificări dezactivate",
           description: (
             <div className="space-y-2">
               <p>Nu vei primi notificări despre evenimente importante.</p>
@@ -324,7 +324,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       setShowPermissionDialog(false);
       
       toast({
-        title: "⚠️ Eroare",
+        title: "Eroare",
         description: "Nu am putut activa notificările. Te rugăm să încerci din nou.",
         variant: "destructive",
       });
@@ -413,7 +413,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         // Notificare de bun venit
         try {
           if ('showNotification' in registration) {
-            await registration.showNotification('Notificări activate! 🎉', {
+            await registration.showNotification('Notificări activate', {
               body: 'Bine ai venit! Vei primi notificări despre evenimente importante din comună.',
               icon: '/icon-192x192.png',
               badge: '/icon-192x192.png',
@@ -545,7 +545,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
                 </div>
                 
                 <DialogTitle className="text-lg font-bold text-white text-center mb-1">
-                  Activează notificările 🔔
+                  Activează notificările
                 </DialogTitle>
                 <DialogDescription className="text-center text-gray-300 text-sm">
                   Fii mereu la curent cu noutățile din comună
