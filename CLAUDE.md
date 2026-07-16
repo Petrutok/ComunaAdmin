@@ -28,7 +28,7 @@ CI (`.github/workflows/ci.yml`) runs typecheck + tests on every PR to main.
 
 ### Two authentication worlds
 
-- **Staff** (`contexts/AdminAuthContext.tsx`): Firebase Auth + `users/{uid}` doc with `role: 'admin'|'employee'` and `active: true`. The `users` doc is REQUIRED - API routes and Firestore rules check it; the hardcoded AUTHORIZED_ADMINS list is only a client-side login fallback.
+- **Staff** (`contexts/AdminAuthContext.tsx`): Firebase Auth + `users/{uid}` doc with `role: 'admin'|'employee'` and `active: true`. The `users` doc is REQUIRED - API routes and Firestore rules check it; the hardcoded AUTHORIZED_ADMINS list is only a client-side login fallback. New staff are onboarded via `POST /api/admin/users` (admin-only): it creates the Firebase Auth account and the `users/{uid}` doc keyed by the real Auth uid, then the admin page sends a password-reset email so the new user sets their password. The `users` doc MUST be keyed by the Auth uid (both `getUserRole` and `verifyStaffRequest` look it up by uid) - never by a mangled email.
 - **Citizens** (`contexts/CitizenAuthContext.tsx`): Firebase Auth + `citizens/{uid}` profile. Email verification is sent but non-blocking. Required for adeverinte and appointments; optional (but linking) for cereri/sesizari.
 
 ### Server-side security model (lib/api-auth.ts)
