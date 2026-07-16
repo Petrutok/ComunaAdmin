@@ -91,7 +91,7 @@ export function ControlCenterNav() {
       )}
 
       {/* Navigation Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-9 gap-3">
+      <div className="grid grid-cols-3 md:grid-cols-6 lg:grid-cols-9 gap-2">
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = pathname === item.href;
@@ -99,11 +99,11 @@ export function ControlCenterNav() {
           return (
             <Link key={item.href} href={item.href}>
               <Card className={`bg-gradient-to-br ${item.gradient} ${item.border} ${isActive ? 'ring-2 ring-white/20' : ''} transition-all cursor-pointer group`}>
-                <CardContent className="p-4 flex flex-col items-center text-center">
-                  <div className={`${item.iconBg} rounded-lg p-3 mb-2 group-hover:scale-110 transition-transform`}>
-                    <Icon className={`h-6 w-6 ${item.iconColor}`} />
+                <CardContent className="p-2.5 flex flex-col items-center text-center">
+                  <div className={`${item.iconBg} rounded-lg p-2 mb-1.5 group-hover:scale-110 transition-transform`}>
+                    <Icon className={`h-5 w-5 ${item.iconColor}`} />
                   </div>
-                  <p className="text-sm font-medium text-white">{item.label}</p>
+                  <p className="text-xs font-medium text-white leading-tight">{item.label}</p>
                 </CardContent>
               </Card>
             </Link>
