@@ -7,6 +7,7 @@ import { getAdminDb, getAdminBucket } from '@/lib/firebase-admin';
 import { verifyStaffRequest } from '@/lib/api-auth';
 import { generateRegistruNumberAdmin } from '@/lib/generateRegistruNumberAdmin';
 import { generateRaspunsPDF } from '@/lib/pdf/generateRaspunsPDF';
+import { loadStemaDataUrl } from '@/lib/pdf/antet';
 import { resolveSemnatari } from '@/lib/pdf/semnatari-server';
 import { sendPushToUid } from '@/lib/push';
 import { notifyCitizenStatusChange } from '@/lib/notify-status';
@@ -180,6 +181,7 @@ export async function POST(request: NextRequest) {
     const qrPngDataUrl = await QRCode.toDataURL(verifyUrl, { margin: 1, width: 300 });
 
     // --- PDF
+    const stemaDataUrl = await loadStemaDataUrl();
     const pdfBuffer = generateRaspunsPDF({
       numarIesire,
       dataEmiterii: emisLa,
@@ -189,6 +191,7 @@ export async function POST(request: NextRequest) {
       localitate: settings.localitate || TENANT.antetOficial,
       judet: settings.judet || TENANT.judet,
       semnaturaPngDataUrl,
+      stemaDataUrl,
       secretar,
       intocmit,
       qrPngDataUrl,

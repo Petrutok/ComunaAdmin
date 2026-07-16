@@ -5,6 +5,7 @@
 
 import { jsPDF } from 'jspdf';
 import { renderSemnatari, SemnatarInfo } from './semnatari';
+import { drawAntet } from './antet';
 
 export interface AdeverintaPdfInput {
   numarIesire: string;        // ex: REG-2026-000042 (numar de iesire)
@@ -16,6 +17,7 @@ export interface AdeverintaPdfInput {
   localitate: string;         // header line, ex: "PRIMARIA COMUNEI FILIPESTI"
   judet: string;              // ex: "Judetul Bacau"
   semnaturaPngDataUrl?: string | null; // primar's scanned signature+stamp image
+  stemaDataUrl?: string | null;        // coat of arms for the letterhead
   // Optional extra signers (avizare circuit): rendered only when present
   secretar?: SemnatarInfo | null;
   intocmit?: SemnatarInfo | null;
@@ -36,21 +38,15 @@ export function generateAdeverintaPDF(input: AdeverintaPdfInput): Buffer {
   const pageWidth = pdf.internal.pageSize.getWidth();
   const margin = 20;
   const contentWidth = pageWidth - 2 * margin;
-  let y = margin;
 
-  // --- Antet
-  pdf.setFont('helvetica', 'bold');
-  pdf.setFontSize(13);
-  pdf.text(removeDiacritics('ROMANIA'), pageWidth / 2, y, { align: 'center' });
-  y += 6;
-  pdf.text(removeDiacritics(input.judet.toUpperCase()), pageWidth / 2, y, { align: 'center' });
-  y += 6;
-  pdf.setFontSize(14);
-  pdf.text(removeDiacritics(input.localitate.toUpperCase()), pageWidth / 2, y, { align: 'center' });
-  y += 5;
-  pdf.setLineWidth(0.5);
-  pdf.line(margin, y, pageWidth - margin, y);
-  y += 8;
+  // --- Antet oficial (stemă + identitate instituție)
+  let y = drawAntet(pdf, {
+    pageWidth,
+    margin,
+    stemaDataUrl: input.stemaDataUrl,
+    antetOficial: input.localitate,
+    judet: input.judet,
+  });
 
   // --- Numar de iesire + data
   pdf.setFont('helvetica', 'normal');

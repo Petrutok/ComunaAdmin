@@ -1,5 +1,6 @@
 import jsPDF from 'jspdf';
 import { TENANT } from '@/lib/tenant';
+import { drawAntet, loadStemaDataUrl } from '@/lib/pdf/antet';
 import { REQUEST_CONFIGS } from '@/lib/request-configs';
 import type { RequestData } from '@/lib/request-configs';
 
@@ -49,18 +50,9 @@ export async function generatePDF(data: RequestData): Promise<Blob> {
     return y;
   };
 
-  // ANTET INSTITUȚIE (per-tenant, from lib/tenant.ts)
-  pdf.setFontSize(14);
-  pdf.setFont('helvetica', 'bold');
-  pdf.text(removeDiacritics(TENANT.antetOficial), pageWidth / 2, yPosition, { align: 'center' });
-  yPosition += 6;
-
-  pdf.setFontSize(10);
-  pdf.setFont('helvetica', 'normal');
-  pdf.text(removeDiacritics(TENANT.judet), pageWidth / 2, yPosition, { align: 'center' });
-  yPosition += 5;
-  pdf.text(removeDiacritics(`Tel: ${TENANT.telefon} | Email: ${TENANT.email}`), pageWidth / 2, yPosition, { align: 'center' });
-  yPosition += 10;
+  // ANTET INSTITUȚIE (stemă + identitate instituție, per-tenant)
+  const stemaDataUrl = await loadStemaDataUrl();
+  yPosition = drawAntet(pdf, { pageWidth, margin, stemaDataUrl });
 
   // Număr înregistrare și dată
   pdf.setFontSize(10);

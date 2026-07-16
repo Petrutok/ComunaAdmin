@@ -26,6 +26,7 @@ export const TENANT = {
 
   /** Public contact shown on documents and pages */
   telefon: process.env.NEXT_PUBLIC_TENANT_TELEFON || '0234/256.789',
+  fax: process.env.NEXT_PUBLIC_TENANT_FAX || '',
   email: process.env.NEXT_PUBLIC_TENANT_EMAIL || 'contact@primariafilipesti.ro',
 
   /** Production URL of this tenant's deployment */

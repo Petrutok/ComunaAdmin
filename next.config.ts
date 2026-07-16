@@ -7,6 +7,14 @@ const nextConfig = {
   // wrong workspace root (breaks dev config propagation) - pin it here
   outputFileTracingRoot: __dirname,
 
+  // Bundle the coat of arms into the PDF-generating serverless functions so
+  // the official letterhead (lib/pdf/antet.ts) can read it from disk on Vercel.
+  outputFileTracingIncludes: {
+    '/api/emite-adeverinta': ['./public/stema.png'],
+    '/api/emite-raspuns': ['./public/stema.png'],
+    '/api/download-cerere': ['./public/stema.png'],
+  },
+
   // REMOVED: output: 'export' - Need API routes for IMAP email fetching
   // If you need static export for mobile, you can build separately or use ISR
 
