@@ -207,15 +207,15 @@ export default function AdminJobsPage() {
   return (
     <div className="space-y-6 p-6 bg-slate-900 min-h-screen">
       {/* Header */}
-      <div className="flex items-center justify-between bg-gradient-to-r from-slate-800 to-slate-800/50 p-6 rounded-xl border border-slate-700/50 shadow-lg">
+      <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-3xl font-bold text-white flex items-center gap-3">
-            <div className="bg-amber-500/30 rounded-xl p-3 border border-amber-500/20">
-              <Briefcase className="h-8 w-8 text-amber-500" />
+          <h1 className="text-2xl font-bold text-white flex items-center gap-2.5">
+            <div className="bg-amber-500/15 rounded-lg p-2">
+              <Briefcase className="h-5 w-5 text-amber-400" />
             </div>
             Moderare Joburi
           </h1>
-          <p className="text-gray-300 mt-2 text-lg">
+          <p className="text-sm text-gray-400 mt-1">
             Gestionează ofertele de muncă publicate
           </p>
         </div>
