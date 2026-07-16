@@ -97,6 +97,7 @@ import {
 // - clasat: filed without response - anonymous/duplicate petition (art. 7)
 type CerereStatus =
   | 'noua'
+  | 'repartizata'
   | 'in_lucru'
   | 'necesita_completare'
   | 'prelungit'
@@ -167,6 +168,14 @@ const statusConfig = {
     textColor: 'text-blue-300',
     bgColor: 'bg-blue-500/20',
     borderColor: 'border-blue-400/30',
+  },
+  'repartizata': {
+    label: 'Repartizată',
+    icon: UserPlus,
+    color: 'bg-violet-600',
+    textColor: 'text-violet-300',
+    bgColor: 'bg-violet-500/20',
+    borderColor: 'border-violet-400/30',
   },
   'in_lucru': {
     label: 'În lucru',
@@ -516,7 +525,7 @@ export default function AdminCereriPage() {
   });
 
   // Statuses that still need action from the assignee
-  const OPEN_STATUSES: CerereStatus[] = ['noua', 'in_lucru', 'necesita_completare', 'prelungit'];
+  const OPEN_STATUSES: CerereStatus[] = ['noua', 'repartizata', 'in_lucru', 'necesita_completare', 'prelungit'];
 
   // Badge count for "Ale mele": my assigned cereri still needing action
   useEffect(() => {
@@ -959,7 +968,7 @@ export default function AdminCereriPage() {
   };
 
   const getStatusBadge = (status: CerereStatus) => {
-    const config = statusConfig[status];
+    const config = statusConfig[status] || statusConfig['noua'];
     const Icon = config.icon;
     return (
       <Badge
@@ -1826,7 +1835,11 @@ export default function AdminCereriPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="bg-slate-800 border-slate-700">
-                  {(Object.keys(statusConfig) as CerereStatus[]).map((status) => {
+                  {/* 'repartizata' is set by the system (auto-repartizare), not
+                      chosen manually - the schimba-status API rejects it. */}
+                  {(Object.keys(statusConfig) as CerereStatus[])
+                    .filter((status) => status !== 'repartizata')
+                    .map((status) => {
                     const config = statusConfig[status];
                     const StatusIcon = config.icon;
                     return (

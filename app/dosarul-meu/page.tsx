@@ -80,6 +80,7 @@ interface MyAppointment {
 // (cereri: noua/in_lucru/rezolvat/respins; issues: noua/in_lucru/rezolvata)
 const STATUS_BADGE: Record<string, { label: string; className: string; icon: typeof Clock }> = {
   noua: { label: 'În așteptare', className: 'bg-blue-500/20 text-blue-300 border-blue-400/30', icon: Clock },
+  repartizata: { label: 'În lucru', className: 'bg-amber-500/20 text-amber-300 border-amber-400/30', icon: Hammer },
   in_lucru: { label: 'În lucru', className: 'bg-amber-500/20 text-amber-300 border-amber-400/30', icon: Hammer },
   necesita_completare: { label: 'Necesită completare', className: 'bg-orange-500/20 text-orange-300 border-orange-400/30', icon: FilePlus },
   prelungit: { label: 'Termen prelungit', className: 'bg-purple-500/20 text-purple-300 border-purple-400/30', icon: CalendarClock },
