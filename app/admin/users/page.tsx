@@ -11,13 +11,13 @@ import {
   query,
   getDocs,
   doc,
-  setDoc,
   updateDoc,
   deleteDoc,
   orderBy,
   Timestamp,
 } from 'firebase/firestore';
-import { db, storage, COLLECTIONS } from '@/lib/firebase';
+import { sendPasswordResetEmail } from 'firebase/auth';
+import { db, auth, storage, COLLECTIONS } from '@/lib/firebase';
 import { ref, uploadBytes } from 'firebase/storage';
 import { Department, User, UserFormData, UserRole } from '@/types/departments';
 import {
@@ -182,20 +182,38 @@ export default function UsersPage() {
           description: "Utilizatorul a fost actualizat",
         });
       } else {
-        // Create new user (use email as document ID for simplicity)
-        const userId = formData.email.replace(/[@.]/g, '_');
-        await setDoc(doc(db, COLLECTIONS.USERS, userId), {
-          email: formData.email.trim().toLowerCase(),
-          fullName: formData.fullName.trim(),
-          role: formData.role,
-          departmentId: formData.departmentId || null,
-          active: formData.active,
-          createdAt: Timestamp.now(),
+        // Create a real staff member: the server creates the Firebase Auth
+        // account and the users/{uid} doc keyed by the Auth uid (both
+        // AdminAuthContext and the API routes look users up by uid).
+        const idToken = await auth.currentUser?.getIdToken();
+        const response = await fetch('/api/admin/users', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(idToken ? { Authorization: `Bearer ${idToken}` } : {}),
+          },
+          body: JSON.stringify({
+            email: formData.email.trim().toLowerCase(),
+            fullName: formData.fullName.trim(),
+            role: formData.role,
+            departmentId: formData.departmentId || null,
+          }),
         });
+        const result = await response.json();
+        if (!response.ok || !result.success) {
+          throw new Error(result.error || 'Nu s-a putut crea utilizatorul');
+        }
+
+        // Let the new user set their own password via the standard reset flow.
+        try {
+          await sendPasswordResetEmail(auth, formData.email.trim().toLowerCase());
+        } catch (mailError) {
+          console.error('Error sending set-password email:', mailError);
+        }
 
         toast({
-          title: "Succes",
-          description: "Utilizatorul a fost creat",
+          title: "Utilizator creat",
+          description: "I-am trimis pe email un link pentru setarea parolei.",
         });
       }
 
@@ -206,7 +224,7 @@ export default function UsersPage() {
       console.error('Error saving user:', error);
       toast({
         title: "Eroare",
-        description: "Nu s-a putut salva utilizatorul",
+        description: error instanceof Error ? error.message : "Nu s-a putut salva utilizatorul",
         variant: "destructive",
       });
     }
