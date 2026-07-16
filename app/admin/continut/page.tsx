@@ -3,7 +3,7 @@
 // Admin -> Conținut: editable public content (events, ongoing works,
 // council members, waste-calendar link). One generic CRUD driven by
 // per-collection field schemas - public pages read these collections and
-// fall back to built-in defaults while a collection is empty.
+// show a neutral empty state while a collection is empty.
 
 import { useEffect, useState } from 'react';
 import {
@@ -31,6 +31,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import {
   Select,
   SelectContent,
@@ -145,6 +155,7 @@ export default function AdminContinutPage() {
   const [activeSection, setActiveSection] = useState('evenimente');
 
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<any>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<Record<string, any>>({});
   const [saving, setSaving] = useState(false);
@@ -243,15 +254,18 @@ export default function AdminContinutPage() {
     }
   };
 
-  const handleDelete = async (item: any) => {
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
     const section = SECTIONS[activeSection];
     try {
-      await deleteDoc(doc(db, section.collection, item.id));
+      await deleteDoc(doc(db, section.collection, deleteTarget.id));
       toast({ title: 'Șters' });
       loadAll();
     } catch (error) {
       console.error('Error deleting content:', error);
       toast({ title: 'Eroare', description: 'Ștergerea a eșuat.', variant: 'destructive' });
+    } finally {
+      setDeleteTarget(null);
     }
   };
 
@@ -334,7 +348,7 @@ export default function AdminContinutPage() {
                       <Button size="sm" variant="ghost" onClick={() => openEdit(item)} className="text-gray-300 hover:text-white hover:bg-slate-700">
                         <Pencil className="h-4 w-4" />
                       </Button>
-                      <Button size="sm" variant="ghost" onClick={() => handleDelete(item)} className="text-rose-300 hover:text-rose-200 hover:bg-rose-600/20">
+                      <Button size="sm" variant="ghost" onClick={() => setDeleteTarget(item)} className="text-rose-300 hover:text-rose-200 hover:bg-rose-600/20">
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
@@ -451,6 +465,25 @@ export default function AdminContinutPage() {
         </DialogContent>
       </Dialog>
       )}
+
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <AlertDialogContent className="bg-slate-800 border-slate-700">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-white">Șterge acest element?</AlertDialogTitle>
+            <AlertDialogDescription className="text-gray-400">
+              {deleteTarget
+                ? `„${deleteTarget[SECTIONS[activeSection].titleKey] || 'Element'}” va fi șters definitiv de pe site. Această acțiune nu poate fi anulată.`
+                : ''}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Anulează</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-rose-600 hover:bg-rose-700">
+              Șterge
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

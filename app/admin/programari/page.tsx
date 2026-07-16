@@ -8,6 +8,16 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { CalendarClock, Loader2, Phone, CheckCircle, XCircle, ChevronLeft, ChevronRight } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Appointment, SERVICE_CONFIG, nextWorkingDays } from '@/types/appointments';
 
 export default function AdminProgramariPage() {
@@ -19,6 +29,7 @@ export default function AdminProgramariPage() {
   const [dayIndex, setDayIndex] = useState(0);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
+  const [cancelTarget, setCancelTarget] = useState<Appointment | null>(null);
 
   const selectedDay = allDays[dayIndex];
 
@@ -153,7 +164,7 @@ export default function AdminProgramariPage() {
                           <Button
                             size="sm"
                             variant="outline"
-                            onClick={() => setStatus(appt, 'anulata')}
+                            onClick={() => setCancelTarget(appt)}
                             className="border-red-500/40 text-red-300 hover:bg-red-900/20"
                           >
                             <XCircle className="mr-1.5 h-4 w-4" /> Anulează
@@ -172,6 +183,31 @@ export default function AdminProgramariPage() {
           })}
         </div>
       )}
+
+      <AlertDialog open={!!cancelTarget} onOpenChange={(open) => !open && setCancelTarget(null)}>
+        <AlertDialogContent className="bg-slate-800 border-slate-700">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-white">Anulezi programarea?</AlertDialogTitle>
+            <AlertDialogDescription className="text-gray-400">
+              {cancelTarget
+                ? `Programarea lui ${cancelTarget.nume || 'cetățean'} va fi anulată, iar intervalul orar va redeveni disponibil. Această acțiune nu poate fi anulată.`
+                : ''}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Renunță</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (cancelTarget) setStatus(cancelTarget, 'anulata');
+                setCancelTarget(null);
+              }}
+              className="bg-rose-600 hover:bg-rose-700"
+            >
+              Anulează programarea
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
