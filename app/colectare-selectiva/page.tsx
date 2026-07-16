@@ -44,7 +44,7 @@ export default function ColectareSelectivaPage() {
   // Tenant-specific: the waste operator's published calendar link,
   // editable from Admin -> Conținut (site_settings/colectare)
   const [calendar, setCalendar] = useState({
-    calendarUrl: 'https://somabacau.ro/wp-content/uploads/2025/01/Filipesti2025-modificat.png',
+    calendarUrl: '',
     calendarLabel: 'Descarcă Calendar',
   });
 
@@ -226,16 +226,22 @@ export default function ColectareSelectivaPage() {
               <p className="text-gray-300 mb-3">
                 Consultați programul complet cu zilele de colectare pentru fiecare tip de deșeu, organizat pe zone și tipuri de locuințe.
               </p>
-              <a
-                href={calendar.calendarUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 bg-white text-slate-900 hover:bg-gray-100 font-semibold shadow-md hover:shadow-xl transition-all duration-200 px-5 py-2.5 rounded-lg"
-              >
-                <FileText className="h-5 w-5" />
-                <span>{calendar.calendarLabel}</span>
-                <ExternalLink className="h-4 w-4" />
-              </a>
+              {calendar.calendarUrl ? (
+                <a
+                  href={calendar.calendarUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 bg-white text-slate-900 hover:bg-gray-100 font-semibold shadow-md hover:shadow-xl transition-all duration-200 px-5 py-2.5 rounded-lg"
+                >
+                  <FileText className="h-5 w-5" />
+                  <span>{calendar.calendarLabel}</span>
+                  <ExternalLink className="h-4 w-4" />
+                </a>
+              ) : (
+                <p className="text-sm text-gray-500 italic">
+                  Calendarul de colectare nu a fost încă publicat.
+                </p>
+              )}
             </div>
           </div>
         </div>

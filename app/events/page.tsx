@@ -28,181 +28,17 @@ import {
 export default function EventsPage() {
   const [selectedMonth, setSelectedMonth] = useState('all');
 
-  // Built-in defaults: shown until the admin publishes events from
-  // Admin -> Conținut (the `events` collection replaces them entirely)
-  const DEFAULT_EVENTS = [
-    {
-      id: 1,
-      title: "Ziua Comunei Filipești",
-      date: "20 iunie 2025",
-      time: "10:00 - 23:00",
-      location: "Stadionul din Filipești",
-      month: "iunie",
-      category: "cultural",
-      icon: PartyPopper,
-      color: "bg-purple-500",
-      borderColor: "border-purple-500",
-      description: "Cea mai mare sărbătoare a anului! Program artistic cu artiști locali și invitați speciali, târg de meșteșugari, activități pentru copii, foc de artificii și multe surprize.",
-      activities: [
-        "Concert muzică populară",
-        "Dansuri tradiționale",
-        "Târg de produse locale",
-        "Concursuri și premii",
-        "Foc de artificii"
-      ]
-    },
-    {
-      id: 2,
-      title: "Balul Gospodarilor",
-      date: "10 septembrie 2025",
-      time: "18:00 - 02:00",
-      location: "Căminul Cultural Filipești",
-      month: "septembrie",
-      category: "social",
-      icon: Trophy,
-      color: "bg-yellow-500",
-      borderColor: "border-yellow-500",
-      description: "Eveniment de premiere a celor mai harnici gospodari din comună. Seară festivă cu muzică live, dans și voie bună.",
-      activities: [
-        "Premierea gospodarilor",
-        "Muzică live",
-        "Cină festivă",
-        "Tombolă cu premii",
-        "DJ și muzică de dans"
-      ]
-    },
-    {
-      id: 3,
-      title: "Sărbătoarea Învierii - Paște",
-      date: "20 aprilie 2025",
-      time: "00:00 - 03:00",
-      location: "Biserica din Filipești",
-      month: "aprilie",
-      category: "religios",
-      icon: Church,
-      color: "bg-red-500",
-      borderColor: "border-red-500",
-      description: "Slujba de Înviere și procesiune cu lumânări. După slujbă, toți credincioșii sunt invitați să ia lumină și să ciocnească ouă roșii.",
-      activities: [
-        "Slujba de Înviere",
-        "Procesiune cu lumânări",
-        "Împărțirea luminii sfinte",
-        "Ciocnirea ouălor",
-        "Agapă frățească"
-      ]
-    },
-    {
-      id: 4,
-      title: "Ziua Copilului",
-      date: "1 iunie 2025", 
-      time: "10:00 - 18:00",
-      location: "Parcul Central Filipești",
-      month: "iunie",
-      category: "familie",
-      icon: Baby,
-      color: "bg-pink-500",
-      borderColor: "border-pink-500",
-      description: "O zi plină de distracție pentru cei mici! Teatru de păpuși, concursuri, ateliere creative, gonflabile și multe surprize dulci.",
-      activities: [
-        "Teatru de păpuși",
-        "Pictura pe față",
-        "Gonflabile și tobogane",
-        "Ateliere creative",
-        "Concurs de talente"
-      ]
-    },
-    {
-      id: 5,
-      title: "Festivalul Toamnei",
-      date: "15 octombrie 2025",
-      time: "12:00 - 20:00",
-      location: "Piața Centrală",
-      month: "octombrie",
-      category: "cultural",
-      icon: Flower2,
-      color: "bg-orange-500",
-      borderColor: "border-orange-500",
-      description: "Sărbătorim bogăția toamnei cu expoziție de produse agricole, degustări de vinuri și preparate tradiționale, muzică populară.",
-      activities: [
-        "Expoziție produse agricole",
-        "Degustare vinuri locale",
-        "Preparate tradiționale",
-        "Muzică populară live",
-        "Târg de toamnă"
-      ]
-    },
-    {
-      id: 6,
-      title: "Ziua Femeii",
-      date: "8 martie 2025",
-      time: "17:00 - 22:00",
-      location: "Căminul Cultural Cârligi",
-      month: "martie",
-      category: "social",
-      icon: Heart,
-      color: "bg-rose-500",
-      borderColor: "border-rose-500",
-      description: "Eveniment dedicat tuturor femeilor din comună. Spectacol artistic, flori și surprize pentru toate doamnele și domnișoarele.",
-      activities: [
-        "Program artistic",
-        "Momente poetice",
-        "Muzică și dans",
-        "Flori pentru toate doamnele",
-        "Cocktail festiv"
-      ]
-    },
-    {
-      id: 7,
-      title: "Serbarea Pomului de Crăciun",
-      date: "20 decembrie 2025",
-      time: "16:00 - 20:00",
-      location: "Casa de Cultură Filipești",
-      month: "decembrie",
-      category: "familie",
-      icon: TreePine,
-      color: "bg-green-500",
-      borderColor: "border-green-500",
-      description: "Moș Crăciun vine în comună! Spectacol de colinde, împărțirea cadourilor și aprinderea luminițelor în bradul din centru.",
-      activities: [
-        "Sosirea lui Moș Crăciun",
-        "Concert de colinde",
-        "Împărțirea cadourilor",
-        "Aprinderea bradului",
-        "Ciocolată caldă gratuită"
-      ]
-    },
-    {
-      id: 8,
-      title: "Ziua Națională a României",
-      date: "1 decembrie 2025",
-      time: "11:00 - 14:00",
-      location: "Monumentul Eroilor",
-      month: "decembrie",
-      category: "oficial",
-      icon: Sparkles,
-      color: "bg-blue-500",
-      borderColor: "border-blue-500",
-      description: "Ceremonial militar și religios de Ziua Națională. Depuneri de coroane, defilare și program artistic patriotic.",
-      activities: [
-        "Ceremonial militar",
-        "Depuneri de coroane",
-        "Intonarea imnului",
-        "Program artistic",
-        "Recepție oficială"
-      ]
-    }
-  ];
 
-  const [events, setEvents] = useState<any[]>(DEFAULT_EVENTS);
+  const [events, setEvents] = useState<any[]>([]);
+  const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
     getDocs(collection(db, 'events'))
       .then((snap) => {
-        if (!snap.empty) {
-          setEvents(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
-        }
+        setEvents(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
       })
-      .catch((error) => console.error('Error loading events:', error));
+      .catch((error) => console.error('Error loading events:', error))
+      .finally(() => setLoaded(true));
   }, []);
 
   // Month filter derived from whatever events exist
@@ -261,7 +97,7 @@ export default function EventsPage() {
           </div>
           
           <h1 className="text-3xl md:text-4xl font-bold text-white mb-2">
-            Evenimente 2025
+            Evenimente
           </h1>
           
           <p className="text-lg text-gray-300 max-w-2xl mx-auto">
@@ -277,7 +113,7 @@ export default function EventsPage() {
           </div>
           <div className="w-px bg-gray-700"></div>
           <div className="text-center">
-            <p className="text-2xl font-bold text-white">6</p>
+            <p className="text-2xl font-bold text-white">{months.length - 1}</p>
             <p className="text-sm text-gray-400">Luni cu evenimente</p>
           </div>
         </div>
@@ -375,6 +211,18 @@ export default function EventsPage() {
           })}
         </div>
 
+        {/* Empty State */}
+        {loaded && filteredEvents.length === 0 && (
+          <Card className="bg-slate-800 border-slate-700 text-center py-12 mb-8">
+            <CardContent>
+              <Calendar className="h-12 w-12 text-gray-600 mx-auto mb-4" />
+              <p className="text-gray-400">
+                Nu au fost publicate încă evenimente. Reveniți în curând.
+              </p>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Info Section */}
         <div className="bg-orange-500/10 border border-orange-500/30 rounded-xl p-6">
           <div className="flex items-start gap-3">
@@ -384,7 +232,7 @@ export default function EventsPage() {
                 Participă la evenimentele comunei!
               </h3>
               <p className="text-gray-300">
-                Toate evenimentele sunt organizate de Primăria Filipești și partenerii locali. 
+                Toate evenimentele sunt organizate de primărie și partenerii locali.
                 Intrarea este liberă la majoritatea evenimentelor. Pentru detalii suplimentare 
                 și eventuale modificări de program, urmăriți site-ul primăriei și paginile de social media.
               </p>

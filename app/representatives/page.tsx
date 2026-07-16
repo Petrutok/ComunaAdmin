@@ -9,119 +9,23 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Search, Users, Mail, Phone, User, UserCircle, Home } from 'lucide-react';
 
-// Built-in defaults: replaced by the `representatives` collection when the
-// admin publishes the real council list from Admin -> Conținut
-const DEFAULT_MEMBERS = [
-  { 
-    name: "Rusu Constantin", 
-    affiliation: "PNL",
-    email: "x@gmail.com",
-    phone: "07xx.xxx.xxx",
-    gender: "male"
-  },
-  { 
-    name: "Aanei Adrian Gabriel", 
-    affiliation: "PNL",
-    email: "x@gmail.com",
-    phone: "07xx.xxx.xxx",
-    gender: "male"
-  },
-  { 
-    name: "Asaftei Dumitru", 
-    affiliation: "PNL",
-    email: "x@gmail.com",
-    phone: "07xx.xxx.xxx",
-    gender: "male"
-  },
-  { 
-    name: "Borșan Virgil", 
-    affiliation: "PNL",
-    email: "x@gmail.com",
-    phone: "07xx.xxx.xxx",
-    gender: "male"
-  },
-  { 
-    name: "David Amalia", 
-    affiliation: "PNL",
-    email: "x@gmail.com",
-    phone: "07xx.xxx.xxx",
-    gender: "female"
-  },
-  { 
-    name: "Tutu Ionela", 
-    affiliation: "PNL",
-    email: "x@gmail.com",
-    phone: "07xx.xxx.xxx",
-    gender: "female"
-  },
-  { 
-    name: "Netu Alin Constantin", 
-    affiliation: "PSD",
-    email: "x@gmail.com",
-    phone: "07xx.xxx.xxx",
-    gender: "male"
-  },
-  { 
-    name: "Ouatu Marinică", 
-    affiliation: "PNL",
-    email: "x@gmail.com",
-    phone: "07xx.xxx.xxx",
-    gender: "male"
-  },
-  { 
-    name: "Buchir Costel", 
-    affiliation: "INDEPENDENT",
-    email: "x@gmail.com",
-    phone: "07xx.xxx.xxx",
-    gender: "male"
-  },
-  { 
-    name: "Leoreanu Costel", 
-    affiliation: "PNL",
-    email: "x@gmail.com",
-    phone: "07xx.xxx.xxx",
-    gender: "male"
-  },
-  { 
-    name: "Leonte Costel", 
-    affiliation: "PSD",
-    email: "x@gmail.com",
-    phone: "07xx.xxx.xxx",
-    gender: "male"
-  },
-  { 
-    name: "Radu Ciprian Vasile", 
-    affiliation: "PNL",
-    email: "x@gmail.com",
-    phone: "07xx.xxx.xxx",
-    gender: "male"
-  },
-  { 
-    name: "Caibulea Constantin", 
-    affiliation: "PSD",
-    email: "x@gmail.com",
-    phone: "07xx.xxx.xxx",
-    gender: "male"
-  },
-];
-
 export default function CouncilPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedAffiliation, setSelectedAffiliation] = useState('all');
-  const [members, setMembers] = useState<any[]>(DEFAULT_MEMBERS);
+  const [members, setMembers] = useState<any[]>([]);
+  const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
     getDocs(collection(db, 'representatives'))
       .then((snap) => {
-        if (!snap.empty) {
-          setMembers(
-            snap.docs
-              .map((d) => ({ id: d.id, ...d.data() } as any))
-              .sort((a, b) => (a.name || '').localeCompare(b.name || '', 'ro'))
-          );
-        }
+        setMembers(
+          snap.docs
+            .map((d) => ({ id: d.id, ...d.data() } as any))
+            .sort((a, b) => (a.name || '').localeCompare(b.name || '', 'ro'))
+        );
       })
-      .catch((error) => console.error('Error loading representatives:', error));
+      .catch((error) => console.error('Error loading representatives:', error))
+      .finally(() => setLoaded(true));
   }, []);
 
   const affiliations = ['all', ...new Set(members.map(member => member.affiliation))];
@@ -249,24 +153,28 @@ export default function CouncilPage() {
         </div>
 
         {/* Empty State */}
-        {filteredMembers.length === 0 && (
+        {loaded && filteredMembers.length === 0 && (
           <Card className="text-center py-12 bg-slate-800/50 border-slate-700">
             <CardContent>
               <Users className="h-12 w-12 text-gray-600 mx-auto mb-4" />
               <p className="text-gray-400">
-                Nu s-au găsit membri care să corespundă criteriilor de căutare.
+                {members.length === 0
+                  ? 'Informațiile despre consilierii locali nu au fost încă publicate.'
+                  : 'Nu s-au găsit membri care să corespundă criteriilor de căutare.'}
               </p>
             </CardContent>
           </Card>
         )}
 
         {/* Stats Footer */}
+        {members.length > 0 && (
         <div className="mt-8 text-center text-sm text-gray-500">
-          Total: {members.length} consilieri locali • 
-          PNL: {members.filter(m => m.affiliation === 'PNL').length} • 
-          PSD: {members.filter(m => m.affiliation === 'PSD').length} • 
+          Total: {members.length} consilieri locali •
+          PNL: {members.filter(m => m.affiliation === 'PNL').length} •
+          PSD: {members.filter(m => m.affiliation === 'PSD').length} •
           Independenți: {members.filter(m => m.affiliation === 'INDEPENDENT').length}
         </div>
+        )}
       </div>
     </div>
   );
