@@ -33,10 +33,14 @@ import {
   AlertCircle,
   Eye,
   FileText,
+  Globe,
   Loader2,
+  Mail,
+  Package,
   Paperclip,
   Plus,
   Printer,
+  ScrollText,
   Send,
   Trash2,
 } from 'lucide-react';
@@ -612,9 +616,10 @@ ${row('Observații', documentReg.observatii)}
               </Button>
               <Button
                 onClick={() => setShowExportAnDialog(true)}
-                className="bg-blue-700 hover:bg-blue-600 text-white font-medium"
+                className="bg-blue-700 hover:bg-blue-600 text-white font-medium inline-flex items-center gap-2"
               >
-                📦 Export an
+                <Package className="h-4 w-4" />
+                Export an
               </Button>
               <LiveIndicator fromCache={fromCache} />
             </div>
@@ -728,11 +733,11 @@ ${row('Observații', documentReg.observatii)}
                           doc.status !== 'finalizat' &&
                           !!doc.termen &&
                           doc.termen.toMillis() < Date.now();
-                        const sursaIcon =
-                          doc.sursa === 'email' ? '📧 ' :
-                          doc.sursa === 'cerere_online' ? '🌐 ' :
-                          doc.sursa === 'adeverinta' ? '📜 ' :
-                          doc.sursa === 'raspuns' ? '✉️ ' : '';
+                        const SursaIcon =
+                          doc.sursa === 'email' ? Mail :
+                          doc.sursa === 'cerere_online' ? Globe :
+                          doc.sursa === 'adeverinta' ? ScrollText :
+                          doc.sursa === 'raspuns' ? Send : null;
 
                         return (
                           <TableRow
@@ -761,7 +766,10 @@ ${row('Observații', documentReg.observatii)}
                               {doc.dataExterna?.substring(0, 10) || '-'}
                             </TableCell>
                             <TableCell className="text-gray-300 truncate px-2 py-2 text-sm flex-1 min-w-32">
-                              {sursaIcon}{doc.emitent}
+                              <span className="inline-flex items-center gap-1.5">
+                                {SursaIcon && <SursaIcon className="h-3.5 w-3.5 text-gray-500 flex-shrink-0" />}
+                                {doc.emitent}
+                              </span>
                             </TableCell>
                             <TableCell className="text-gray-300 truncate px-2 py-2 text-sm flex-1 min-w-32">
                               {doc.destinatar}
@@ -882,7 +890,10 @@ ${row('Observații', documentReg.observatii)}
       <Dialog open={showExportAnDialog} onOpenChange={setShowExportAnDialog}>
         <DialogContent className="bg-slate-800 border-slate-700">
           <DialogHeader>
-            <DialogTitle className="text-white">📦 Export registru pentru arhivare</DialogTitle>
+            <DialogTitle className="text-white flex items-center gap-2">
+              <Package className="h-5 w-5" />
+              Export registru pentru arhivare
+            </DialogTitle>
           </DialogHeader>
 
           <p className="text-sm text-gray-400">
@@ -963,8 +974,9 @@ ${row('Observații', documentReg.observatii)}
             className="bg-slate-700 border-slate-600 text-white font-mono text-sm"
           />
           {raspunsText.includes('[ ') && (
-            <p className="text-amber-400 text-sm">
-              ⚠️ Textul mai conține câmpuri necompletate [ ... ]
+            <p className="text-amber-400 text-sm flex items-center gap-1.5">
+              <AlertCircle className="h-4 w-4 flex-shrink-0" />
+              Textul mai conține câmpuri necompletate [ ... ]
             </p>
           )}
 

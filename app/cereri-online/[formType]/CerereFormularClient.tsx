@@ -254,9 +254,8 @@ const handleSubmit = async (e: React.FormEvent) => {
             size: file.size,
             content: base64
           });
-          console.log(`✅ Procesat: ${file.name}`);
         } catch (error) {
-          console.error(`❌ Eroare la procesarea fișierului ${file.name}:`, error);
+          console.error(`Eroare la procesarea fișierului ${file.name}:`, error);
           toast({
             title: "Eroare fișier",
             description: `Nu s-a putut procesa ${file.name}. Elimină-l sau alege alt fișier.`,
@@ -333,8 +332,6 @@ const handleSubmit = async (e: React.FormEvent) => {
     }));
 
    if (result.success) {
-  console.log('✅ Cerere trimisă cu succes!');
-
   // 1. Save email and registration number for the dialog
   setSuccessEmail(formData.email);
   setSuccessRegNumber(result.numarInregistrare || '');
@@ -377,7 +374,7 @@ const handleSubmit = async (e: React.FormEvent) => {
     });
   }, 500);
     } else {
-      console.error('❌ Eroare:', result.error);
+      console.error('Eroare:', result.error);
       toast({
         title: "Eroare",
         description: result.error || "Nu s-a putut trimite cererea",
@@ -385,7 +382,7 @@ const handleSubmit = async (e: React.FormEvent) => {
       });
     }
   } catch (error) {
-    console.error('❌ Error:', error);
+    console.error('Error:', error);
     toast({
       title: "Eroare",
       description: "Eroare de conexiune. Încearcă din nou.",

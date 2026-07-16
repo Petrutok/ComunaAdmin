@@ -567,7 +567,7 @@ export default function ReportIssuePage() {
                 <CheckCircle className="h-12 w-12 text-green-400" />
               </div>
               <DialogTitle className="text-2xl font-bold text-center mb-3 text-white">
-                Problemă Raportată! 🎉
+                Problemă raportată
               </DialogTitle>
               <DialogDescription className="text-center text-base leading-relaxed px-4 text-gray-300">
                 Am primit raportul tău și echipa noastră va analiza problema cât mai repede.

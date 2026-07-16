@@ -1392,8 +1392,9 @@ export default function AdminCereriPage() {
             className="bg-slate-700 border-slate-600 text-white font-mono text-sm"
           />
           {adeverintaText.includes('[ ') && (
-            <p className="text-amber-400 text-sm">
-              ⚠️ Textul mai conține câmpuri necompletate [ ... ]
+            <p className="text-amber-400 text-sm flex items-center gap-1.5">
+              <AlertCircle className="h-4 w-4 flex-shrink-0" />
+              Textul mai conține câmpuri necompletate [ ... ]
             </p>
           )}
 
@@ -1469,8 +1470,9 @@ export default function AdminCereriPage() {
             className="bg-slate-700 border-slate-600 text-white font-mono text-sm"
           />
           {raspunsText.includes('[ ') && (
-            <p className="text-amber-400 text-sm">
-              ⚠️ Textul mai conține câmpuri necompletate [ ... ]
+            <p className="text-amber-400 text-sm flex items-center gap-1.5">
+              <AlertCircle className="h-4 w-4 flex-shrink-0" />
+              Textul mai conține câmpuri necompletate [ ... ]
             </p>
           )}
 
