@@ -419,7 +419,7 @@ export default function AdminCereriPage() {
     data: liveCereri,
     loading,
     fromCache,
-  } = useCollectionSnapshot<Cerere>(liveQuery, mapCerere, [mineOnly, adminUser?.uid]);
+  } = useCollectionSnapshot<Cerere>(liveQuery, mapCerere, [mineOnly, adminUser?.uid], 'cereri');
 
   // Older pages reset whenever the live query changes (mode switch)
   useEffect(() => {

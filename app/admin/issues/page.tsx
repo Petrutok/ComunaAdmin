@@ -114,7 +114,8 @@ export default function AdminIssuesPage() {
   const { data: liveIssues, loading, fromCache } = useCollectionSnapshot<ReportedIssue>(
     liveQuery,
     mapIssue,
-    []
+    [],
+    'issues'
   );
 
   const issues = useMemo(() => {

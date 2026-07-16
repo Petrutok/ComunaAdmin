@@ -120,7 +120,8 @@ export default function AdminRegistruPage() {
   const { data: liveDocuments, loading, fromCache } = useCollectionSnapshot<RegistruDocument>(
     liveQuery,
     mapDocument,
-    []
+    [],
+    'registru'
   );
 
   const documents = useMemo(() => {

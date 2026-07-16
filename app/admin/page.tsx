@@ -160,7 +160,8 @@ export default function AdminDashboard() {
       createdAt: (data.createdAt as any)?.toDate?.() || new Date(),
       href: '/admin/cereri',
     }),
-    [isEmployee]
+    [isEmployee],
+    'dashboard-cereri'
   );
   const { data: recentIssues, fromCache } = useCollectionSnapshot<ActivityItem>(
     recentIssuesQuery,
@@ -173,7 +174,8 @@ export default function AdminDashboard() {
       createdAt: (data.createdAt as any)?.toDate?.() || new Date(),
       href: '/admin/issues',
     }),
-    [isEmployee]
+    [isEmployee],
+    'dashboard-issues'
   );
 
   const activity = useMemo(
@@ -288,7 +290,8 @@ export default function AdminDashboard() {
   const { data: myAssignedEmails } = useCollectionSnapshot<RegistraturaEmail>(
     myEmailsQuery,
     (id, data) => ({ id, ...data }) as RegistraturaEmail,
-    [isEmployee, userId]
+    [isEmployee, userId],
+    'dashboard-my-emails'
   );
 
   const todayLabel = new Date().toLocaleDateString('ro-RO', {
