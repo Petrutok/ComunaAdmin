@@ -230,16 +230,16 @@ export default function DepartmentsPage() {
   return (
     <div className="space-y-6 p-6 bg-slate-900 min-h-screen">
       {/* Header */}
-      <div className="flex items-center justify-between bg-gradient-to-r from-slate-800 to-slate-800/50 p-6 rounded-xl border border-slate-700/50 shadow-lg">
+      <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-3xl font-bold text-white flex items-center gap-3">
-            <div className="bg-purple-500/30 rounded-xl p-3 border border-purple-400/20">
-              <Building2 className="h-8 w-8 text-purple-300" />
+          <h1 className="text-2xl font-bold text-white flex items-center gap-2.5">
+            <div className="bg-purple-500/15 rounded-lg p-2">
+              <Building2 className="h-5 w-5 text-purple-400" />
             </div>
             Departamente
           </h1>
-          <p className="text-gray-300 mt-2 text-lg">
-            <span className="font-semibold text-white">{departments.length}</span> departamente înregistrate
+          <p className="text-sm text-gray-400 mt-1">
+            <span className="font-semibold text-gray-200">{departments.length}</span> departamente înregistrate
           </p>
         </div>
         <Button
@@ -247,7 +247,7 @@ export default function DepartmentsPage() {
             resetForm();
             setShowDialog(true);
           }}
-          className="bg-purple-600 hover:bg-purple-500 text-white font-medium shadow-lg hover:shadow-xl transition-all"
+          className="bg-purple-600 hover:bg-purple-500 text-white font-medium"
         >
           <Plus className="h-4 w-4 mr-2" />
           Departament Nou
