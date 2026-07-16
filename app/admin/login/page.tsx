@@ -6,7 +6,9 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { AlertCircle, Lock, Mail, Shield } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Lock, Mail, Shield } from 'lucide-react';
+import { sendPasswordResetEmail } from 'firebase/auth';
+import { auth } from '@/lib/firebase';
 import { useAdminAuth } from '@/contexts/AdminAuthContext';
 
 export default function AdminLoginPage() {
@@ -14,6 +16,8 @@ export default function AdminLoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [resetSent, setResetSent] = useState(false);
+  const [resetLoading, setResetLoading] = useState(false);
   const router = useRouter();
   const { login, user, isAdmin } = useAdminAuth();
 
@@ -39,6 +43,32 @@ export default function AdminLoginPage() {
     }
   };
 
+  const handlePasswordReset = async () => {
+    setError('');
+    setResetSent(false);
+
+    if (!email) {
+      setError('Introdu adresa de email, apoi apasă „Am uitat parola”.');
+      return;
+    }
+
+    setResetLoading(true);
+    try {
+      await sendPasswordResetEmail(auth, email);
+      // Mesaj neutru: nu confirmăm dacă adresa există (evită enumerarea conturilor)
+      setResetSent(true);
+    } catch (error: any) {
+      if (error?.code === 'auth/invalid-email') {
+        setError('Adresa de email nu este validă.');
+      } else {
+        // Pentru orice altă eroare (inclusiv cont inexistent) arătăm tot mesajul neutru
+        setResetSent(true);
+      }
+    } finally {
+      setResetLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-900 to-slate-800 flex items-center justify-center px-4">
       <Card className="w-full max-w-md bg-slate-800/90 border-slate-700 backdrop-blur-sm">
@@ -61,6 +91,16 @@ export default function AdminLoginPage() {
               <div className="flex items-center gap-2 text-red-400 text-sm bg-red-900/20 p-3 rounded-lg border border-red-900/30">
                 <AlertCircle className="h-4 w-4 flex-shrink-0" />
                 <span>{error}</span>
+              </div>
+            )}
+
+            {resetSent && (
+              <div className="flex items-start gap-2 text-green-400 text-sm bg-green-900/20 p-3 rounded-lg border border-green-900/30">
+                <CheckCircle2 className="h-4 w-4 flex-shrink-0 mt-0.5" />
+                <span>
+                  Dacă adresa este asociată unui cont, vei primi un email cu instrucțiuni
+                  pentru resetarea parolei. Verifică și folderul Spam.
+                </span>
               </div>
             )}
 
@@ -96,6 +136,16 @@ export default function AdminLoginPage() {
                 className="bg-slate-900/50 border-slate-600 text-white placeholder:text-gray-500 focus:border-blue-500"
                 disabled={loading}
               />
+              <div className="text-right">
+                <button
+                  type="button"
+                  onClick={handlePasswordReset}
+                  disabled={loading || resetLoading}
+                  className="text-xs text-blue-400 hover:text-blue-300 hover:underline disabled:opacity-50"
+                >
+                  {resetLoading ? 'Se trimite...' : 'Am uitat parola'}
+                </button>
+              </div>
             </div>
 
             <Button
